@@ -1,0 +1,1140 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Infografia - Planificacion de la Distribucion Connexa</title>
+  <style>
+    :root {
+      --ink: #14213d;
+      --muted: #5f6f7f;
+      --paper: #f7f3e8;
+      --panel: #fffdf5;
+      --line: #d9ccb5;
+      --teal: #006d77;
+      --teal-2: #83c5be;
+      --amber: #f4a261;
+      --coral: #e76f51;
+      --green: #2a9d8f;
+      --blue: #264653;
+      --cream: #fff7df;
+      --shadow: 0 18px 45px rgba(38, 70, 83, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 5%, rgba(244, 162, 97, 0.28), transparent 30%),
+        radial-gradient(circle at 92% 12%, rgba(131, 197, 190, 0.32), transparent 28%),
+        linear-gradient(135deg, #f6efe0 0%, #eef6f1 52%, #f7f3e8 100%);
+      font-family: "Aptos Display", "Segoe UI Variable Display", "Trebuchet MS", sans-serif;
+      line-height: 1.35;
+    }
+
+    .page {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 34px;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(20, 33, 61, 0.09);
+      border-radius: 30px;
+      background:
+        linear-gradient(110deg, rgba(20, 33, 61, 0.96), rgba(38, 70, 83, 0.92)),
+        repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0 2px, transparent 2px 16px);
+      color: white;
+      box-shadow: var(--shadow);
+      padding: 38px;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      width: 520px;
+      height: 520px;
+      right: -180px;
+      top: -210px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(244, 162, 97, 0.9), rgba(244, 162, 97, 0.0) 65%);
+    }
+
+    .hero-grid {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: 1.6fr 1fr;
+      gap: 28px;
+      align-items: end;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 13px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.13);
+      color: #fff1cf;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 18px 0 12px;
+      max-width: 900px;
+      font-size: clamp(38px, 5vw, 76px);
+      line-height: 0.93;
+      letter-spacing: -0.055em;
+    }
+
+    .hero p {
+      max-width: 820px;
+      margin: 0;
+      color: rgba(255, 255, 255, 0.84);
+      font-size: 20px;
+    }
+
+    .principle {
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.11);
+      backdrop-filter: blur(10px);
+      padding: 22px;
+    }
+
+    .principle strong {
+      display: block;
+      color: #ffe6a7;
+      font-size: 15px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .principle span {
+      display: block;
+      font-size: 27px;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+    }
+
+    .section {
+      margin-top: 26px;
+      border: 1px solid rgba(20, 33, 61, 0.08);
+      border-radius: 28px;
+      background: rgba(255, 253, 245, 0.84);
+      box-shadow: var(--shadow);
+      padding: 28px;
+    }
+
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      align-items: end;
+      margin-bottom: 22px;
+    }
+
+    h2 {
+      margin: 0;
+      color: var(--blue);
+      font-size: clamp(28px, 3vw, 44px);
+      line-height: 0.95;
+      letter-spacing: -0.045em;
+    }
+
+    .caption {
+      max-width: 520px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .problem-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .problem-card {
+      min-height: 164px;
+      border-radius: 22px;
+      background: linear-gradient(180deg, #fff9ea, #fffdf7);
+      border: 1px solid var(--line);
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .problem-card::after {
+      content: "";
+      position: absolute;
+      right: -38px;
+      bottom: -42px;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: rgba(231, 111, 81, 0.12);
+    }
+
+    .num {
+      display: inline-grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 14px;
+      background: var(--coral);
+      color: white;
+      font-weight: 900;
+      margin-bottom: 14px;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      color: var(--ink);
+      font-size: 21px;
+      letter-spacing: -0.02em;
+    }
+
+    .problem-card p,
+    .role-card p,
+    .phase-card p,
+    .flow-card p,
+    .state-card p,
+    .metric-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .roles {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 1fr;
+      gap: 16px;
+    }
+
+    .role-card {
+      position: relative;
+      overflow: hidden;
+      border-radius: 24px;
+      padding: 24px;
+      color: white;
+      min-height: 190px;
+    }
+
+    .role-card h3,
+    .role-card p {
+      color: white;
+      position: relative;
+      z-index: 2;
+    }
+
+    .role-card p {
+      opacity: 0.85;
+      margin-top: 8px;
+    }
+
+    .role-card::after {
+      content: "";
+      position: absolute;
+      right: -42px;
+      top: -34px;
+      width: 155px;
+      height: 155px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.17);
+    }
+
+    .connexa {
+      background: linear-gradient(135deg, var(--teal), #073b4c);
+    }
+
+    .valkimia {
+      background: linear-gradient(135deg, var(--amber), #bc6c25);
+    }
+
+    .sgm {
+      background: linear-gradient(135deg, #586f7c, #2f3e46);
+    }
+
+    .role-tag {
+      display: inline-flex;
+      margin-bottom: 38px;
+      padding: 7px 11px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.17);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      position: relative;
+      z-index: 2;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(120px, 1fr));
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .flow-card {
+      position: relative;
+      border-radius: 21px;
+      background: white;
+      border: 1px solid var(--line);
+      padding: 18px 16px;
+      min-height: 178px;
+    }
+
+    .flow-card:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      right: -18px;
+      top: 50%;
+      width: 24px;
+      height: 24px;
+      transform: translateY(-50%) rotate(45deg);
+      border-top: 4px solid var(--teal);
+      border-right: 4px solid var(--teal);
+      z-index: 3;
+    }
+
+    .flow-step {
+      display: inline-grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      background: var(--teal);
+      color: white;
+      font-weight: 900;
+      margin-bottom: 13px;
+    }
+
+    .flow-card:nth-child(2n) .flow-step {
+      background: var(--green);
+    }
+
+    .flow-card:nth-child(3n) .flow-step {
+      background: var(--amber);
+      color: var(--ink);
+    }
+
+    .layers {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px;
+    }
+
+    .pipeline {
+      display: grid;
+      gap: 12px;
+    }
+
+    .lane {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 16px;
+      align-items: center;
+      border-radius: 22px;
+      background: linear-gradient(90deg, #ffffff, #fff8e6);
+      border: 1px solid var(--line);
+      padding: 14px;
+    }
+
+    .lane-label {
+      display: grid;
+      place-items: center;
+      min-height: 78px;
+      border-radius: 18px;
+      background: var(--blue);
+      color: white;
+      text-align: center;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+    }
+
+    .lane:nth-child(2) .lane-label {
+      background: var(--teal);
+    }
+
+    .lane:nth-child(3) .lane-label {
+      background: var(--amber);
+      color: var(--ink);
+    }
+
+    .lane:nth-child(4) .lane-label {
+      background: var(--green);
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+    }
+
+    .chip {
+      border-radius: 999px;
+      background: #eef7f4;
+      border: 1px solid rgba(0, 109, 119, 0.16);
+      color: var(--teal);
+      padding: 8px 11px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .state-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .state-card {
+      border-radius: 24px;
+      border: 1px solid var(--line);
+      background: white;
+      padding: 20px;
+    }
+
+    .state-card h3 {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .mini {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .state-chain {
+      margin-top: 16px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .state {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border-radius: 14px;
+      padding: 10px 12px;
+      background: #f6f8f7;
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .state.final {
+      background: #e9f7ef;
+      color: #1b7f4f;
+    }
+
+    .state.warn {
+      background: #fff0e8;
+      color: #b9472f;
+    }
+
+    .phases {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 12px;
+    }
+
+    .phase-card {
+      border-radius: 22px;
+      background: linear-gradient(180deg, white, #fff8ea);
+      border: 1px solid var(--line);
+      padding: 18px;
+      min-height: 215px;
+      position: relative;
+    }
+
+    .phase-no {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 4px;
+      color: var(--teal);
+      font-size: 40px;
+      font-weight: 950;
+      letter-spacing: -0.06em;
+      line-height: 1;
+      margin-bottom: 14px;
+    }
+
+    .phase-no small {
+      color: var(--muted);
+      font-size: 13px;
+      letter-spacing: 0;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 14px;
+    }
+
+    .metric-card {
+      border-radius: 23px;
+      padding: 20px;
+      background: var(--blue);
+      color: white;
+      min-height: 150px;
+    }
+
+    .metric-card:nth-child(2) {
+      background: var(--teal);
+    }
+
+    .metric-card:nth-child(3) {
+      background: var(--green);
+    }
+
+    .metric-card:nth-child(4) {
+      background: var(--amber);
+      color: var(--ink);
+    }
+
+    .metric-card:nth-child(5) {
+      background: var(--coral);
+    }
+
+    .metric-card h3,
+    .metric-card p {
+      color: inherit;
+    }
+
+    .metric-value {
+      display: block;
+      margin-bottom: 12px;
+      font-size: 34px;
+      font-weight: 950;
+      letter-spacing: -0.05em;
+    }
+
+    .decision-strip {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px;
+    }
+
+    .assumption-grid,
+    .success-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .assumption-card,
+    .success-card {
+      position: relative;
+      overflow: hidden;
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, #ffffff, #fff8ea);
+      padding: 20px;
+      min-height: 168px;
+    }
+
+    .assumption-card::before,
+    .success-card::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 7px;
+      background: linear-gradient(90deg, var(--teal), var(--amber));
+    }
+
+    .success-card::before {
+      background: linear-gradient(90deg, var(--green), var(--teal));
+    }
+
+    .assumption-card h3,
+    .success-card h3 {
+      margin-top: 12px;
+    }
+
+    .assumption-card p,
+    .success-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: #eef7f4;
+      color: var(--teal);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+
+    .decision {
+      border-radius: 22px;
+      background: #fffaf0;
+      border: 1px dashed #c7a46c;
+      padding: 18px;
+    }
+
+    .decision strong {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--blue);
+      font-size: 15px;
+    }
+
+    .footer {
+      margin-top: 26px;
+      padding: 22px 8px 8px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 13px;
+    }
+
+    @media (max-width: 1180px) {
+      .hero-grid,
+      .layers,
+      .roles,
+      .state-grid,
+      .decision-strip,
+      .assumption-grid,
+      .success-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .problem-grid,
+      .metric-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .flow,
+      .phases {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .flow-card:not(:last-child)::after {
+        display: none;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .page {
+        padding: 15px;
+      }
+
+      .hero,
+      .section {
+        padding: 22px;
+        border-radius: 22px;
+      }
+
+      .problem-grid,
+      .flow,
+      .phases,
+      .metric-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .lane {
+        grid-template-columns: 1fr;
+      }
+
+      .section-title {
+        align-items: start;
+        flex-direction: column;
+      }
+    }
+
+    @media print {
+      body {
+        background: white;
+      }
+
+      .page {
+        max-width: none;
+        padding: 12px;
+      }
+
+      .section,
+      .hero {
+        box-shadow: none;
+        break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="hero-grid">
+        <div>
+          <div class="eyebrow">Nuevo sistema PDD · Connexa Supply Planning</div>
+          <h1>Planificacion de la Distribucion con Connexa como orquestador unico</h1>
+          <p>
+            El proyecto transforma las transferencias CD -> sucursal desde un circuito fragmentado
+            hacia un flujo gobernado, trazable y replanificable. Connexa decide, Valkimia ejecuta,
+            SGM informa necesidades durante la transicion.
+          </p>
+        </div>
+        <div class="principle">
+          <strong>Principio rector</strong>
+          <span>Una sola fuente de verdad para necesidad, plan, ejecucion y backlog.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">
+        <h2>1. Por que cambia el modelo</h2>
+        <p class="caption">El dolor no es solo tecnico. Es arquitectonico: varias fuentes publican transferencias y nadie conserva el ciclo completo por linea.</p>
+      </div>
+      <div class="problem-grid">
+        <article class="problem-card">
+          <span class="num">01</span>
+          <h3>Multiples origenes</h3>
+          <p>Connexa y SGM pueden generar transferencias para el mismo SKU y sucursal, creando duplicados y sobreabastecimiento.</p>
+        </article>
+        <article class="problem-card">
+          <span class="num">02</span>
+          <h3>Stock no factible</h3>
+          <p>Se planifica sobre informacion incompleta si no se descuenta ACO, picking, pedidos, bloqueos y reservas.</p>
+        </article>
+        <article class="problem-card">
+          <span class="num">03</span>
+          <h3>Borrado silencioso</h3>
+          <p>Si Valkimia no puede preparar, la solicitud puede desaparecer sin backlog ni explicacion operativa suficiente.</p>
+        </article>
+        <article class="problem-card">
+          <span class="num">04</span>
+          <h3>Sin trazabilidad end-to-end</h3>
+          <p>Connexa no ve con certeza si una linea fue aceptada, acopiada, preparada, despachada, recibida o rechazada.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">
+        <h2>2. Nuevo reparto de responsabilidades</h2>
+        <p class="caption">El diseno ordena la gobernanza: Connexa no solo genera necesidades, sino que controla el ciclo de vida completo.</p>
+      </div>
+      <div class="roles">
+        <article class="role-card connexa">
+          <span class="role-tag">Dueño del plan</span>
+          <h3>Connexa</h3>
+          <p>Consolida necesidades, calcula backlog, consulta stock neto, planifica, publica, replanifica y audita cada transicion.</p>
+        </article>
+        <article class="role-card valkimia">
+          <span class="role-tag">Ejecutor logistico</span>
+          <h3>Valkimia</h3>
+          <p>Informa stock neto disponible, acepta o rechaza transferencias, ejecuta ACO, picking, despacho y tracking.</p>
+        </article>
+        <article class="role-card sgm">
+          <span class="role-tag">Transicion</span>
+          <h3>SGM</h3>
+          <p>Durante la convivencia puede originar necesidades. En el modelo objetivo deja de publicar directo a Valkimia.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">
+        <h2>3. Flujo operativo objetivo</h2>
+        <p class="caption">El flujo cambia de "necesidad primero, factibilidad despues" a "necesidad consolidada, factibilidad real y ejecucion trazable".</p>
+      </div>
+      <div class="flow">
+        <article class="flow-card">
+          <span class="flow-step">1</span>
+          <h3>Need</h3>
+          <p>Connexa recibe necesidades desde forecast, SGM, manuales o ajustes.</p>
+        </article>
+        <article class="flow-card">
+          <span class="flow-step">2</span>
+          <h3>Consolidar</h3>
+          <p>Se unifica por CD + sucursal + SKU + bucket, sin duplicar.</p>
+        </article>
+        <article class="flow-card">
+          <span class="flow-step">3</span>
+          <h3>Backlog</h3>
+          <p>Se calcula lo pendiente y se prioriza por SLA, quiebre, venta, promo y antiguedad.</p>
+        </article>
+        <article class="flow-card">
+          <span class="flow-step">4</span>
+          <h3>Stock neto</h3>
+          <p>Valkimia informa SND descontando ACO, picking, pedidos y bloqueos.</p>
+        </article>
+        <article class="flow-card">
+          <span class="flow-step">5</span>
+          <h3>Plan</h3>
+          <p>Connexa asigna stock por prioridad, fair share o FIFO, guardando snapshot.</p>
+        </article>
+        <article class="flow-card">
+          <span class="flow-step">6</span>
+          <h3>Dedup</h3>
+          <p>Antes de publicar, se verifica si ya hay ejecucion activa en Valkimia.</p>
+        </article>
+        <article class="flow-card">
+          <span class="flow-step">7</span>
+          <h3>Publicar</h3>
+          <p>Connexa envia transferencia idempotente y guarda IDs Valkimia.</p>
+        </article>
+        <article class="flow-card">
+          <span class="flow-step">8</span>
+          <h3>Tracking</h3>
+          <p>Se actualizan estados, cantidades y saldos. Lo rechazado vuelve al backlog.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">
+        <h2>4. Capas del sistema</h2>
+        <p class="caption">La separacion Need / Plan / Execution evita mezclar demanda, decision y ejecucion logistica.</p>
+      </div>
+      <div class="layers">
+        <div class="pipeline">
+          <div class="lane">
+            <div class="lane-label">Need<br />Backlog</div>
+            <div class="chips">
+              <span class="chip">transfer.need</span>
+              <span class="chip">need_source</span>
+              <span class="chip">qty_need</span>
+              <span class="chip">qty_fulfilled</span>
+              <span class="chip">next_replan_at</span>
+            </div>
+          </div>
+          <div class="lane">
+            <div class="lane-label">Planificacion</div>
+            <div class="chips">
+              <span class="chip">transfer.plan</span>
+              <span class="chip">plan_line</span>
+              <span class="chip">priority_score</span>
+              <span class="chip">stock_snapshot</span>
+              <span class="chip">allocation_strategy</span>
+            </div>
+          </div>
+          <div class="lane">
+            <div class="lane-label">Ejecucion</div>
+            <div class="chips">
+              <span class="chip">execution</span>
+              <span class="chip">execution_line</span>
+              <span class="chip">connexa_execution_id</span>
+              <span class="chip">valkimia_transfer_id</span>
+            </div>
+          </div>
+          <div class="lane">
+            <div class="lane-label">Auditoria</div>
+            <div class="chips">
+              <span class="chip">event_log</span>
+              <span class="chip">cfg_status_mapping</span>
+              <span class="chip">external_execution</span>
+              <span class="chip">KPIs</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="state-card">
+          <h3>Contrato operativo clave <span class="mini">regla de oro</span></h3>
+          <p>
+            Valkimia puede aceptar, rechazar o informar avance fisico, pero no puede provocar perdida
+            de informacion. Connexa conserva la Need, la Execution, el evento y el saldo pendiente.
+          </p>
+          <div class="state-chain">
+            <div class="state">REJECTED_STOCK <span>no borra</span></div>
+            <div class="state">qty rechazada <span>vuelve a backlog</span></div>
+            <div class="state">next_replan_at <span>backoff</span></div>
+            <div class="state final">Nueva corrida <span>reintenta cuando sea elegible</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">
+        <h2>5. Estados que ordenan el ciclo</h2>
+        <p class="caption">La unidad de control es la linea SKU-sucursal, no solo la cabecera. Eso permite trazabilidad real.</p>
+      </div>
+      <div class="state-grid">
+        <article class="state-card">
+          <h3>Need <span class="mini">demanda</span></h3>
+          <p>Representa lo requerido, aunque todavia no haya stock o ejecucion.</p>
+          <div class="state-chain">
+            <div class="state">NEED_OPEN</div>
+            <div class="state">NEED_CONSOLIDATED</div>
+            <div class="state">NEED_PARTIALLY_PLANNED</div>
+            <div class="state">NEED_FULLY_PLANNED</div>
+            <div class="state final">NEED_FULFILLED</div>
+            <div class="state warn">NEED_CANCELLED / EXPIRED</div>
+          </div>
+        </article>
+        <article class="state-card">
+          <h3>PlanLine <span class="mini">decision</span></h3>
+          <p>Representa lo que Connexa decide intentar ejecutar en una corrida.</p>
+          <div class="state-chain">
+            <div class="state">PLAN_ELIGIBLE</div>
+            <div class="state">PLAN_PLANNED</div>
+            <div class="state">PLAN_PUBLISHING</div>
+            <div class="state final">PLAN_PUBLISHED</div>
+            <div class="state warn">PLAN_NOT_ELIGIBLE_STOCK</div>
+            <div class="state warn">PLAN_PUBLISH_FAILED</div>
+          </div>
+        </article>
+        <article class="state-card">
+          <h3>Execution <span class="mini">logistica</span></h3>
+          <p>Representa lo que Valkimia acepta y procesa fisicamente.</p>
+          <div class="state-chain">
+            <div class="state">EXEC_ACCEPTED</div>
+            <div class="state">EXEC_RESERVED_ACO</div>
+            <div class="state">EXEC_PICKING</div>
+            <div class="state">EXEC_SHIPPED</div>
+            <div class="state final">EXEC_DELIVERED</div>
+            <div class="state warn">EXEC_REJECTED_STOCK</div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">
+        <h2>6. Interfaces Valkimia</h2>
+        <p class="caption">Las interfaces se pueden implementar como REST, SOAP, SPs o adaptadores, pero el contrato funcional debe respetarse.</p>
+      </div>
+      <div class="pipeline">
+        <div class="lane">
+          <div class="lane-label">V-01<br />Stock neto</div>
+          <div class="chips">
+            <span class="chip">POST /stock/net-available</span>
+            <span class="chip">batch hasta 2.000 SKU</span>
+            <span class="chip">stock_version</span>
+            <span class="chip">missing_skus</span>
+          </div>
+        </div>
+        <div class="lane">
+          <div class="lane-label">V-02<br />Activas</div>
+          <div class="chips">
+            <span class="chip">GET /transfers/active</span>
+            <span class="chip">anti-duplicacion</span>
+            <span class="chip">include_lines</span>
+            <span class="chip">ExternalExecution</span>
+          </div>
+        </div>
+        <div class="lane">
+          <div class="lane-label">V-03<br />Publicar</div>
+          <div class="chips">
+            <span class="chip">POST /transfers</span>
+            <span class="chip">connexa_execution_id</span>
+            <span class="chip">idempotencia</span>
+            <span class="chip">aceptacion parcial</span>
+          </div>
+        </div>
+        <div class="lane">
+          <div class="lane-label">V-04 / V-05<br />Tracking</div>
+          <div class="chips">
+            <span class="chip">GET /transfers/{id}</span>
+            <span class="chip">eventos opcionales</span>
+            <span class="chip">qty_prepared</span>
+            <span class="chip">qty_delivered</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">
+        <h2>7. Construccion por fases</h2>
+        <p class="caption">No es un big bang: primero se observa, luego se controla, despues se corta la dualidad y finalmente se optimiza.</p>
+      </div>
+      <div class="phases">
+        <article class="phase-card">
+          <span class="phase-no">0 <small>diagnostico</small></span>
+          <h3>Linea base</h3>
+          <p>Medir duplicados, eliminaciones, estados Valkimia, tiempos, fill rate y volumen real.</p>
+        </article>
+        <article class="phase-card">
+          <span class="phase-no">1 <small>shadow</small></span>
+          <h3>Connexa observa</h3>
+          <p>Crear modelo Need/Plan/Execution, backlog sombra y reconciliacion sin publicar.</p>
+        </article>
+        <article class="phase-card">
+          <span class="phase-no">2 <small>piloto</small></span>
+          <h3>Plan controlado</h3>
+          <p>Consultar SND, planificar real, deduplicar y publicar en piloto acotado.</p>
+        </article>
+        <article class="phase-card">
+          <span class="phase-no">3 <small>corte</small></span>
+          <h3>Publicador unico</h3>
+          <p>SGM deja de publicar. Connexa gobierna el 100% de nuevas transferencias.</p>
+        </article>
+        <article class="phase-card">
+          <span class="phase-no">4 <small>escala</small></span>
+          <h3>Industrializacion</h3>
+          <p>Ajustar parametros, tableros, alertas, runbooks y operacion estable.</p>
+        </article>
+        <article class="phase-card">
+          <span class="phase-no">5 <small>evolucion</small></span>
+          <h3>Cubicaje</h3>
+          <p>Optimizar viajes con volumen, peso, capacidad camion y consolidacion logistica.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">
+        <h2>8. Supuestos del proyecto</h2>
+        <p class="caption">Estas condiciones se toman como base para construir el nuevo modelo. Si alguna cambia, debe revisarse alcance, fases o riesgo operativo.</p>
+      </div>
+      <div class="assumption-grid">
+        <article class="assumption-card">
+          <span class="tag">Gobierno</span>
+          <h3>Connexa sera la fuente de verdad</h3>
+          <p>El plan, backlog, estados y trazabilidad se centralizan en Connexa. Otros sistemas pueden informar, pero no gobernar el ciclo.</p>
+        </article>
+        <article class="assumption-card">
+          <span class="tag">Stock</span>
+          <h3>Valkimia proveera SND confiable</h3>
+          <p>La planificacion depende de stock neto disponible con timestamp, version y componentes auditables cuando sea posible.</p>
+        </article>
+        <article class="assumption-card">
+          <span class="tag">Transicion</span>
+          <h3>SGM dejara de publicar directo</h3>
+          <p>Durante convivencia puede originar necesidades, pero el objetivo es eliminar la publicacion SGM -> Valkimia.</p>
+        </article>
+        <article class="assumption-card">
+          <span class="tag">Datos</span>
+          <h3>Maestros consistentes</h3>
+          <p>CD, sucursales, SKU, familia, UOM y unidad minima de transferencia deben estar disponibles y alineados.</p>
+        </article>
+        <article class="assumption-card">
+          <span class="tag">Integracion</span>
+          <h3>Ids y estados seran trazables</h3>
+          <p>Valkimia debe devolver IDs, estados normalizados y eventos o consultas suficientes para seguimiento por linea.</p>
+        </article>
+        <article class="assumption-card">
+          <span class="tag">Operacion</span>
+          <h3>Adopcion gradual</h3>
+          <p>La migracion se hara por fases: medir, observar, pilotear, cortar dualidad e industrializar sin big bang.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">
+        <h2>9. Factores criticos de exito</h2>
+        <p class="caption">No son funcionalidades aisladas: son condiciones que deben cuidarse para que el cambio sea sostenible y confiable.</p>
+      </div>
+      <div class="success-grid">
+        <article class="success-card">
+          <span class="tag">1</span>
+          <h3>Stock neto creible</h3>
+          <p>Sin SND confiable, Connexa planifica sobre una foto falsa y reaparecen rechazos, faltantes y reprocesos.</p>
+        </article>
+        <article class="success-card">
+          <span class="tag">2</span>
+          <h3>Idempotencia real</h3>
+          <p>Cada publicacion debe tolerar reintentos sin duplicar transferencias, usando `connexa_execution_id` como clave.</p>
+        </article>
+        <article class="success-card">
+          <span class="tag">3</span>
+          <h3>Mapping de estados cerrado</h3>
+          <p>Estados Valkimia e internos deben estar normalizados antes del piloto para evitar zonas grises operativas.</p>
+        </article>
+        <article class="success-card">
+          <span class="tag">4</span>
+          <h3>Backlog vivo y visible</h3>
+          <p>Todo rechazo, parcialidad o pendiente debe volver al backlog con motivo, fecha y proxima accion esperada.</p>
+        </article>
+        <article class="success-card">
+          <span class="tag">5</span>
+          <h3>Corte controlado de SGM</h3>
+          <p>La dualidad debe cerrarse con piloto, monitoreo, rollback y reglas claras. Si queda abierta, el riesgo vuelve.</p>
+        </article>
+        <article class="success-card">
+          <span class="tag">6</span>
+          <h3>Operacion usando el tablero</h3>
+          <p>El sistema debe convertirse en torre de control diaria: backlog, rechazos, activas, colgadas y duplicados.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">
+        <h2>10. KPIs de exito</h2>
+        <p class="caption">La medicion deja de ser un agregado: es parte del sistema y de la confianza operativa.</p>
+      </div>
+      <div class="metric-grid">
+        <article class="metric-card">
+          <span class="metric-value">0</span>
+          <h3>Duplicados</h3>
+          <p>Objetivo final: cero publicaciones paralelas para el mismo CD-sucursal-SKU.</p>
+        </article>
+        <article class="metric-card">
+          <span class="metric-value">100%</span>
+          <h3>Trazabilidad</h3>
+          <p>Cada linea debe tener Need, Plan, Execution, estado y eventos.</p>
+        </article>
+        <article class="metric-card">
+          <span class="metric-value">SND</span>
+          <h3>Stock factible</h3>
+          <p>Publicar solo contra stock neto disponible, no contra stock bruto.</p>
+        </article>
+        <article class="metric-card">
+          <span class="metric-value">P95</span>
+          <h3>Aging backlog</h3>
+          <p>Controlar cuanto tiempo permanece pendiente por familia, CD y sucursal.</p>
+        </article>
+        <article class="metric-card">
+          <span class="metric-value">FR</span>
+          <h3>Fill rate</h3>
+          <p>Medir recibido sobre solicitado para evaluar calidad de abastecimiento.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">
+        <h2>11. Decisiones a cerrar</h2>
+        <p class="caption">Estas definiciones destraban el paso de especificacion a construccion efectiva.</p>
+      </div>
+      <div class="decision-strip">
+        <div class="decision">
+          <strong>Estados Valkimia</strong>
+          Confirmar mapping final hacia `ACCEPTED`, `RESERVED_ACO`, `PICKING`, `SHIPPED`, `DELIVERED`, `REJECTED_STOCK`.
+        </div>
+        <div class="decision">
+          <strong>Bucket y unidad minima</strong>
+          Definir diario, AM/PM o intradia por familia, y parametria de unidad minima de transferencia por SKU.
+        </div>
+        <div class="decision">
+          <strong>Corte SGM</strong>
+          Definir fecha, mecanismo y rollback para que SGM deje de publicar directo a Valkimia.
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      Planificacion de la Distribucion · Connexa como orquestador unico · Version infografia 1.1 · 2026-06-12
+    </footer>
+  </main>
+</body>
+</html>
