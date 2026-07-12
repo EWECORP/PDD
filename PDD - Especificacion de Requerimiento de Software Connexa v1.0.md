@@ -1,24 +1,24 @@
-# Especificacion de Requerimiento de Software
+# Especificación de Requerimiento de Software
 
-Sistema: Planificacion de la Distribucion sobre Connexa  
+Sistema: Planificación de la Distribución sobre Connexa  
 Version: 1.0  
 Fecha: 2026-06-10  
-Estado: Borrador listo para refinamiento tecnico  
-Destino: Equipo de desarrollo, integraciones, datos, QA y operacion
+Estado: Borrador listo para refinamiento técnico  
+Destino: Equipo de desarrollo, integraciones, datos, QA y operación
 
 ---
 
-## 1. Proposito
+## 1. Propósito
 
-Este documento define los requerimientos de software para construir en Connexa el nuevo sistema de Planificacion de la Distribucion, cuyo objetivo es centralizar la planificacion, publicacion, trazabilidad y replanificacion de transferencias CD -> sucursal.
+Este documento define los requerimientos de software para construir en Connexa el nuevo sistema de Planificación de la Distribución, cuyo objetivo es centralizar la planificación, publicación, trazabilidad y replanificación de transferencias CD -> sucursal.
 
-El sistema debe reemplazar el esquema actual de multiples origenes de transferencia por un modelo gobernado en Connexa, donde:
+El sistema debe reemplazar el esquema actual de múltiples orígenes de transferencia por un modelo gobernado en Connexa, donde:
 
 - Connexa es la fuente de verdad de necesidades, planes, backlog, ejecuciones y estados.
-- Valkimia es el ejecutor logistico y proveedor del stock neto disponible.
+- Valkimia es el ejecutor logístico y proveedor del stock neto disponible.
 - SGM deja de publicar transferencias directamente a Valkimia en el modelo objetivo y pasa a informar necesidades hacia Connexa.
 
-La especificacion esta orientada a que desarrollo pueda iniciar analisis tecnico, descomposicion de historias, diseno de servicios, modelo de datos, integraciones y plan de pruebas.
+La especificación está orientada a que desarrollo pueda iniciar análisis técnico, descomposición de historias, diseño de servicios, modelo de datos, integraciones y plan de pruebas.
 
 ---
 
@@ -28,48 +28,48 @@ La especificacion esta orientada a que desarrollo pueda iniciar analisis tecnico
 
 El sistema debe cubrir:
 
-- Registro y consolidacion de necesidades de transferencia.
-- Gestion de backlog pendiente.
-- Planificacion de transferencias segun stock neto disponible.
-- Priorizacion y asignacion de stock por SKU-sucursal.
-- Publicacion idempotente de transferencias hacia Valkimia.
-- Seguimiento de ejecucion logistico por cabecera y linea.
-- Replanificacion automatica de pendientes y rechazos.
-- Reconciliacion de ejecuciones externas durante la convivencia con SGM.
+- Registro y consolidación de necesidades de transferencia.
+- Gestión de backlog pendiente.
+- Planificación de transferencias según stock neto disponible.
+- Priorización y asignación de stock por SKU-sucursal.
+- Publicación idempotente de transferencias hacia Valkimia.
+- Seguimiento de ejecución logístico por cabecera y línea.
+- Replanificación automática de pendientes y rechazos.
+- Reconciliación de ejecuciones externas durante la convivencia con SGM.
 - Auditoria completa de eventos y cambios de estado.
-- Tableros operativos y KPIs basicos.
-- Parametrizacion de reglas de planificacion por familia/CD.
+- Tableros operativos y KPIs básicos.
+- Parametrización de reglas de planificación por familia/CD.
 
 ### 2.2 Fuera de alcance inicial
 
 Queda fuera de la primera version:
 
-- Optimizacion avanzada de rutas.
-- Cubicaje completo por camion.
-- Costeo logistico.
-- Reoptimizacion intradia compleja basada en multiples CDs.
+- Optimización avanzada de rutas.
+- Cubicaje completo por camión.
+- Costeo logístico.
+- Re-optimización intradía compleja basada en múltiples CDs.
 - Motor predictivo de demanda nuevo.
-- Sustitucion de articulos.
-- Confirmacion contable/fiscal de transferencias.
+- Sustitución de artículos.
+- Confirmación contable/fiscal de transferencias.
 
-Estos puntos podran incorporarse como evolucion posterior una vez estabilizado el ciclo Need -> Plan -> Execution -> Backlog.
+Estos puntos podrán incorporarse como evolución posterior una vez estabilizado el ciclo Need -> Plan -> Execution -> Backlog.
 
 ---
 
 ## 3. Glosario
 
-| Termino | Definicion |
+| Termino | Definición |
 | --- | --- |
 | Need | Necesidad consolidada de transferencia para CD, sucursal, SKU y bucket. |
 | Backlog | Cantidad pendiente de satisfacer: `qty_need - qty_fulfilled`. |
-| Plan | Corrida de planificacion generada por Connexa. |
-| PlanLine | Decision de planificacion para una linea SKU-sucursal. |
+| Plan | Corrida de planificación generada por Connexa. |
+| PlanLine | Decisión de planificación para una línea SKU-sucursal. |
 | Execution | Transferencia publicada a Valkimia o absorbida para seguimiento. |
-| ExecutionLine | Linea logistica por SKU dentro de una ejecucion. |
+| ExecutionLine | Línea logística por SKU dentro de una ejecución. |
 | ExternalExecution | Transferencia detectada en Valkimia que no fue publicada por Connexa. |
 | SND | Stock Neto Disponible informado por Valkimia. |
-| ACO | Reserva/acopio logistico en Valkimia. |
-| Bucket | Ventana funcional de consolidacion de necesidades, por ejemplo dia o AM/PM. |
+| ACO | Reserva/acopio logístico en Valkimia. |
+| Bucket | Ventana funcional de consolidación de necesidades, por ejemplo, día o AM/PM. |
 | Idempotencia | Capacidad de reenviar una solicitud sin crear duplicados. |
 
 ---
@@ -78,49 +78,49 @@ Estos puntos podran incorporarse como evolucion posterior una vez estabilizado e
 
 | Actor/Sistema | Responsabilidad |
 | --- | --- |
-| Connexa | Orquestador unico de planificacion, backlog, publicacion y trazabilidad. |
-| Valkimia | Ejecutor logistico; informa stock neto, estados y cantidades ejecutadas. |
+| Connexa | Orquestador único de planificación, backlog, publicación y trazabilidad. |
+| Valkimia | Ejecutor logístico; informa stock neto, estados y cantidades ejecutadas. |
 | SGM | Origen transitorio de necesidades; no publicador en modelo objetivo. |
-| Operacion CD | Ejecuta procesos fisicos de acopio, picking y despacho. |
-| Sucursal | Recibe mercaderia y confirma recepcion cuando aplique. |
-| IT Integraciones | Opera conectores, errores, reintentos y monitoreo tecnico. |
-| Planificacion/Abastecimiento | Configura reglas, revisa backlog y prioridades. |
+| Operación CD | Ejecuta procesos físicos de acopio, picking y despacho. |
+| Sucursal | Recibe mercadería y confirma recepción cuando aplique. |
+| IT Integraciones | Opera conectores, errores, reintentos y monitoreo técnico. |
+| Planificación/Abastecimiento | Configura reglas, revisa backlog y prioridades. |
 
 ---
 
-## 5. Vista general de solucion
+## 5. Vista general de solución
 
 El sistema se organiza en cinco capacidades principales:
 
-1. Ingesta y consolidacion de necesidades.
-2. Planificacion factible basada en stock neto.
-3. Publicacion idempotente a Valkimia.
-4. Seguimiento de ejecucion y actualizacion de saldos.
-5. Replanificacion y control de backlog.
+1. Ingesta y consolidación de necesidades.
+2. Planificación factible basada en stock neto.
+3. Publicación idempotente a Valkimia.
+4. Seguimiento de ejecución y actualización de saldos.
+5. Replanificación y control de backlog.
 
 Flujo objetivo:
 
 ```text
-Origenes de necesidad
+Orígenes de necesidad
   -> Connexa Need / Backlog
   -> Planificador Connexa
   -> Consulta SND Valkimia
   -> PlanLine
-  -> Publicacion idempotente
+  -> Publicación idempotente
   -> Execution / ExecutionLine
   -> Tracking Valkimia
-  -> Cierre o replanificacion
+  -> Cierre o replanificación
 ```
 
-Regla arquitectonica principal:
+Regla arquitectónica principal:
 
-> Ninguna necesidad, plan o ejecucion debe desaparecer fisicamente por falta de stock o error operativo. Todo debe quedar trazado por estado y evento.
+> Ninguna necesidad, plan o ejecución debe desaparecer físicamente por falta de stock o error operativo. Todo debe quedar trazado por estado y evento.
 
 ---
 
 ## 6. Requerimientos funcionales
 
-### RF-01. Gestion de necesidades
+### RF-01. Gestión de necesidades
 
 El sistema debe permitir crear necesidades de transferencia desde Connexa, SGM, cargas manuales o ajustes operativos.
 
@@ -128,28 +128,28 @@ Criterios:
 
 - Cada necesidad debe identificarse por `cd_id`, `sucursal_id`, `sku_id` y `need_bucket_date`.
 - Si ingresa una necesidad con la misma clave funcional, el sistema debe consolidarla.
-- La consolidacion debe registrar cada origen en `transfer.need_source`.
+- La consolidación debe registrar cada origen en `transfer.need_source`.
 - La necesidad debe iniciar en estado `NEED_OPEN` o `NEED_CONSOLIDATED`.
-- La necesidad no debe eliminarse fisicamente.
+- La necesidad no debe eliminarse físicamente.
 
-### RF-02. Consolidacion de necesidades
+### RF-02. Consolidación de necesidades
 
 El sistema debe soportar dos modos de merge:
 
 - Incremental: suma `qty_incoming` a `qty_need`.
-- Recalculado: reemplaza o toma maximo segun regla del origen.
+- Recalculado: reemplaza o toma máximo según regla del origen.
 
 Criterios:
 
-- Forecast recalculado debe poder operar con modo reemplazo/maximo.
+- Forecast recalculado debe poder operar con modo reemplazo/máximo.
 - Eventos operativos, SGM o manuales deben poder operar con modo incremental.
-- Toda consolidacion debe generar evento `NeedMerged`.
+- Toda consolidación debe generar evento `NeedMerged`.
 
 ### RF-03. Estados de Need
 
 El sistema debe administrar estados de Need mediante catalogo.
 
-Estados minimos:
+Estados mínimos:
 
 - `NEED_OPEN`
 - `NEED_CONSOLIDATED`
@@ -179,9 +179,9 @@ backlog_qty = qty_need - qty_fulfilled
 
 Criterios:
 
-- Una Need con `backlog_qty > 0` debe estar disponible para planificacion salvo hold, expiracion, cancelacion o ventana futura.
+- Una Need con `backlog_qty > 0` debe estar disponible para planificación salvo hold, expiración, cancelación o ventana futura.
 - El sistema debe registrar `next_replan_at`, `replan_attempts_total` y `current_retry_streak`.
-- Una linea rechazada por stock debe volver al backlog.
+- Una línea rechazada por stock debe volver al backlog.
 
 ### RF-05. Hold operativo
 
@@ -190,8 +190,8 @@ El sistema debe permitir poner una Need en espera manual.
 Criterios:
 
 - Debe registrar `hold_reason_code` y `hold_reason_detail`.
-- Mientras tenga hold activo, no debe ser elegible para planificacion.
-- La liberacion del hold debe generar evento.
+- Mientras tenga hold activo, no debe ser elegible para planificación.
+- La liberación del hold debe generar evento.
 
 ### RF-06. Consulta de stock neto disponible
 
@@ -201,23 +201,23 @@ Criterios:
 
 - Debe invocar la interfaz V-01 `POST /v1/stock/net-available` o mecanismo equivalente.
 - Debe enviar `cd_id`, `sku_ids`, `as_of_ts` opcional e `include_components`.
-- Debe soportar batch maximo sugerido de 2.000 SKU.
+- Debe soportar batch máximo sugerido de 2.000 SKU.
 - Debe persistir `stock_net_available`, `stock_snapshot_ts` y `stock_version` en las PlanLines.
-- No debe planificar lineas con SND menor o igual a cero.
+- No debe planificar líneas con SND menor o igual a cero.
 
-### RF-07. Validacion de stock neto
+### RF-07. Validación de stock neto
 
-El sistema debe validar la consistencia basica del SND.
+El sistema debe validar la consistencia básica del SND.
 
 Criterios:
 
 - Si Valkimia devuelve stock neto negativo, Connexa debe tratarlo como cero y generar alerta/evento.
 - Si un SKU se informa en `missing_skus`, no debe planificarse.
-- Si `include_components=true`, debe poder auditar componentes de stock cuando esten disponibles.
+- Si `include_components=true`, debe poder auditar componentes de stock cuando estén disponibles.
 
-### RF-08. Corrida de planificacion
+### RF-08. Corrida de planificación
 
-El sistema debe crear una corrida `transfer.plan` por CD y ventana de ejecucion.
+El sistema debe crear una corrida `transfer.plan` por CD y ventana de ejecución.
 
 Criterios:
 
@@ -225,7 +225,7 @@ Criterios:
 - Si no hay Needs elegibles, debe cerrar el plan con estado `NO_WORK`.
 - Si hay Needs pero sin stock o bloqueadas, debe cerrar con estado equivalente a `NO_STOCK_OR_BLOCKED`.
 
-### RF-09. Seleccion de necesidades elegibles
+### RF-09. Selección de necesidades elegibles
 
 El planificador debe seleccionar Needs que cumplan:
 
@@ -237,8 +237,8 @@ El planificador debe seleccionar Needs que cumplan:
 
 Criterios:
 
-- La seleccion debe poder filtrarse por CD, familia y bucket.
-- Debe respetar bloqueo por ejecucion externa activa.
+- La selección debe poder filtrarse por CD, familia y bucket.
+- Debe respetar bloqueo por ejecución externa activa.
 
 ### RF-10. Calculo de prioridad
 
@@ -258,9 +258,9 @@ Criterios:
 
 - Los pesos deben ser configurables por familia en `transfer.cfg_family_rule`.
 - Si faltan datos tienda, ventas o promo, el calculo debe operar en modo degradado.
-- Si falta SND, la planificacion no debe continuar para esos SKU.
+- Si falta SND, la planificación no debe continuar para esos SKU.
 
-### RF-11. Estrategias de asignacion
+### RF-11. Estrategias de asignación
 
 El sistema debe soportar al menos:
 
@@ -271,13 +271,13 @@ El sistema debe soportar al menos:
 Criterios:
 
 - La estrategia por defecto debe ser configurable por familia.
-- `FAIR_SHARE` debe activarse cuando exista bajo stock y multiples sucursales demandando el mismo SKU, segun parametros.
+- `FAIR_SHARE` debe activarse cuando exista bajo stock y múltiples sucursales demandando el mismo SKU, según parámetros.
 - La cantidad planificada no puede superar el backlog de la Need.
 - La suma de cantidades planificadas para un SKU no puede superar el SND disponible en la corrida.
 
-### RF-12. Creacion de PlanLine
+### RF-12. Creación de PlanLine
 
-El sistema debe crear `transfer.plan_line` para cada decision de asignacion.
+El sistema debe crear `transfer.plan_line` para cada decisión de asignación.
 
 Criterios:
 
@@ -294,7 +294,7 @@ Criterios:
 
 - Debe invocar V-02 `GET /v1/transfers/active` o mecanismo equivalente.
 - Debe construir una clave `cd_id + sucursal_id + sku_id`.
-- Si existe ejecucion activa para la misma clave, no debe publicar una nueva linea.
+- Si existe ejecución activa para la misma clave, no debe publicar una nueva línea.
 - Debe marcar la Need con `blocked_by_external_execution = true`.
 - Debe crear o actualizar `ExternalExecution` cuando corresponda.
 
@@ -306,58 +306,58 @@ Estados activos normalizados:
 - `PACKED`
 - `SHIPPED`
 
-### RF-14. Publicacion idempotente
+### RF-14. Publicación idempotente
 
 El sistema debe publicar transferencias a Valkimia mediante clave idempotente.
 
 Criterios:
 
 - Debe generar `connexa_execution_id` UUID por cabecera.
-- Debe generar `connexa_line_id` UUID por linea.
-- Debe agrupar lineas por `cd_id` y `sucursal_id`.
+- Debe generar `connexa_line_id` UUID por línea.
+- Debe agrupar líneas por `cd_id` y `sucursal_id`.
 - Debe invocar V-03 `POST /v1/transfers` o mecanismo equivalente.
 - Si se reintenta el mismo `connexa_execution_id`, no debe crear duplicados.
 
-### RF-15. Manejo de aceptacion total
+### RF-15. Manejo de aceptación total
 
-Cuando Valkimia acepte una publicacion completa, Connexa debe:
+Cuando Valkimia acepte una publicación completa, Connexa debe:
 
 - Crear o actualizar `transfer.execution`.
 - Persistir `valkimia_transfer_id`.
 - Crear `transfer.execution_line`.
 - Persistir `valkimia_line_id`.
 - Actualizar estado a `EXEC_ACCEPTED`.
-- Incrementar `qty_published` o `qty_accepted` segun corresponda.
+- Incrementar `qty_published` o `qty_accepted` según corresponda.
 - Registrar evento.
 
-### RF-16. Manejo de aceptacion parcial
+### RF-16. Manejo de aceptación parcial
 
-Cuando Valkimia acepte algunas lineas y rechace otras, Connexa debe:
+Cuando Valkimia acepte algunas líneas y rechace otras, Connexa debe:
 
-- Mantener la ejecucion creada.
-- Actualizar lineas aceptadas como `EXEC_ACCEPTED`.
-- Actualizar lineas rechazadas como `EXEC_REJECTED_STOCK` o `EXEC_REJECTED_RULE`.
-- Reincorporar lineas rechazadas al backlog.
+- Mantener la ejecución creada.
+- Actualizar líneas aceptadas como `EXEC_ACCEPTED`.
+- Actualizar líneas rechazadas como `EXEC_REJECTED_STOCK` o `EXEC_REJECTED_RULE`.
+- Reincorporar líneas rechazadas al backlog.
 - Registrar `reject_reason_code`.
 
 ### RF-17. Manejo de rechazo total
 
 Cuando Valkimia rechace la transferencia completa por stock o regla, Connexa debe:
 
-- Registrar la ejecucion y su respuesta.
+- Registrar la ejecución y su respuesta.
 - No perder las Needs asociadas.
 - Revertir o no incrementar cantidades publicadas.
-- Calcular `next_replan_at` con backoff cuando sea reintentable.
+- Calcular `next_replan_at` con backoff cuando sea Reintentable.
 - Registrar evento de rechazo.
 
-### RF-18. Seguimiento de ejecucion
+### RF-18. Seguimiento de ejecución
 
 El sistema debe consultar estados de Valkimia por transferencia.
 
 Criterios:
 
 - Debe invocar V-04 `GET /v1/transfers/{valkimia_transfer_id}` o mecanismo equivalente.
-- Debe actualizar estado de cabecera y lineas.
+- Debe actualizar estado de cabecera y líneas.
 - Debe actualizar cantidades `qty_prepared`, `qty_shipped`, `qty_delivered`.
 - Debe registrar eventos de cambio.
 - Debe ser tolerante a respuestas sin lista de eventos, usando `status` y `last_update_ts`.
@@ -368,52 +368,52 @@ Si Valkimia lo permite, el sistema debe soportar V-05 para eventos incrementales
 
 Criterios:
 
-- Debe deduplicar por `event_id`.
+- Debe de duplicar por `event_id`.
 - Debe persistir `next_since_ts` o cursor equivalente.
 - Debe poder convivir con polling.
 
-### RF-20. Replanificacion automatica
+### RF-20. Replanificación automática
 
-El sistema debe replanificar Needs pendientes segun eventos y tiempo.
+El sistema debe replanificar Needs pendientes según eventos y tiempo.
 
 Disparadores:
 
 - Job programado por CD/familia.
-- Rechazo de ejecucion.
-- Liberacion o actualizacion de stock, si existe evento.
+- Rechazo de ejecución.
+- Liberación o actualización de stock, si existe evento.
 - Vencimiento de `next_replan_at`.
 
 Criterios:
 
 - Debe aplicar backoff exponencial.
-- Debe respetar maximos configurables por familia.
-- Debe resetear `current_retry_streak` cuando una linea sea aceptada o cumplida, segun regla configurada.
+- Debe respetar máximos configurables por familia.
+- Debe resetear `current_retry_streak` cuando una línea sea aceptada o cumplida, según regla configurada.
 
-### RF-21. Reconciliacion de ejecuciones externas
+### RF-21. Reconciliación de ejecuciones externas
 
-Durante la transicion, el sistema debe registrar transferencias existentes no creadas por Connexa.
+Durante la transición, el sistema debe registrar transferencias existentes no creadas por Connexa.
 
 Criterios:
 
 - Debe crear `transfer.external_execution` y `transfer.external_execution_line`.
 - Debe vincularlas a Needs mediante `transfer.need_external_link` cuando exista match.
-- Debe operar inicialmente en modo conservador: bloquear duplicacion sin descontar backlog hasta despacho/entrega.
-- Debe medir hits de deduplicacion.
+- Debe operar inicialmente en modo conservador: bloquear duplicación sin descontar backlog hasta despacho/entrega.
+- Debe medir hits de duplicación.
 
-### RF-22. Cancelacion y expiracion
+### RF-22. Cancelación y expiración
 
-El sistema debe permitir cancelar o expirar Needs y ejecuciones segun reglas operativas.
+El sistema debe permitir cancelar o expirar Needs y ejecuciones según reglas operativas.
 
 Criterios:
 
 - Cancelar Need debe impedir nuevas planificaciones.
 - Expirar Need debe impedir nuevas planificaciones salvo reapertura autorizada.
-- Si ya existe ejecucion publicada, la cancelacion debe respetar capacidades reales de Valkimia.
-- Toda cancelacion o expiracion debe registrar motivo y evento.
+- Si ya existe ejecución publicada, la cancelación debe respetar capacidades reales de Valkimia.
+- Toda cancelación o expiración debe registrar motivo y evento.
 
 ### RF-23. Auditoria universal
 
-El sistema debe registrar toda transicion relevante en `transfer.event_log`.
+El sistema debe registrar toda transición relevante en `transfer.event_log`.
 
 Criterios:
 
@@ -421,27 +421,27 @@ Criterios:
 - La tabla debe ser append-only a nivel funcional.
 - Debe permitir trazabilidad desde Need hasta ExecutionLine.
 
-### RF-24. Parametrizacion
+### RF-24. Parametrización
 
-El sistema debe administrar parametros sin cambios de codigo.
+El sistema debe administrar parámetros sin cambios de código.
 
-Parametros minimos:
+Parámetros mínimos:
 
 - Modo de bucket.
-- Estrategia de asignacion.
+- Estrategia de asignación.
 - Pesos de prioridad.
 - Ventanas SLA.
-- Backoff base y maximo.
+- Backoff base y máximo.
 - Umbral de bajo stock.
-- Unidad minima de transferencia.
+- Unidad mínima de transferencia.
 - Estados activos Valkimia.
 - Mapping de estados externos.
 
-### RF-25. Tablero operativo minimo
+### RF-25. Tablero operativo mínimo
 
 El sistema debe exponer datos para tablero operativo.
 
-KPIs minimos:
+KPIs mínimos:
 
 - Backlog total por CD, familia y sucursal.
 - Backlog aging p95.
@@ -461,7 +461,7 @@ KPIs minimos:
 
 El sistema debe usar un esquema dedicado `transfer` en PostgreSQL o esquema equivalente definido por arquitectura.
 
-Tablas minimas:
+Tablas mínimas:
 
 - `transfer.need`
 - `transfer.need_source`
@@ -476,30 +476,30 @@ Tablas minimas:
 - `transfer.cfg_family_rule`
 - `transfer.cfg_status_mapping`
 
-### RD-02. Catalogos
+### RD-02. Catálogos
 
-El sistema debe contar con catalogos de:
+El sistema debe contar con catálogos de:
 
 - Estados de Need.
 - Estados de PlanLine.
 - Estados de Execution.
 - Origen de Need.
-- Estrategias de asignacion.
+- Estrategias de asignación.
 
 ### RD-03. Identificadores
 
-El sistema debe usar UUID para claves tecnicas internas.
+El sistema debe usar UUID para claves técnicas internas.
 
 Criterios:
 
-- `connexa_execution_id` debe ser unico.
-- `connexa_line_id` debe ser unico.
-- `valkimia_transfer_id` debe ser unico cuando exista.
-- `valkimia_line_id` debe ser unico cuando exista.
+- `connexa_execution_id` debe ser único.
+- `connexa_line_id` debe ser único.
+- `valkimia_transfer_id` debe ser único cuando exista.
+- `valkimia_line_id` debe ser único cuando exista.
 
 ### RD-04. Cantidades
 
-Las cantidades deben persistirse con precision decimal.
+Las cantidades deben persistirse con precisión decimal.
 
 Criterios:
 
@@ -523,13 +523,13 @@ El sistema debe proveer al menos:
 
 ### IF-01. V-01 Stock neto disponible
 
-Endpoint logico:
+Endpoint lógico:
 
 ```text
 POST /v1/stock/net-available
 ```
 
-Request minimo:
+Request mínimo:
 
 - `request_id`
 - `cd_id`
@@ -537,7 +537,7 @@ Request minimo:
 - `sku_ids`
 - `include_components`
 
-Response minimo:
+Response mínimo:
 
 - `cd_id`
 - `calculated_at_ts`
@@ -550,13 +550,13 @@ Response minimo:
 
 ### IF-02. V-02 Ejecuciones activas
 
-Endpoint logico:
+Endpoint lógico:
 
 ```text
 GET /v1/transfers/active
 ```
 
-Request minimo:
+Request mínimo:
 
 - `cd_id`
 - `since_ts`
@@ -573,9 +573,9 @@ Response minimo:
 - `last_update_ts`
 - `lines`
 
-### IF-03. V-03 Publicacion de transferencia
+### IF-03. V-03 Publicación de transferencia
 
-Endpoint logico:
+Endpoint lógico:
 
 ```text
 POST /v1/transfers
@@ -611,7 +611,7 @@ Response minimo:
 
 ### IF-04. V-04 Tracking por transferencia
 
-Endpoint logico:
+Endpoint lógico:
 
 ```text
 GET /v1/transfers/{valkimia_transfer_id}
@@ -630,7 +630,7 @@ Response minimo:
 
 ### IF-05. V-05 Eventos incrementales
 
-Endpoint logico opcional:
+Endpoint lógico opcional:
 
 ```text
 GET /v1/transfers/events
@@ -648,21 +648,21 @@ Uso:
 
 ### RNF-01. Trazabilidad
 
-El sistema debe permitir reconstruir el ciclo completo de una linea desde Need hasta entrega o cancelacion.
+El sistema debe permitir reconstruir el ciclo completo de una línea desde Need hasta entrega o cancelación.
 
 ### RNF-02. Idempotencia
 
-Toda publicacion a Valkimia debe ser idempotente por `connexa_execution_id`.
+Toda publicación a Valkimia debe ser idempotente por `connexa_execution_id`.
 
 ### RNF-03. Performance
 
-El sistema debe soportar planificacion batch por CD.
+El sistema debe soportar planificación batch por CD.
 
 Objetivos iniciales:
 
 - Stock neto: batches de hasta 2.000 SKU por request.
-- Publicacion: hasta 2.000 lineas por request, recomendado operativo menor a 500.
-- Consultas de backlog con indices por CD, SKU, sucursal, estado y `next_replan_at`.
+- Publicación: hasta 2.000 líneas por request, recomendado operativo menor a 500.
+- Consultas de backlog con índices por CD, SKU, sucursal, estado y `next_replan_at`.
 
 ### RNF-04. Disponibilidad operativa
 
@@ -670,14 +670,14 @@ Fallas temporales de Valkimia no deben perder datos.
 
 Criterios:
 
-- Las publicaciones fallidas por error tecnico deben quedar reintentables.
-- Los rechazos por stock deben tratarse como negocio, no como error tecnico.
+- Las publicaciones fallidas por error técnico deben quedar Reintentable.
+- Los rechazos por stock deben tratarse como negocio, no como error técnico.
 
 ### RNF-05. Seguridad
 
 El sistema debe controlar acceso por rol.
 
-Roles minimos:
+Roles mínimos:
 
 - Administrador.
 - Planificador.
@@ -687,9 +687,9 @@ Roles minimos:
 
 ### RNF-06. Observabilidad
 
-El sistema debe generar metricas y logs tecnicos.
+El sistema debe generar métricas y logs técnicos.
 
-Metricas minimas:
+Métricas mínimas:
 
 - Latencia por interfaz.
 - Tasa de error por interfaz.
@@ -700,27 +700,27 @@ Metricas minimas:
 
 ### RNF-07. Configurabilidad
 
-Reglas de score, backoff, estados activos y familias deben modificarse por datos/configuracion, no por codigo.
+Reglas de score, backoff, estados activos y familias deben modificarse por datos/configuración, no por código.
 
 ### RNF-08. Reprocesabilidad
 
 El sistema debe permitir reprocesar:
 
-- Respuestas de publicacion.
+- Respuestas de publicación.
 - Eventos de tracking.
 - Reconciliaciones externas.
-- Corridas de planificacion fallidas, sin duplicar ejecuciones.
+- Corridas de planificación fallidas, sin duplicar ejecuciones.
 
 ---
 
-## 10. Politicas de errores, timeouts y reintentos
+## 10. Políticas de errores, timeouts y reintentos
 
 ### PE-01. Timeouts sugeridos
 
 | Interfaz | Timeout sugerido |
 | --- | --- |
 | V-01 Stock neto batch | 10 a 20 segundos |
-| V-03 Publicacion | 10 segundos |
+| V-03 Publicación | 10 segundos |
 | V-04 Tracking | 5 segundos |
 
 ### PE-02. Reintentos
@@ -729,10 +729,10 @@ Connexa debe reintentar solo ante:
 
 - `503 DEPENDENCY_UNAVAILABLE`
 - `429 RATE_LIMIT`
-- `500 INTERNAL_ERROR`, maximo 2 reintentos
-- Timeout tecnico
+- `500 INTERNAL_ERROR`, máximo 2 reintentos
+- Timeout técnico
 
-Connexa no debe reintentar automaticamente ante:
+Connexa no debe reintentar automáticamente ante:
 
 - `400 INVALID_REQUEST`
 - `422 UNPROCESSABLE_RULE`
@@ -744,15 +744,15 @@ Connexa no debe reintentar automaticamente ante:
 | --- | --- |
 | Stock neto | 60 req/min por CD |
 | Ejecuciones activas | 30 req/min por CD |
-| Publicacion | 30 req/min por CD |
+| Publicación | 30 req/min por CD |
 
 ---
 
 ## 11. Reglas de negocio principales
 
-### RN-01. Fuente unica de planificacion
+### RN-01. Fuente única de planificación
 
-Connexa debe ser el unico sistema que decide y publica transferencias en el modelo final.
+Connexa debe ser el único sistema que decide y publica transferencias en el modelo final.
 
 ### RN-02. No borrado funcional
 
@@ -760,19 +760,19 @@ Ninguna Need, PlanLine o ExecutionLine debe eliminarse por falta de stock. Debe 
 
 ### RN-03. Stock factible antes de publicar
 
-Connexa no debe publicar una linea si no existe stock neto positivo para el SKU en la corrida.
+Connexa no debe publicar una línea si no existe stock neto positivo para el SKU en la corrida.
 
 ### RN-04. Anti-duplicacion
 
-No se debe publicar una transferencia para CD-sucursal-SKU si existe una ejecucion activa en Valkimia para la misma clave.
+No se debe publicar una transferencia para CD-sucursal-SKU si existe una ejecución activa en Valkimia para la misma clave.
 
 ### RN-05. Rechazo por stock
 
-Un rechazo `REJECTED_STOCK` debe devolver la cantidad al backlog y programar replanificacion.
+Un rechazo `REJECTED_STOCK` debe devolver la cantidad al backlog y programar replanificación.
 
 ### RN-06. Idempotencia obligatoria
 
-Si se reenvia el mismo `connexa_execution_id`, Valkimia debe devolver la misma transferencia y estado.
+Si se reenvía el mismo `connexa_execution_id`, Valkimia debe devolver la misma transferencia y estado.
 
 ### RN-07. Auditoria obligatoria
 
@@ -796,9 +796,9 @@ El planificador puede operar sin datos de ventas, stock tienda o promociones, pe
 
 Resultado esperado:
 
-- Existe una unica Need por CD-sucursal-SKU-bucket.
+- Existe una única Need por CD-sucursal-SKU-bucket.
 
-### CU-02. Ejecutar planificacion por CD
+### CU-02. Ejecutar planificación por CD
 
 1. Scheduler dispara planificador.
 2. Se seleccionan Needs elegibles.
@@ -806,7 +806,7 @@ Resultado esperado:
 4. Se calcula prioridad.
 5. Se asigna stock.
 6. Se crean PlanLines.
-7. Se cierra plan o se avanza a publicacion.
+7. Se cierra plan o se avanza a publicación.
 
 Resultado esperado:
 
@@ -827,14 +827,14 @@ Resultado esperado:
 ### CU-04. Procesar rechazo por stock
 
 1. Valkimia responde `REJECTED_STOCK`.
-2. Connexa marca linea rechazada.
+2. Connexa marca línea rechazada.
 3. La cantidad queda pendiente en backlog.
 4. Se calcula `next_replan_at`.
 5. Se registra evento.
 
 Resultado esperado:
 
-- La necesidad no se pierde y sera replanificada.
+- La necesidad no se pierde y será replanificada.
 
 ### CU-05. Actualizar tracking
 
@@ -846,15 +846,15 @@ Resultado esperado:
 
 Resultado esperado:
 
-- Connexa refleja estado logistico real.
+- Connexa refleja estado logístico real.
 
-### CU-06. Reconciliar ejecucion externa
+### CU-06. Reconciliar ejecución externa
 
 1. Connexa consulta ejecuciones activas en Valkimia.
 2. Detecta transferencia no creada por Connexa.
 3. Crea ExternalExecution.
 4. La vincula a Need si corresponde.
-5. Bloquea publicacion duplicada.
+5. Bloquea publicación duplicada.
 
 Resultado esperado:
 
@@ -862,22 +862,22 @@ Resultado esperado:
 
 ---
 
-## 13. Criterios de aceptacion del MVP
+## 13. Criterios de aceptación del MVP
 
 El MVP se considera aceptable cuando:
 
 - Se puede crear y consolidar Need por clave funcional.
 - Se puede consultar stock neto desde Valkimia o mock equivalente.
-- Se puede generar una corrida de planificacion por CD.
+- Se puede generar una corrida de planificación por CD.
 - El planificador respeta stock neto y backlog.
 - Se puede publicar a Valkimia con `connexa_execution_id`.
-- Se puede procesar aceptacion total, parcial y rechazo total.
+- Se puede procesar aceptación total, parcial y rechazo total.
 - Se puede consultar tracking de transferencia.
 - Rechazos por stock vuelven al backlog.
 - Existe auditoria en `event_log`.
 - Existe vista de backlog abierto.
 - Existe anti-duplicacion contra ejecuciones activas.
-- Existen pruebas para idempotencia de publicacion.
+- Existen pruebas para idempotencia de publicación.
 
 ---
 
@@ -888,23 +888,23 @@ El MVP se considera aceptable cuando:
 - Merge de Need.
 - Calculo de backlog.
 - Calculo de priority score.
-- Backoff de replanificacion.
-- Seleccion de Needs elegibles.
+- Backoff de replanificación.
+- Selección de Needs elegibles.
 - Mapeo de estados Valkimia -> Connexa.
 
-### PT-02. Integracion Valkimia
+### PT-02. Integración Valkimia
 
-Escenarios minimos:
+Escenarios mínimos:
 
 - SND con stock positivo.
 - SND con cero.
 - SKU faltante en `missing_skus`.
-- Publicacion aceptada.
-- Publicacion parcial.
+- Publicación aceptada.
+- Publicación parcial.
 - Rechazo total por stock.
-- Reenvio idempotente.
+- Reenvió idempotente.
 - Tracking hasta `DELIVERED`.
-- Error tecnico con retry.
+- Error técnico con retry.
 
 ### PT-03. Datos
 
@@ -916,9 +916,9 @@ Escenarios minimos:
 ### PT-04. UAT operativa
 
 - Backlog visible por CD/sucursal/SKU.
-- Duplicacion evitada por ejecucion activa.
-- Replanificacion luego de rechazo.
-- Linea entregada actualiza saldo de Need.
+- Duplicación evitada por ejecución activa.
+- Replanificación luego de rechazo.
+- Línea entregada actualiza saldo de Need.
 
 ---
 
@@ -929,18 +929,18 @@ Escenarios minimos:
 Entregables:
 
 - Esquema `transfer`.
-- Catalogos.
+- Catálogos.
 - Tablas principales.
 - Event log.
 - Vistas de backlog y ejecuciones activas.
 
-### Fase D2. Ingesta y consolidacion de Need
+### Fase D2. Ingesta y consolidación de Need
 
 Entregables:
 
 - Servicio `merge_need`.
 - Registro de `need_source`.
-- Eventos de creacion y merge.
+- Eventos de creación y merge.
 - APIs o jobs de carga desde Connexa/SGM.
 
 ### Fase D3. Planificador MVP
@@ -950,53 +950,53 @@ Entregables:
 - Selector de backlog elegible.
 - Adaptador SND Valkimia.
 - Calculo de prioridad.
-- Generacion de Plan y PlanLine.
-- Modo simulacion y modo real.
+- Generación de Plan y PlanLine.
+- Modo simulación y modo real.
 
-### Fase D4. Publicacion y ejecucion
+### Fase D4. Publicación y ejecución
 
 Entregables:
 
 - Adaptador V-03.
 - Idempotencia.
 - Registro de Execution y ExecutionLine.
-- Manejo de aceptacion, parcialidad y rechazo.
+- Manejo de aceptación, parcialidad y rechazo.
 
-### Fase D5. Tracking y replanificacion
+### Fase D5. Tracking y replanificación
 
 Entregables:
 
 - Adaptador V-04.
-- Actualizacion de estados y cantidades.
+- Actualización de estados y cantidades.
 - Requeue de rechazadas.
 - Backoff.
-- Job de replanificacion.
+- Job de replanificación.
 
-### Fase D6. Reconciliacion y tableros
+### Fase D6. Reconciliación y tableros
 
 Entregables:
 
 - Adaptador V-02.
 - ExternalExecution.
-- Bloqueo anti-duplicacion.
+- Bloqueo anti-duplicación.
 - KPIs operativos.
-- Alertas basicas.
+- Alertas básicas.
 
 ---
 
 ## 16. Dependencias y decisiones pendientes
 
-Antes de cerrar el diseno tecnico final deben confirmarse:
+Antes de cerrar el diseño técnico final deben confirmarse:
 
 - Estados reales de Valkimia y mapping definitivo.
 - Disponibilidad real de V-01, V-02, V-03 y V-04 o mecanismos equivalentes.
-- Si V-05 de eventos incrementales estara disponible.
+- Si V-05 de eventos incrementales estará disponible.
 - Fuente maestra de stock tienda, stock minimo, ventas y promociones.
-- Definicion final de bucket por familia.
-- Unidad minima de transferencia por SKU.
+- Definición final de bucket por familia.
+- Unidad mínima de transferencia por SKU.
 - Fecha y mecanismo de corte de SGM como publicador.
-- Politica final de absorcion externa conservadora o agresiva.
-- Tecnologia de implementacion del planificador y scheduler.
+- Política final de absorción externa conservadora o agresiva.
+- Tecnología de implementación del planificador y scheduler.
 
 ---
 
@@ -1005,15 +1005,15 @@ Antes de cerrar el diseno tecnico final deben confirmarse:
 Documentos fuente:
 
 - `PDD - Vision Requerimiento y Plan Connexa v1.0.md`
-- `PDD - 10) Especificacion de Interfaces Valkimia v1.0.md`
-- `PDD - 11) Modelo ER fisico preliminar (PostgreSQL).md`
+- `PDD - 10) Especificación de Interfaces Valkimia v1.0.md`
+- `PDD - 11) Modelo ER físico preliminar (PostgreSQL).md`
 
-Modelo fisico recomendado:
+Modelo físico recomendado:
 
 - Usar esquema `transfer`.
-- Usar UUID como PK tecnica.
+- Usar UUID como PK técnica.
 - Usar `numeric(18,4)` para cantidades.
-- Usar catalogos para estados.
+- Usar catálogos para estados.
 - Mantener `event_log` append-only.
 - Mantener `external_execution` desde el inicio para controlar convivencia con SGM.
 
@@ -1021,4 +1021,6 @@ Modelo fisico recomendado:
 
 ## 18. Resultado esperado
 
-Al implementar esta especificacion, Connexa quedara preparada para gobernar el ciclo completo de transferencias, desde la necesidad inicial hasta la entrega o replanificacion. El equipo de desarrollo podra avanzar con un dominio claro, contratos de integracion definidos, modelo de datos preliminar, reglas de negocio trazables y criterios de aceptacion verificables.
+Al implementar esta especificación, Connexa quedara preparada para gobernar el ciclo completo de transferencias, desde la necesidad inicial hasta la entrega o replanificación. El equipo de desarrollo podrá avanzar con un dominio claro, contratos de integración definidos, modelo de datos preliminar, reglas de negocio trazables y criterios de aceptación verificables.
+
+

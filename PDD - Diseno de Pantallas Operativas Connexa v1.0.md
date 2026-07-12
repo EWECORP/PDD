@@ -1,27 +1,27 @@
-# Diseno de Pantallas Operativas
+# Diseño de Pantallas Operativas
 
-Sistema: Planificacion de la Distribucion sobre Connexa  
+Sistema: Planificación de la Distribución sobre Connexa  
 Version: 1.0  
 Fecha: 2026-06-10  
-Destino: Producto, UX/UI, desarrollo, QA, planificacion y operacion
+Destino: Producto, UX/UI, desarrollo, QA, planificación y operación
 
 ---
 
-## 1. Objetivo del diseno
+## 1. Objetivo del diseño
 
-Definir el esquema funcional de pantallas necesarias para operar el nuevo sistema de Planificacion de la Distribucion en Connexa.
+Definir el esquema funcional de pantallas necesarias para operar el nuevo sistema de Planificación de la Distribución en Connexa.
 
-La aplicacion debe permitir que los equipos de planificacion, operacion e integraciones puedan:
+La aplicación debe permitir que los equipos de planificación, operación e integraciones puedan:
 
 - Ver el estado real del abastecimiento CD -> sucursal.
 - Gestionar backlog y necesidades pendientes.
-- Ejecutar y auditar corridas de planificacion.
+- Ejecutar y auditar corridas de planificación.
 - Publicar transferencias a Valkimia de forma controlada.
-- Monitorear ejecuciones logisticas.
-- Detectar duplicaciones, rechazos, errores y lineas colgadas.
-- Ajustar reglas operativas sin modificar codigo.
+- Monitorear ejecuciones logísticas.
+- Detectar duplicaciones, rechazos, errores y líneas colgadas.
+- Ajustar reglas operativas sin modificar código.
 
-El foco de estas pantallas no es estetico sino operativo: deben ayudar a decidir rapido, explicar el estado de cada linea y reducir incertidumbre.
+El foco de estas pantallas no es estético sino operativo: deben ayudar a decidir rápido, explicar el estado de cada línea y reducir incertidumbre.
 
 ---
 
@@ -38,15 +38,15 @@ Ejemplos:
 - Que esta trabado?
 - Que duplicados se evitaron?
 
-### P2. La unidad de control es la linea SKU-sucursal
+### P2. La unidad de control es la línea SKU-sucursal
 
-Aunque existan cabeceras de plan o ejecucion, el operador debe poder bajar siempre hasta:
+Aunque existan cabeceras de plan o ejecución, el operador debe poder bajar siempre hasta:
 
 ```text
-CD -> Sucursal -> SKU -> Need -> PlanLine -> ExecutionLine -> Eventos
+CD -> Sucursal -> SKU -> Need -> Planline -> ExecutionLine -> Eventos
 ```
 
-### P3. Ningun estado debe ser caja negra
+### P3. Ningún estado debe ser caja negra
 
 Cada estado visible debe permitir ver:
 
@@ -54,22 +54,22 @@ Cada estado visible debe permitir ver:
 - Fecha/hora.
 - Sistema origen.
 - Cantidad afectada.
-- Proxima accion esperada.
+- Próxima acción esperada.
 
-### P4. Operar por excepcion
+### P4. Operar por excepción
 
-El usuario no debe revisar miles de lineas una por una. Las pantallas deben priorizar:
+El usuario no debe revisar miles de líneas una por una. Las pantallas deben priorizar:
 
 - Backlog vencido.
 - Rechazos por stock.
 - Ejecuciones colgadas.
 - Duplicaciones detectadas.
-- Errores de integracion.
+- Errores de integración.
 - Necesidades bloqueadas.
 
 ### P5. Simular antes de ejecutar
 
-La planificacion debe poder verse en modo simulacion antes de publicar, especialmente durante pilotos y ajustes de reglas.
+La planificación debe poder verse en modo simulación antes de publicar, especialmente durante pilotos y ajustes de reglas.
 
 ---
 
@@ -77,16 +77,16 @@ La planificacion debe poder verse en modo simulacion antes de publicar, especial
 
 | Rol | Permisos principales |
 | --- | --- |
-| Planificador | Ver backlog, ejecutar simulacion, generar plan, aprobar/publicar, ajustar prioridades. |
-| Operador CD | Ver ejecuciones, estados fisicos, incidencias y transferencias en preparacion/despacho. |
+| Planificador | Ver backlog, ejecutar simulación, generar plan, aprobar/publicar, ajustar prioridades. |
+| Operador CD | Ver ejecuciones, estados físicos, incidencias y transferencias en preparación/despacho. |
 | Supervisor | Aprobar publicaciones, cancelar o liberar holds, ver KPIs y excepciones. |
-| IT Integraciones | Ver errores tecnicos, reintentos, payloads, logs y estado de interfaces. |
+| IT Integraciones | Ver errores técnicos, reintentos, payloads, logs y estado de interfaces. |
 | Auditor/Consulta | Acceso solo lectura a trazabilidad, eventos y reportes. |
-| Administrador | Configurar parametros, mappings, familias, roles y umbrales. |
+| Administrador | Configurar parámetros, mappings, familias, roles y umbrales. |
 
 ---
 
-## 4. Mapa general de navegacion
+## 4. Mapa general de navegación
 
 ```text
 Inicio / Dashboard Ejecutivo
@@ -95,18 +95,18 @@ Inicio / Dashboard Ejecutivo
   |     +-- Detalle de Need
   |     +-- Ajuste de prioridad / Hold
   |
-  +-- Planificacion
+  +-- Planificación
   |     +-- Nueva corrida
   |     +-- Simulador de plan
   |     +-- Detalle de plan
-  |     +-- Publicacion a Valkimia
+  |     +-- Publicación a Valkimia
   |
-  +-- Ejecucion Logistica
+  +-- Ejecución Logística
   |     +-- Transferencias activas
-  |     +-- Detalle de ejecucion
-  |     +-- Tracking por linea
+  |     +-- Detalle de ejecución
+  |     +-- Tracking por línea
   |
-  +-- Reconciliacion
+  +-- Reconciliación
   |     +-- Ejecuciones externas
   |     +-- Duplicados detectados
   |     +-- Vincular a Need
@@ -116,10 +116,10 @@ Inicio / Dashboard Ejecutivo
   |     +-- Rechazos
   |     +-- Ejecuciones colgadas
   |
-  +-- Configuracion
+  +-- Configuración
         +-- Reglas por familia
         +-- Mapping estados Valkimia
-        +-- Parametros de replanificacion
+        +-- Parámetros de replanificación
         +-- Usuarios y permisos
 ```
 
@@ -129,7 +129,7 @@ Inicio / Dashboard Ejecutivo
 
 ### Objetivo
 
-Dar una vision rapida del estado general de la distribucion y orientar al usuario hacia las excepciones.
+Dar una visión rápida del estado general de la distribución y orientar al usuario hacia las excepciones.
 
 ### Usuarios principales
 
@@ -139,33 +139,33 @@ Supervisor, planificador, gerencia operativa.
 
 ```text
 +--------------------------------------------------------------------------------+
-| Planificacion de Distribucion                         Fecha/Hora ultima sync    |
+| Planificación de Distribución                         Fecha/Hora ultima sin    |
 +--------------------------------------------------------------------------------+
 | Backlog total | Backlog vencido | Rechazo stock | Publicadas hoy | Fill rate    |
-|  125.430 u    |  8.210 u        |  12,4%        |  1.248 lineas  |  91,2%       |
+|  125.430 u    |  8.210 u        |  12,4%        |  1.248 líneas  |  91,2%       |
 +--------------------------------------------------------------------------------+
 | Alertas criticas                         | Estado por CD                        |
 | - CD1: aging perecederos > 6h            | CD1  Verde / Amarillo / Rojo         |
 | - Valkimia V-01 latencia alta            | CD2  Verde / Amarillo / Rojo         |
 | - 14 ejecuciones sin picking             | CD3  Verde / Amarillo / Rojo         |
 +--------------------------------------------------------------------------------+
-| Evolucion backlog 7 dias                 | Distribucion por estado              |
+| Evolución backlog 7 días                 | Distribución por estado              |
 | [grafico lineal]                         | [barras Need/Plan/Execution]         |
 +--------------------------------------------------------------------------------+
-| Accesos rapidos: Ver backlog | Nueva corrida | Rechazos | Ejecuciones activas |
+| Accesos rápidos: Ver backlog | Nueva corrida | Rechazos | Ejecuciones activas |
 +--------------------------------------------------------------------------------+
 ```
 
 ### Componentes
 
 - Tarjetas KPI.
-- Semaforo por CD.
+- Semáforo por CD.
 - Alertas criticas.
-- Grafico de backlog por dia.
-- Distribucion por estado.
-- Accesos rapidos.
+- Grafico de backlog por día.
+- Distribución por estado.
+- Accesos rápidos.
 
-### KPIs minimos
+### KPIs mínimos
 
 - Backlog total.
 - Backlog vencido.
@@ -205,7 +205,7 @@ Planificador, supervisor.
 +--------------------------------------------------------------------------------+
 | Resumen: Pendiente total | Vencido | Waiting stock | Hold | Bloqueado externo  |
 +--------------------------------------------------------------------------------+
-| [ ] CD | Suc | SKU | Desc | Familia | Backlog | Score | Estado | Motivo | Accion |
+| [ ] CD | Suc | SKU | Desc | Familia | Backlog | Score | Estado | Motivo | Acción |
 | [ ] 1  | 041 | 123 | ...  | Secos   | 120     | 86,4  | WAIT_STOCK | SND=0 | Ver |
 | [ ] 1  | 052 | 456 | ...  | Perec.  | 24      | 92,1  | RETRYING    | Rech. | Ver |
 +--------------------------------------------------------------------------------+
@@ -221,17 +221,17 @@ Planificador, supervisor.
 - SKU.
 - Estado de Need.
 - Estado operativo de backlog.
-- Rango de antiguedad.
+- Rango de antigüedad.
 - SLA vencido/no vencido.
 - Origen: Connexa, SGM, manual, ajuste.
-- Bloqueado por ejecucion externa.
+- Bloqueado por ejecución externa.
 
-### Columnas minimas
+### Columnas mínimas
 
 - CD.
 - Sucursal.
 - SKU.
-- Descripcion articulo.
+- Descripción articulo.
 - Familia.
 - Bucket.
 - `qty_need`.
@@ -242,7 +242,7 @@ Planificador, supervisor.
 - Estado backlog.
 - Motivo.
 - `next_replan_at`.
-- Ultimo estado ejecucion.
+- Ultimo estado ejecución.
 
 ### Acciones
 
@@ -251,16 +251,16 @@ Planificador, supervisor.
 - Aplicar hold.
 - Liberar hold.
 - Forzar recalculo de prioridad.
-- Incluir en proxima corrida.
+- Incluir en próxima corrida.
 - Exportar resultado.
 
 ### Reglas visuales
 
 - Rojo: SLA vencido o aging critico.
 - Ambar: `next_replan_at` vencido pero no planificado.
-- Azul: bloqueado por ejecucion externa.
+- Azul: bloqueado por ejecución externa.
 - Gris: hold manual.
-- Verde: planificado/publicado sin excepcion.
+- Verde: planificado/publicado sin excepción.
 
 ---
 
@@ -268,7 +268,7 @@ Planificador, supervisor.
 
 ### Objetivo
 
-Explicar completamente una necesidad: origenes, cantidades, planes, ejecuciones, bloqueos y eventos.
+Explicar completamente una necesidad: orígenes, cantidades, planes, ejecuciones, bloqueos y eventos.
 
 ### Usuarios principales
 
@@ -283,10 +283,10 @@ Planificador, auditor, IT soporte.
 | CD: 1 | Sucursal: 041 | SKU: 123456 | Familia: Secos | Bucket: 2026-06-10      |
 | Necesidad: 150 | Planificado: 80 | Publicado: 80 | Cumplido: 30 | Backlog: 120 |
 +--------------------------------------------------------------------------------+
-| Score y prioridad                 | Replanificacion                            |
+| Score y prioridad                 | Replanificación                            |
 | Manual: 60 | Score: 86,4           | Attempts: 2 | Next: 2026-06-10 14:30     |
 +--------------------------------------------------------------------------------+
-| Origenes de necesidad                                                        |
+| Orígenes de necesidad                                                        |
 | CONNEXA forecast 100 | SGM ref 789 50                                        |
 +--------------------------------------------------------------------------------+
 | Planes asociados                     | Ejecuciones asociadas                     |
@@ -302,8 +302,8 @@ Planificador, auditor, IT soporte.
 - Cabecera funcional.
 - Saldos.
 - Score y componentes.
-- Replanificacion.
-- Origenes.
+- Replanificación.
+- Orígenes.
 - PlanLines asociadas.
 - ExecutionLines asociadas.
 - ExternalExecutions vinculadas.
@@ -317,15 +317,15 @@ Planificador, auditor, IT soporte.
 - Cancelar Need.
 - Reabrir si esta permitido.
 - Ver plan.
-- Ver ejecucion.
+- Ver ejecución.
 
 ---
 
-## 8. Pantalla 4 - Nueva Corrida de Planificacion
+## 8. Pantalla 4 - Nueva Corrida de Planificación
 
 ### Objetivo
 
-Permitir configurar y lanzar una corrida de planificacion en modo simulacion o real.
+Permitir configurar y lanzar una corrida de planificación en modo simulación o real.
 
 ### Usuarios principales
 
@@ -335,10 +335,10 @@ Planificador, supervisor.
 
 ```text
 +--------------------------------------------------------------------------------+
-| Nueva Corrida de Planificacion                                                  |
+| Nueva Corrida de Planificación                                                  |
 +--------------------------------------------------------------------------------+
-| CD: [1]  Familia: [Todas]  Bucket: [Hoy]  Estrategia: [Por configuracion]       |
-| Modo: (x) Simulacion  ( ) Real con publicacion                                  |
+| CD: [1]  Familia: [Todas]  Bucket: [Hoy]  Estrategia: [Por configuración]       |
+| Modo: (x) Simulación  ( ) Real con publicación                                  |
 +--------------------------------------------------------------------------------+
 | Opciones                                                                         |
 | [x] Consultar stock neto Valkimia                                                |
@@ -346,7 +346,7 @@ Planificador, supervisor.
 | [x] Excluir Needs en hold                                                        |
 | [ ] Forzar recalculo de score                                                    |
 +--------------------------------------------------------------------------------+
-| Estimacion previa                                                                |
+| Estimación previa                                                                |
 | Needs elegibles: 12.450 | SKUs: 3.120 | Sucursales: 84                         |
 +--------------------------------------------------------------------------------+
 | [Simular plan] [Cancelar]                                                        |
@@ -359,8 +359,8 @@ Planificador, supervisor.
 - Familia.
 - Bucket.
 - Ventana de despacho deseada.
-- Estrategia de asignacion.
-- Modo simulacion/real.
+- Estrategia de asignación.
+- Modo simulación/real.
 - Incluir/excluir bloqueadas.
 - Recalcular score.
 
@@ -374,7 +374,7 @@ Planificador, supervisor.
 
 - No permitir plan real si V-01 stock neto no esta disponible.
 - Advertir si V-02 ejecuciones activas no esta disponible.
-- Solicitar confirmacion para publicacion real.
+- Solicitar confirmación para publicación real.
 
 ---
 
@@ -394,7 +394,7 @@ Planificador, supervisor.
 +--------------------------------------------------------------------------------+
 | Resultado de Plan #UUID                              Modo: SIMULACION           |
 +--------------------------------------------------------------------------------+
-| Lineas elegibles | Planificadas | Parciales | Sin stock | Bloq. externas       |
+| Líneas elegibles | Planificadas | Parciales | Sin stock | Bloq. externas       |
 | 12.450           | 8.920        | 1.105     | 2.010     | 415                  |
 +--------------------------------------------------------------------------------+
 | Stock usado por familia [grafico]          | Top sucursales con faltante        |
@@ -402,7 +402,7 @@ Planificador, supervisor.
 | CD | Suc | SKU | Backlog | SND | Planificado | Estado | Motivo | Score          |
 | 1  | 041 | 123 | 150     | 80  | 80          | PARTIAL| Stock | 86,4           |
 +--------------------------------------------------------------------------------+
-| [Aprobar y publicar] [Guardar simulacion] [Descartar] [Exportar]                |
+| [Aprobar y publicar] [Guardar simulación] [Descartar] [Exportar]                |
 +--------------------------------------------------------------------------------+
 ```
 
@@ -410,32 +410,32 @@ Planificador, supervisor.
 
 - Resumen de resultado.
 - Comparativo backlog vs planificado.
-- Lineas no planificadas con motivo.
-- Bloqueos por ejecucion externa.
+- Líneas no planificadas con motivo.
+- Bloqueos por ejecución externa.
 - Consumo de SND por SKU.
 - Tabla detalle.
 
 ### Acciones
 
 - Aprobar y publicar.
-- Guardar simulacion.
+- Guardar simulación.
 - Descartar.
 - Exportar.
-- Ver detalle de linea.
+- Ver detalle de línea.
 
 ### Reglas
 
-- La aprobacion debe pedir confirmacion.
+- La aprobación debe pedir confirmación.
 - Debe mostrar advertencia si hay rechazos esperados por stock o SND desactualizado.
 - Debe mostrar version/timestamp de stock usado.
 
 ---
 
-## 10. Pantalla 6 - Publicacion a Valkimia
+## 10. Pantalla 6 - Publicación a Valkimia
 
 ### Objetivo
 
-Monitorear el envio de transferencias y respuestas de Valkimia.
+Monitorear el envío de transferencias y respuestas de Valkimia.
 
 ### Usuarios principales
 
@@ -445,15 +445,15 @@ Planificador, IT integraciones, supervisor.
 
 ```text
 +--------------------------------------------------------------------------------+
-| Publicacion a Valkimia - Plan #UUID                                             |
+| Publicación a Valkimia - Plan #UUID                                             |
 +--------------------------------------------------------------------------------+
 | Ejecuciones: 84 | Enviadas: 80 | Aceptadas: 75 | Parciales: 3 | Rechazadas: 2  |
 +--------------------------------------------------------------------------------+
-| Execution ID | Sucursal | Lineas | Estado | Valkimia ID | Error/Motivo | Accion |
+| Execution ID | Sucursal | Líneas | Estado | Valkimia ID | Error/Motivo | Acción |
 | UUID         | 041      | 25     | ACCEPTED | TRF-894470 | -           | Ver    |
 | UUID         | 052      | 12     | PARTIAL  | TRF-894471 | NO_NET_STOCK| Ver    |
 +--------------------------------------------------------------------------------+
-| [Reintentar errores tecnicos] [Ver payloads] [Cerrar publicacion]               |
+| [Reintentar errores técnicos] [Ver payloads] [Cerrar publicación]               |
 +--------------------------------------------------------------------------------+
 ```
 
@@ -465,46 +465,46 @@ Planificador, IT integraciones, supervisor.
 - Parcial.
 - Rechazada por stock.
 - Rechazada por regla.
-- Error tecnico.
+- Error técnico.
 - Reintentable.
 
 ### Acciones
 
-- Reintentar error tecnico.
+- Reintentar error técnico.
 - Ver request/response.
 - Ver Execution.
-- Ver lineas rechazadas.
-- Exportar log de publicacion.
+- Ver líneas rechazadas.
+- Exportar log de publicación.
 
 ### Reglas
 
-- No reintentar automaticamente `REJECTED_STOCK`.
-- Reintentar con backoff solo errores tecnicos.
+- No reintentar automáticamente `REJECTED_STOCK`.
+- Reintentar con backoff solo errores técnicos.
 - Mantener idempotencia por `connexa_execution_id`.
 
 ---
 
-## 11. Pantalla 7 - Ejecucion Logistica / Transferencias Activas
+## 11. Pantalla 7 - Ejecución Logística / Transferencias Activas
 
 ### Objetivo
 
-Dar visibilidad operativa de transferencias aceptadas y en proceso logistico.
+Dar visibilidad operativa de transferencias aceptadas y en proceso logístico.
 
 ### Usuarios principales
 
-Operacion CD, planificador, supervisor.
+Operación CD, planificador, supervisor.
 
 ### Wireframe conceptual
 
 ```text
 +--------------------------------------------------------------------------------+
-| Ejecucion Logistica                                                             |
+| Ejecución Logística                                                             |
 +--------------------------------------------------------------------------------+
 | Filtros: CD | Sucursal | Estado | Valkimia ID | Fecha | Familia | Colgadas     |
 +--------------------------------------------------------------------------------+
 | Transferencias activas por estado: Accepted | ACO | Picking | Shipped          |
 +--------------------------------------------------------------------------------+
-| Valkimia ID | Suc | Estado | Lineas | Prep | Desp | Rec | Ult.Act | Alerta      |
+| Valkimia ID | Suc | Estado | Líneas | Prep | Desp | Rec | Ult.Act | Alerta      |
 | TRF-894470  | 041 | PICKING | 25    | 18   | 0    | 0   | 11:15   | -           |
 | TRF-894455  | 052 | ACCEPTED| 12    | 0    | 0    | 0   | 08:10   | Sin picking |
 +--------------------------------------------------------------------------------+
@@ -517,24 +517,24 @@ Operacion CD, planificador, supervisor.
 - CD.
 - Sucursal.
 - Estado.
-- Cantidad de lineas.
+- Cantidad de líneas.
 - Cantidad solicitada.
 - Cantidad preparada.
 - Cantidad despachada.
 - Cantidad recibida.
-- Ultima actualizacion.
+- Ultima actualización.
 - Alerta.
 
 ### Acciones
 
-- Ver detalle de ejecucion.
+- Ver detalle de ejecución.
 - Forzar consulta de tracking.
 - Ver timeline.
-- Ver lineas con incidencia.
+- Ver líneas con incidencia.
 
 ---
 
-## 12. Pantalla 8 - Detalle de Ejecucion
+## 12. Pantalla 8 - Detalle de Ejecución
 
 ### Objetivo
 
@@ -542,17 +542,17 @@ Mostrar el estado completo de una transferencia en Valkimia y su impacto en Need
 
 ### Usuarios principales
 
-Operacion CD, planificador, IT soporte.
+Operación CD, planificador, IT soporte.
 
 ### Wireframe conceptual
 
 ```text
 +--------------------------------------------------------------------------------+
-| Ejecucion TRF-894470                         Estado: PICKING                    |
+| Ejecución TRF-894470                         Estado: PICKING                    |
 +--------------------------------------------------------------------------------+
 | Connexa execution: UUID | Plan: UUID | CD: 1 | Sucursal: 041 | Publicada: 10:40 |
 +--------------------------------------------------------------------------------+
-| Lineas                                                                            |
+| Líneas                                                                            |
 | SKU | Desc | Req | Accepted | Prepared | Shipped | Delivered | Estado | Need    |
 | 123 | ...  | 12  | 12       | 12       | 0       | 0         | PICKING| Ver     |
 +--------------------------------------------------------------------------------+
@@ -566,7 +566,7 @@ Operacion CD, planificador, IT soporte.
 ### Secciones
 
 - Cabecera.
-- Lineas.
+- Líneas.
 - Cantidades.
 - Eventos.
 - Payload request/response.
@@ -582,7 +582,7 @@ Operacion CD, planificador, IT soporte.
 
 ---
 
-## 13. Pantalla 9 - Reconciliacion y Duplicados
+## 13. Pantalla 9 - Reconciliación y Duplicados
 
 ### Objetivo
 
@@ -596,12 +596,12 @@ Planificador, IT integraciones, supervisor.
 
 ```text
 +--------------------------------------------------------------------------------+
-| Reconciliacion de Ejecuciones Externas                                          |
+| Reconciliación de Ejecuciones Externas                                          |
 +--------------------------------------------------------------------------------+
 | Detectadas hoy | Vinculadas | Sin Need | Bloqueos activos | Duplicados evitados |
 | 320            | 280        | 40       | 95               | 112                 |
 +--------------------------------------------------------------------------------+
-| Valkimia ID | Origen | CD | Suc | SKU | Estado | Need match | Accion            |
+| Valkimia ID | Origen | CD | Suc | SKU | Estado | Need match | Acción            |
 | TRF-777001  | SGM    | 1  | 041 | 123 | ACO    | Si         | Ver/Vincular      |
 +--------------------------------------------------------------------------------+
 | [Vincular seleccionadas] [Ignorar] [Exportar] [Actualizar desde Valkimia]       |
@@ -613,13 +613,13 @@ Planificador, IT integraciones, supervisor.
 - Ver ejecuciones activas externas.
 - Identificar match con Need.
 - Vincular a Need.
-- Bloquear publicacion duplicada.
+- Bloquear publicación duplicada.
 - Marcar como ignorada si no aplica.
 
 ### Reglas
 
-- Modo inicial conservador: bloquear duplicacion sin descontar backlog hasta despacho/entrega.
-- Toda vinculacion debe generar evento.
+- Modo inicial conservador: bloquear duplicación sin descontar backlog hasta despacho/entrega.
+- Toda vinculación debe generar evento.
 
 ---
 
@@ -627,7 +627,7 @@ Planificador, IT integraciones, supervisor.
 
 ### Objetivo
 
-Centralizar problemas que requieren accion inmediata.
+Centralizar problemas que requieren acción inmediata.
 
 ### Usuarios principales
 
@@ -641,48 +641,48 @@ Supervisor, IT integraciones, planificador.
 +--------------------------------------------------------------------------------+
 | Criticas | Altas | Medias | Informativas                                        |
 +--------------------------------------------------------------------------------+
-| Tipo | Severidad | CD | Entidad | Descripcion | Desde | Responsable | Accion    |
+| Tipo | Severidad | CD | Entidad | Descripción | Desde | Responsable | Acción    |
 | INT  | Critica   | 1  | V-01    | Timeout SND | 10:05 | IT          | Ver       |
-| OPE  | Alta      | 1  | TRF...  | Sin picking | 08:10 | Operacion   | Ver       |
+| OPE  | Alta      | 1  | TRF...  | Sin picking | 08:10 | Operación   | Ver       |
 +--------------------------------------------------------------------------------+
 ```
 
 ### Tipos de alerta
 
 - Backlog aging critico.
-- Rechazo por stock anomalo.
+- Rechazo por stock anómalo.
 - Stock neto inconsistente.
-- Ejecucion colgada.
-- Duplicacion detectada.
-- Error de integracion.
+- Ejecución colgada.
+- Duplicación detectada.
+- Error de integración.
 - Rate limit.
-- Publicacion fallida.
+- Publicación fallida.
 
 ### Acciones
 
 - Asignar responsable.
-- Marcar en investigacion.
+- Marcar en investigación.
 - Resolver.
 - Ver entidad asociada.
-- Reintentar si es tecnico.
+- Reintentar si es técnico.
 
 ---
 
-## 15. Pantalla 11 - Configuracion de Reglas
+## 15. Pantalla 11 - Configuración de Reglas
 
 ### Objetivo
 
-Permitir parametrizar comportamiento del planificador sin tocar codigo.
+Permitir parametrizar comportamiento del planificador sin tocar código.
 
 ### Usuarios principales
 
-Administrador, supervisor, planificacion.
+Administrador, supervisor, planificación.
 
 ### Wireframe conceptual
 
 ```text
 +--------------------------------------------------------------------------------+
-| Configuracion de Reglas por Familia                                             |
+| Configuración de Reglas por Familia                                             |
 +--------------------------------------------------------------------------------+
 | Familia | Bucket | Estrategia | SLA h | Age max | Backoff | FairShare | Editar |
 | Perec.  | AM/PM  | PRIORITY   | 12    | 12      | 15m/4h  | Si        | Editar |
@@ -699,16 +699,16 @@ Administrador, supervisor, planificacion.
 - Estrategia.
 - Ventana SLA.
 - Age max.
-- Backoff base y maximo.
+- Backoff base y máximo.
 - Umbral bajo stock.
-- Maximo de reintentos.
+- Máximo de reintentos.
 - Pesos del score.
-- Activacion de fair share.
+- Activación de fair share.
 
 ### Reglas
 
-- Toda modificacion debe auditarse.
-- Debe poder verse historico de cambios.
+- Toda modificación debe auditarse.
+- Debe poder verse histórico de cambios.
 - Cambios deben aplicar a nuevas corridas, no alterar planes ya cerrados.
 
 ---
@@ -749,7 +749,7 @@ Administrador, IT integraciones.
 
 ### Objetivo
 
-Permitir investigar cualquier decision o cambio de estado.
+Permitir investigar cualquier decisión o cambio de estado.
 
 ### Usuarios principales
 
@@ -772,16 +772,16 @@ Auditoria, IT soporte, planificador.
 
 - Buscar por Need, Plan, Execution, Valkimia ID o SKU.
 - Ver payload.
-- Ver transicion old/new status.
+- Ver transición old/new status.
 - Exportar.
 
 ---
 
-## 18. Pantalla 14 - Monitor Tecnico de Interfaces
+## 18. Pantalla 14 - Monitor Técnico de Interfaces
 
 ### Objetivo
 
-Dar visibilidad tecnica a IT sobre salud de integraciones.
+Dar visibilidad técnica a IT sobre salud de integraciones.
 
 ### Usuarios principales
 
@@ -791,7 +791,7 @@ IT integraciones, soporte.
 
 ```text
 +--------------------------------------------------------------------------------+
-| Monitor Tecnico de Interfaces                                                   |
+| Monitor Técnico de Interfaces                                                   |
 +--------------------------------------------------------------------------------+
 | V-01 Stock | V-02 Active | V-03 Publish | V-04 Tracking | V-05 Events          |
 | OK 180ms   | OK 320ms    | Warning 2%   | OK 150ms      | No disponible        |
@@ -801,7 +801,7 @@ IT integraciones, soporte.
 +--------------------------------------------------------------------------------+
 ```
 
-### Metricas
+### Métricas
 
 - Latencia p50/p95.
 - Tasa de error.
@@ -815,7 +815,7 @@ IT integraciones, soporte.
 
 ## 19. Flujo principal de usuario
 
-### Flujo A - Planificacion diaria
+### Flujo A - Planificación diaria
 
 ```text
 Dashboard
@@ -823,8 +823,8 @@ Dashboard
   -> Nueva Corrida
   -> Simulador
   -> Aprobar y publicar
-  -> Publicacion Valkimia
-  -> Ejecucion Logistica
+  -> Publicación Valkimia
+  -> Ejecución Logística
 ```
 
 ### Flujo B - Resolver rechazo por stock
@@ -835,26 +835,26 @@ Dashboard / Alertas
   -> Detalle de ExecutionLine
   -> Detalle de Need
   -> Ver next_replan_at
-  -> Esperar replanificacion o ajustar prioridad
+  -> Esperar replanificación o ajustar prioridad
 ```
 
-### Flujo C - Evitar duplicacion SGM
+### Flujo C - Evitar duplicación SGM
 
 ```text
-Reconciliacion
+Reconciliación
   -> Ejecuciones externas
   -> Detectar match CD-sucursal-SKU
   -> Vincular a Need
-  -> Bloquear publicacion duplicada
+  -> Bloquear publicación duplicada
   -> Auditar evento
 ```
 
-### Flujo D - Investigar linea no entregada
+### Flujo D - Investigar línea no entregada
 
 ```text
-Ejecucion Logistica
+Ejecución Logística
   -> Transferencia activa / colgada
-  -> Detalle de Ejecucion
+  -> Detalle de Ejecución
   -> Timeline eventos
   -> Need relacionada
   -> Event Log / Payload
@@ -864,27 +864,27 @@ Ejecucion Logistica
 
 ## 20. MVP de pantallas recomendado
 
-Para iniciar desarrollo sin sobredimensionar, el MVP visual deberia incluir:
+Para iniciar desarrollo sin sobredimensionar, el MVP visual debería incluir:
 
 1. Dashboard Ejecutivo.
 2. Backlog Operativo.
 3. Detalle de Need.
-4. Nueva Corrida de Planificacion.
+4. Nueva Corrida de Planificación.
 5. Resultado de Plan / Simulador.
-6. Publicacion a Valkimia.
-7. Ejecucion Logistica.
-8. Detalle de Ejecucion.
-9. Reconciliacion de Externas.
+6. Publicación a Valkimia.
+7. Ejecución Logística.
+8. Detalle de Ejecución.
+9. Reconciliación de Externas.
 10. Event Log.
-11. Configuracion de Reglas.
-12. Monitor Tecnico de Interfaces.
+11. Configuración de Reglas.
+12. Monitor Técnico de Interfaces.
 
 Pantallas que pueden quedar para etapa posterior:
 
-- Gestion avanzada de usuarios.
+- Gestión avanzada de usuarios.
 - Tablero ejecutivo ampliado.
-- Cubicaje y optimizacion de viajes.
-- Analitica historica avanzada.
+- Cubicaje y optimización de viajes.
+- Analítica histórica avanzada.
 
 ---
 
@@ -893,40 +893,40 @@ Pantallas que pueden quedar para etapa posterior:
 Componentes reutilizables:
 
 - KPI card.
-- Semaforo CD.
+- Semáforo CD.
 - Tabla operativa con filtros persistentes.
 - Badge de estado.
 - Timeline de eventos.
-- Drawer de detalle de linea.
-- Modal de confirmacion de publicacion.
+- Drawer de detalle de línea.
+- Modal de confirmación de publicación.
 - Panel de payload JSON.
 - Selector CD/familia/bucket.
 - Grafico backlog temporal.
-- Grafico distribucion por estado.
-- Editor de parametros.
-- Visor de errores de integracion.
+- Grafico distribución por estado.
+- Editor de parámetros.
+- Visor de errores de integración.
 
 ---
 
-## 22. Criterios de aceptacion UX funcional
+## 22. Criterios de aceptación UX funcional
 
-La aplicacion se considera operativa si:
+La aplicación se considera operativa si:
 
 - Un planificador puede identificar backlog critico en menos de 2 minutos.
 - Un supervisor puede ver si hay problemas por CD en la pantalla inicial.
-- Una linea SKU-sucursal puede trazarse desde Need hasta ExecutionLine y EventLog.
-- Una publicacion rechazada por stock muestra motivo y proxima replanificacion.
-- Un error tecnico muestra interfaz, request, response, reintentos y estado.
-- El usuario puede distinguir rechazo de negocio versus error tecnico.
-- Las acciones peligrosas piden confirmacion.
+- Una línea SKU-sucursal puede trazarse desde Need hasta ExecutionLine y EventLog.
+- Una publicación rechazada por stock muestra motivo y próxima replanificación.
+- Un error técnico muestra interfaz, request, response, reintentos y estado.
+- El usuario puede distinguir rechazo de negocio versus error técnico.
+- Las acciones peligrosas piden confirmación.
 - Las tablas principales permiten filtrar, ordenar y exportar.
 - Los estados tienen colores y etiquetas consistentes.
 
 ---
 
-## 23. Recomendacion visual
+## 23. Recomendación visual
 
-Se recomienda usar una interfaz sobria, operativa y de alta densidad, similar a una torre de control logistica:
+Se recomienda usar una interfaz sobria, operativa y de alta densidad, similar a una torre de control logística:
 
 - Fondo claro.
 - Estados con colores consistentes.
@@ -934,13 +934,13 @@ Se recomienda usar una interfaz sobria, operativa y de alta densidad, similar a 
 - Paneles laterales para detalle sin perder contexto.
 - KPIs arriba, detalle abajo.
 - Timeline siempre disponible para auditoria.
-- Acciones masivas protegidas con confirmacion.
+- Acciones masivas protegidas con confirmación.
 
 Paleta sugerida:
 
 - Verde: correcto / entregado.
 - Azul: en proceso / informado.
-- Ambar: pendiente / atencion.
+- Ambar: pendiente / atención.
 - Rojo: critico / rechazado / vencido.
 - Gris: hold / cancelado / expirado.
 
@@ -948,8 +948,10 @@ Paleta sugerida:
 
 ## 24. Resultado esperado
 
-Con estas pantallas, Connexa deja de ser un sistema que solo genera solicitudes y pasa a funcionar como una torre de control operativa de distribucion. El usuario puede ver que falta, que se puede planificar, que se publico, que ejecuto Valkimia, que fallo, que esta bloqueado y cual es la siguiente accion esperada.
+Con estas pantallas, Connexa deja de ser un sistema que solo genera solicitudes y pasa a funcionar como una torre de control operativa de distribución. El usuario puede ver que falta, que se puede planificar, que se publico, que ejecuto Valkimia, que fallo, que esta bloqueado y cual es la siguiente acción esperada.
 
 El objetivo final de la experiencia es simple:
 
-> Ninguna linea debe quedar sin explicacion, sin responsable o sin proxima accion.
+> Ninguna línea debe quedar sin explicación, sin responsable o sin próxima acción.
+
+
