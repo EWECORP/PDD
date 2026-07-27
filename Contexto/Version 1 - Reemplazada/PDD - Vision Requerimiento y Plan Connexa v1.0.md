@@ -288,7 +288,7 @@ Restricciones clave:
 
 #### Valkimia -> Connexa
 
-Capacidades minimas:
+Capacidades mínimas:
 
 - Stock neto disponible por CD-SKU.
 - Ejecuciones activas por CD-sucursal-SKU.
@@ -297,7 +297,7 @@ Capacidades minimas:
 
 #### Connexa -> Valkimia
 
-Capacidades minimas:
+Capacidades mínimas:
 
 - Publicación idempotente de transferencias.
 - Reintento seguro de publicaciones.
@@ -321,9 +321,9 @@ Regla objetivo:
 - Observabilidad operacional.
 - Auditoria de decisiones.
 - Parametrización sin cambios de código.
-- Performance para planificacion masiva por CD y SKU.
+- Performance para planificación masiva por CD y SKU.
 - Reversibilidad durante transición.
-- Seguridad por roles: planificacion, operación, auditoria e IT.
+- Seguridad por roles: planificación, operación, auditoria e IT.
 - Capacidad de operar en modo degradado si faltan datos de score, pero nunca si falta stock neto.
 
 ### 2.6 Decisiones funcionales a cerrar antes de codificar
