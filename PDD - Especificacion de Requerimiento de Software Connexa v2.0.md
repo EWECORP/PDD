@@ -1,943 +1,492 @@
 # Especificación de Requerimiento de Software
 
-Sistema: **Módulo de Necesidades de Distribución — Connexa**
-Versión: **2.0**
-Fecha: **2026-07-24**
-Estado: **Base para refinamiento técnico, historias y estimación**
-Reemplaza: `PDD - Especificacion de Requerimiento de Software Connexa v1.0.md`
+Sistema: **Planificación Diaria de Necesidades de Distribución — Connexa**
+Versión: **2.1 — Alcance Fase 1 integrado**
+Fecha: **2026-07-28**
+Estado: **Listo para refinamiento, construcción y UAT**
+Fuente rectora: `PDD - ALCANCE Fase 1.md`
 
 ---
 
-## 1. Propósito
+## 1. Propósito y resultado
 
-Definir los requerimientos para que Connexa:
+Definir el producto entregable en 40 días para que Connexa calcule y priorice necesidades DECAS, mantenga un backlog diario trazable y permita la ejecución oportunista desde Valkimia.
 
-- calcule diariamente necesidades regulares de distribución;
-- permita registrar excepciones de Compras;
-- consolide necesidades CD -> sucursal;
-- las comunique a Valkimia mediante el mecanismo disponible;
-- reciba estados y cantidades preparadas;
-- mantenga un backlog recalculado y trazable;
-- ofrezca una visión de stock y pipeline por proveedor, sucursal y artículo;
-- registre solicitudes intersucursal fuera del CD.
-
-La solución entrará en producción con un corte Big‑Bang: SGM no será origen, editor ni publicador dentro del alcance.
-
----
+La Fase 1 termina en la **planificación de necesidades y seguimiento de su cumplimiento**. No incluye gestión de distribución ni optimización logística.
 
 ## 2. Alcance
 
 ### 2.1 Incluido
 
-- Integración de fuentes de demanda, inventario, tránsito y maestros.
-- Cálculo batch diario de necesidad regular.
-- Versionado de cada foto de cálculo.
-- Venta Especial con fecha objetivo y SLA.
-- Acuerdo Comercial con período de vigencia.
-- Acopio con fecha requerida y vigencia.
-- Consolidación sin duplicar demanda regular y excepcional.
-- Oferta de necesidades a Valkimia.
-- Tracking de documento y cantidades confirmadas/preparadas.
-- Recálculo del remanente.
-- Panel de Compras y alertas.
-- Requerimientos de transferencia intersucursal.
-- Auditoría funcional y monitoreo técnico.
-- Carga inicial de pendientes al corte.
-- Adaptadores intercambiables para Valkimia actual y WEB.
+- foto diaria de stock y pipeline;
+- Stock Neto Sucursal;
+- PDVB, coberturas y umbrales;
+- NDD-D y NDD-S automáticas;
+- NDD-E, NDD-C y NDD-A dirigidas;
+- IRQ y prioridad;
+- backlog consolidado por artículo–sucursal–proveedor;
+- cobertura de Base 2/CD;
+- datos informativos de peso, volumen, bultos y pallets;
+- consulta/importación oportunista desde Valkimia;
+- tracking de importado, preparado, despachado y tránsito según datos disponibles;
+- recálculo diario, alertas, auditoría y monitoreo.
 
 ### 2.2 Excluido
 
-- Ingreso de necesidades desde SGM después del corte.
-- Doble publicación o reconciliación continua de dos orígenes.
-- Asignación/prorrateo central de SND.
-- Optimización de cargas, camiones, rutas o cubicaje.
-- Reserva de stock en Valkimia.
-- Migración obligatoria a la versión WEB.
-- Sustitución integral de SGM.
-- Gestión contable o fiscal de transferencias.
+- creación o gestión de órdenes de distribución;
+- asignación, reserva o prorrateo de stock;
+- gestión de transferencias intersucursal;
+- selección automática de líneas para un vehículo;
+- flota, vehículos, viajes, rutas, ventanas y turnos;
+- cubicaje y optimización de carga;
+- picking, carga, despacho o recepción como procesos administrados por Connexa;
+- optimización intradía y simulación logística;
+- migración obligatoria a Valkimia WEB;
+- reemplazo integral de SGM fuera de este circuito.
 
----
+Una referencia a peso, volumen, pallet, camión o tránsito no amplía el alcance: en Fase 1 es dato informativo o resultado externo.
 
 ## 3. Glosario
 
 | Término | Definición |
 | --- | --- |
-| Need regular | Resultado vigente del cálculo diario para una sucursal-artículo |
-| Exception need | Necesidad persistente cargada por Venta Especial, Acuerdo Comercial o Acopio |
-| Calculation run | Corrida diaria identificada, fechada y auditada |
-| Snapshot | Foto de datos y resultados de una corrida |
-| Distribution offer | Consolidado CD -> sucursal enviado o puesto a disposición de Valkimia |
-| Offer line | Línea por sucursal-artículo dentro de una oferta |
-| Prepared quantity | Cantidad confirmada por Valkimia como preparada |
-| Pipeline | Cantidades ofrecidas, en proceso, preparadas, despachadas, en tránsito o recibidas |
-| Backlog | Cantidad vigente aún requerida y no cubierta por el pipeline válido |
-| SND | Stock Neto Disponible que Valkimia usa al decidir qué puede preparar |
-| CD reference stock | Stock conocido por Connexa; no necesariamente equivale al SND |
-| Branch transfer request | Solicitud de transferencia entre sucursales, sin paso por CD |
-| SLA | Fecha/hora comprometida o límite esperado |
-| Big‑Bang | Corte único desde el cual el módulo opera solamente en Connexa |
-
----
+| PDVB | Promedio Diario de Venta Basal |
+| Stock Neto Sucursal | Stock físico + ingresos confirmados − compromisos |
+| NDD | Necesidad de Distribución |
+| DECAS | D Demanda, E Especial, C Campaña, A Acopio, S Sobre-stock |
+| Obligatoria | Línea D/E/C que Valkimia puede seleccionar, pero no debe ocultarse mientras tenga saldo |
+| Opcional | Línea A/S ofrecida como oportunidad |
+| IRQ | Índice de Riesgo de Quiebre, entre 0 y 100 |
+| Backlog | Saldo abierto y trazable de necesidades |
+| Importación Valkimia | Selección de líneas por el operador; no equivale a cumplimiento |
+| Preparado | Cantidad efectivamente confirmada por Valkimia |
+| Pipeline | Ingresos o movimientos confirmados aún no recibidos |
+| Base 2/CD | Centro de distribución origen inicial |
 
 ## 4. Actores y responsabilidades
 
-| Actor/Sistema | Responsabilidad |
+| Actor | Responsabilidad en Fase 1 |
 | --- | --- |
-| Comprador | Opera por excepción, analiza stock/pipeline y gestiona alertas |
-| Supervisor de Compras | Aprueba excepciones definidas, cambios sensibles y rebalanceos |
-| Connexa | Fuente única de necesidades, backlog, oferta, estado funcional y auditoría |
-| Valkimia | Toma lo procesable, prepara y devuelve estados/cantidades |
-| Operación CD | Ejecuta preparación, incidencias y despacho en Valkimia |
-| Logística | Ejecuta/coordina transferencias intersucursal y transporte |
-| Sucursal | Destino de mercadería y eventual fuente de recepción |
-| IT Integraciones | Opera adaptadores, sincronización, reintentos y monitoreo |
-| Administrador | Mantiene parámetros, mappings, permisos y calendarios |
-| SGM | Sin responsabilidad operativa en el nuevo módulo después del corte |
+| Comprador/Comercial | Consultar posición; crear y mantener E/C/A; gestionar alertas |
+| Supervisor | Aprobar excepciones según umbral; controlar cierre y UAT |
+| Operador Valkimia | Filtrar, seleccionar e importar backlog; ejecutar por fuera de Connexa |
+| Valkimia/WMS | Conservar IDs Connexa e informar cantidades y estados reales |
+| Proceso diario | Validar fuentes, calcular, consolidar y publicar la foto vigente |
+| Datos/IT | Operar interfaces, parámetros, alertas técnicas y reconciliación |
+| Auditor | Consultar fórmulas, versiones, eventos y cambios |
 
----
+Connexa no asume el rol de planificador de transporte ni de operador de depósito.
 
-## 5. Vista general
+## 5. Reglas y fórmulas normativas
 
 ```text
-Datos diarios
-  -> CalculationRun
-  -> RegularNeedSnapshot
-  -> Need vigente
-           + ExceptionNeed
-  -> DistributionOffer
-  -> Adaptador Valkimia
-  -> OfferExecutionStatus / PreparedQuantity
-  -> Pipeline y panel
-  -> nuevo cálculo diario
+stock_neto_sucursal =
+  stock_fisico_cierre
+  + ingresos_confirmados
+  - stock_comprometido
 
-BranchTransferRequest
-  -> aprobación
-  -> ejecución logística
-  -> despacho/recepción
-  -> pipeline origen y destino
+stock_critico = PDVB × lead_time
+stock_minimo  = PDVB × 2 × lead_time
+stock_maximo  = PDVB × dias_stock
+sobre_stock   = PDVB × dias_sobre_stock
+
+NDD_D = max(stock_maximo - stock_neto_sucursal, 0)
+
+NDD_S = max(
+  (stock_maximo + sobre_stock)
+  - max(stock_neto_sucursal, 0)
+  - NDD_D,
+  0
+)
 ```
 
-La unidad principal de trazabilidad es:
+La corrección del signo de NDD-D queda registrada en el alcance rector. Toda fórmula se implementa versionada.
 
-```text
-sucursal + artículo + necesidad/origen + cantidad + fecha
-```
+IRQ inicial:
 
----
+| Condición | IRQ |
+| --- | ---: |
+| `stock_neto <= 0` | 100 |
+| `0 < cobertura < lead_time` | 90 |
+| `lead_time <= cobertura <= 2 × lead_time` | 50 |
+| `2 × lead_time < cobertura < dias_stock` | 25 |
+| `cobertura >= dias_stock` | 0 |
+
+Si `PDVB = 0`, la cobertura no se divide y no se generan D/S; la línea queda informada para tratamiento manual.
 
 ## 6. Requerimientos funcionales
 
-### 6.1 Datos y cálculo diario
+### 6.1 Ingesta y calidad
 
-#### RF-001. Ejecutar corrida diaria
+#### RF-001. Capturar la foto diaria
 
-El sistema debe ejecutar una corrida automática diaria y permitir relanzarla de forma controlada.
+El sistema debe recibir por fecha operativa:
 
-Criterios:
+- stock físico de sucursal al cierre anterior;
+- ingresos directos de OC confirmados;
+- tránsito confirmado desde Base 2;
+- ventas especiales comprometidas;
+- transferencias confirmadas pendientes;
+- stock físico e ingresos de Base 2;
+- PDVB y parámetros;
+- maestro artículo–sucursal–proveedor;
+- unidades logísticas disponibles.
 
-- Cada corrida tendrá `calculation_run_id`, fecha operativa, inicio, fin, estado y versión de fórmula.
-- Solo una versión podrá quedar vigente para una fecha y ámbito.
-- Un relanzamiento no sumará cantidades al resultado anterior.
-- Los resultados anteriores quedarán disponibles para auditoría.
+Aceptación:
 
-#### RF-002. Validar frescura de fuentes
+- cada lote conserva fuente, fecha/hora, conteo y estado;
+- no se mezclan fechas operativas sin advertencia;
+- una fuente obligatoria ausente bloquea solo el ámbito afectado;
+- toda degradación es visible.
 
-Antes de calcular, Connexa debe validar la disponibilidad y frescura de:
+#### RF-002. Validar maestros y parámetros
 
-- stock sucursal;
-- stock CD de referencia;
-- demanda/forecast o consumo;
-- transferencias/ingresos activos;
-- maestro artículo-sucursal-proveedor;
-- parámetros de cobertura.
+Debe detectar artículo, sucursal o proveedor inexistente; PDVB negativo; lead time o días faltantes; unidad inválida y duplicados de fuente.
 
-Criterios:
+#### RF-003. Conservar trazabilidad de entrada
 
-- Cada fuente tendrá timestamp, lote y estado.
-- Una fuente obligatoria ausente detendrá el ámbito afectado.
-- Una fuente opcional ausente activará modo degradado y alerta.
-- El resultado indicará qué fuentes se utilizaron.
+Para cada valor usado debe poder recuperarse lote, timestamp y valor original.
 
-#### RF-003. Calcular stock proyectado de sucursal
+### 6.2 Corrida diaria
 
-El sistema debe calcular:
+#### RF-010. Ejecutar y reejecutar
 
-```text
-stock_proyectado =
-  stock_disponible
-  + inbound_pipeline_valido
-  - compromisos_confirmados
-```
+Debe ejecutar una corrida diaria automática y permitir reejecución autorizada.
 
-Los componentes y la política de inclusión deben ser configurables.
+- una corrida tiene ID, fecha, versión de fórmula, inicio, fin y estado;
+- solo una versión queda vigente por ámbito;
+- reejecutar reemplaza la foto vigente; nunca suma el resultado previo;
+- una corrida fallida no sustituye la última foto válida.
 
-#### RF-004. Calcular necesidad regular
+#### RF-011. Calcular Stock Neto Sucursal
 
-El sistema debe calcular una necesidad regular por sucursal-artículo según fórmula versionada.
+Debe aplicar la fórmula normativa y conservar cada componente.
 
-Criterios:
+#### RF-012. Calcular umbrales y cobertura
 
-- La necesidad nunca será negativa.
-- Debe conservar demanda, stock, cobertura, tránsito y parámetros usados.
-- Debe distinguir necesidad bruta, pipeline descontado y necesidad abierta.
-- Debe aplicar múltiplos/unidades logísticas según configuración.
-- El stock CD de referencia debe quedar visible aunque sea cero o esté desactualizado.
+Debe calcular crítico, mínimo, máximo, sobre-stock y días de cobertura con redondeo parametrizado.
 
-#### RF-005. No ocultar demanda por falta de stock CD
+#### RF-013. Generar NDD-D
 
-El sistema no debe eliminar la necesidad bruta cuando el stock CD sea insuficiente.
+Debe generar una línea D cuando la cantidad calculada sea mayor que cero, clasificada como obligatoria.
 
-Debe exponer:
+#### RF-014. Generar NDD-S
 
-- necesidad vigente;
-- stock CD de referencia;
-- brecha contra stock CD;
-- indicador `CD_STOCK_LOW`, `CD_STOCK_ZERO`, `CD_STOCK_STALE` o equivalente.
+Debe generar únicamente el tramo adicional S, separado de D y clasificado como opcional.
 
-#### RF-006. Reemplazar la foto regular
+#### RF-015. Calcular IRQ
 
-El resultado vigente del cálculo regular debe reemplazar el resultado operativo anterior del mismo ámbito.
+Debe asignar IRQ, regla aplicada y explicación. Los compromisos E/C vencidos o próximos prevalecen en el orden final.
 
-Criterios:
+#### RF-016. Explicar el cálculo
 
-- El historial será inmutable.
-- El panel utilizará solo la versión vigente.
-- Las ofertas y ejecuciones históricas conservarán su vínculo con la versión que las originó.
-- No se duplicará la necesidad por relanzar una corrida.
+La UI y la API deben exponer fórmula, valores, parámetros, redondeo, alertas y corrida.
 
-#### RF-007. Explicabilidad
+#### RF-017. Manejar reglas de borde
 
-Para cada necesidad regular, el sistema debe mostrar:
+- ningún saldo será negativo;
+- `PDVB=0` no produce D/S;
+- un parámetro inválido genera línea rechazada y alerta;
+- las unidades se convierten solo con factor maestro vigente;
+- el redondeo no modifica la cantidad fuente.
 
-- fórmula aplicada;
-- valores de entrada;
-- parámetros;
-- pipeline descontado;
-- redondeos;
-- alertas de calidad;
-- resultado.
+### 6.3 Necesidades dirigidas
 
-### 6.2 Necesidades excepcionales
+#### RF-020. Crear NDD-E
 
-#### RF-010. Registrar Venta Especial
+Campos mínimos: sucursal, artículo, cantidad, fecha/SLA, referencia de negocio, prioridad, responsable y observación.
 
-El comprador debe poder crear una Venta Especial.
+#### RF-021. Crear NDD-C
 
-Campos mínimos:
+Campos mínimos: campaña, vigencia desde/hasta, proveedor, artículos, sucursales, cantidades, fecha objetivo y responsable.
 
-- `special_sale_id`;
-- sucursal;
-- artículo;
-- cantidad;
-- fecha/hora objetivo;
-- SLA;
-- referencia comercial;
-- prioridad;
-- observación;
-- creador y timestamps.
+#### RF-022. Crear NDD-A
 
-#### RF-011. Registrar Acuerdo Comercial
+Campos mínimos: sucursal, artículo, cantidad, motivo, vigencia, fecha requerida y responsable.
 
-El comprador debe poder crear un acuerdo con:
+#### RF-023. Mantener identidad y saldo
 
-- proveedor;
-- artículo(s);
-- sucursal(es) o agrupador;
-- cantidad o regla;
-- inicio y fin de vigencia;
-- fecha/SLA de llegada;
-- referencia;
-- prioridad.
+E/C/A deben tener ID estable, cantidad original, preparada imputada, cancelada y saldo.
 
-El sistema deberá materializar líneas trazables por sucursal-artículo antes de consolidar.
+#### RF-024. Versionar cambios
 
-#### RF-012. Registrar Acopio
+Un cambio de cantidad, vigencia, prioridad o estado requiere motivo, actor y versión; no reescribe la historia.
 
-El comprador debe poder registrar:
+#### RF-025. Detectar posible duplicado
 
-- destino;
-- artículo;
-- cantidad;
-- motivo;
-- fecha requerida;
-- vigencia;
-- prioridad.
+Debe advertir coincidencias de tipo, referencia, sucursal, artículo y vigencia. La advertencia no fusiona registros automáticamente.
 
-#### RF-013. Administrar ciclo de excepción
+#### RF-026. Cerrar o cancelar
 
-Estados mínimos:
+Solo se cierra por cumplimiento, vencimiento según política o acción autorizada con motivo. La falta de stock no cierra una necesidad.
 
-- `DRAFT`
-- `PENDING_APPROVAL`
-- `ACTIVE`
-- `PARTIALLY_FULFILLED`
-- `FULFILLED`
-- `EXPIRED`
-- `CANCELLED`
+### 6.4 Consolidación y backlog
 
-Toda modificación de cantidad, destino, fecha o vigencia debe auditarse.
+#### RF-030. Consolidar DECAS
 
-#### RF-014. Evitar duplicados de excepción
+Debe producir una vista por fecha, CD, sucursal, artículo y proveedor, preservando cantidades D/E/C/A/S por separado.
 
-El sistema debe advertir coincidencias por tipo, referencia, sucursal, artículo y período.
+#### RF-031. Clasificar obligatoriedad
 
-La advertencia no reemplaza la identidad única. Solo un usuario autorizado podrá confirmar un posible duplicado con justificación.
+D/E/C son obligatorias; A/S son opcionales. La clasificación debe acompañar toda salida.
 
-#### RF-015. Combinar excepción y cálculo regular
+#### RF-032. Priorizar
 
-La política será configurable por tipo:
+Orden mínimo:
 
-- `ADDITIVE`: se agrega a la necesidad regular.
-- `MINIMUM_GUARANTEE`: eleva el total hasta un mínimo.
-- `REPLACE`: reemplaza la necesidad regular para el período indicado.
+1. E/C vencidas;
+2. E/C por vencer;
+3. mayor IRQ;
+4. mayor antigüedad;
+5. fecha objetivo más próxima;
+6. clave determinística de desempate.
 
-La política aplicada debe quedar visible y versionada.
+La prioridad no asigna stock.
 
-### 6.3 Consolidación y oferta a Valkimia
+#### RF-033. Recalcular sin duplicar
 
-#### RF-020. Construir necesidad consolidada
+D/S se sustituyen por la nueva foto. E/C/A conservan identidad y saldo. El pipeline confirmado se descuenta una sola vez.
 
-Connexa debe consolidar por CD, sucursal, artículo y ventana, sin perder el detalle de origen.
+#### RF-034. Imputar cumplimiento
 
-Criterios:
+La cantidad preparada se imputa a las fuentes de una línea consolidada con regla determinística y auditable. Regla inicial: E vencida, E vigente, C, D, A, S; dentro del tipo, fecha objetivo y antigüedad.
 
-- Cada cantidad consolidada debe poder distribuirse hacia sus fuentes.
-- Debe respetar vigencias y SLA.
-- Debe excluir canceladas, vencidas y ya cubiertas.
-- Debe evitar sumar el mismo pipeline más de una vez.
+#### RF-035. Mantener remanente
 
-#### RF-021. Crear oferta
+Importar o seleccionar no reduce backlog. Solo un evento válido de preparación, despacho o cancelación autorizada modifica saldos.
 
-El sistema debe crear una `distribution_offer` por lote y `distribution_offer_line` por sucursal-artículo.
+#### RF-036. Exponer Base 2
 
-Campos mínimos:
+Debe mostrar demanda consolidada, stock físico, OC pendientes on-time/vencidas e índice de cobertura. El dato se etiqueta como referencia, no como reserva.
 
-- ID interno y referencia externa estable;
-- CD y sucursal;
-- fecha operativa;
-- fecha objetivo;
-- cantidad ofrecida;
-- estado;
-- vínculo a fuentes;
-- versión del cálculo;
-- adaptador de destino.
+#### RF-037. Exponer unidades logísticas
 
-#### RF-022. Publicar por adaptador
+Cuando existan factores vigentes debe mostrar unidades, bultos, pallets, kg y volumen estimados; un dato faltante no impide mostrar la necesidad.
 
-El sistema debe publicar mediante una interfaz interna independiente de Valkimia.
+### 6.5 Integración oportunista Valkimia
 
-Criterios:
+#### RF-040. Consultar backlog elegible
 
-- El adaptador actual podrá mapear a alta individual o masiva de documento de salida.
-- El adaptador WEB podrá incorporarse sin modificar las reglas de negocio.
-- Request y response se almacenarán con datos sensibles protegidos.
-- Los errores técnicos quedarán reintentables.
+El adaptador debe ofrecer a Valkimia consulta paginada y filtrable por CD, sucursal, proveedor, DECAS, obligatoriedad, prioridad, IRQ, fecha, peso, volumen, bultos y pallets.
 
-#### RF-023. Garantizar identidad e idempotencia
+#### RF-041. Identificar líneas
 
-Reenviar la misma oferta no debe crear un segundo documento funcional.
+Cada línea debe incluir `need_line_id`, versión, fecha operativa, tipo DECAS, sucursal, artículo, proveedor, cantidad abierta, prioridad, IRQ, fechas y unidades.
 
-La solución debe utilizar, en este orden:
+#### RF-042. Registrar importación
 
-1. idempotencia nativa si el contrato la ofrece;
-2. referencia externa única consultable;
-3. tabla de correspondencia y consulta previa;
-4. bloqueo transaccional local.
+Valkimia debe confirmar qué versión y cantidad importó. La operación usa clave idempotente y puede ser parcial.
 
-#### RF-024. No asignar stock en Connexa
+#### RF-043. Evitar duplicación
 
-En la Fase 1, Connexa no decidirá el prorrateo de SND entre sucursales.
+La misma clave no crea dos importaciones. Una versión vencida devuelve conflicto y obliga a refrescar.
 
-El sistema podrá:
+#### RF-044. Recibir ejecución
 
-- ordenar líneas por SLA/prioridad para su presentación;
-- mostrar factibilidad estimada;
-- ofrecer el consolidado.
+Debe recibir por línea:
 
-No deberá:
+- referencia Valkimia;
+- cantidad importada;
+- cantidad preparada acumulada o delta inequívoco;
+- estado externo;
+- timestamp;
+- opcionalmente remito, despacho, ETA y recepción.
 
-- reservar SND;
-- garantizar que lo ofrecido será preparado;
-- redistribuir automáticamente stock escaso.
+#### RF-045. Procesar preparación parcial
 
-#### RF-025. Manejar publicación parcial técnica
+La parte preparada se imputa; el saldo no preparado permanece abierto.
 
-Si un lote contiene líneas aceptadas y fallidas:
+#### RF-046. Conservar estado externo
 
-- cada línea conservará estado independiente;
-- solo se reintentará la parte no confirmada;
-- se mantendrá la misma referencia funcional;
-- no se recrearán líneas ya recibidas por Valkimia.
+Debe guardar estado original y normalizado. Un código desconocido genera alerta y no cierra la línea.
 
-### 6.4 Tracking y backlog
+#### RF-047. Operar contingencia
 
-#### RF-030. Consultar estado Valkimia
+Si Valkimia no puede consumir la interfaz, se permite exportación/importación controlada con los mismos IDs e idempotencia. No se crea un backlog alternativo.
 
-Connexa debe obtener el estado de cada documento publicado usando el mecanismo disponible.
+### 6.6 Cierre, paneles y administración
 
-Criterios:
+#### RF-050. Cerrar el día
 
-- Polling configurable en Fase 1.
-- Consulta puntual bajo permiso.
-- Procesamiento incremental de documentos finalizados si está disponible.
-- Mapeo externo/interno parametrizable.
+Debe reconciliar eventos recibidos, actualizar pipeline, controlar duplicados y habilitar la siguiente foto.
 
-#### RF-031. Registrar cantidades por línea
+#### RF-051. Panel operativo
 
-El sistema debe registrar, cuando estén disponibles:
+Debe mostrar por proveedor–sucursal–artículo: stock neto, cobertura, DECAS, IRQ, prioridad, importado, preparado, tránsito, saldo, SLA, frescura y alertas.
 
-- requerida;
-- confirmada/preparada;
-- despachada;
-- recibida;
-- cancelada/rechazada.
+#### RF-052. Alertas
 
-Debe conservar el valor recibido, unidad, timestamp y fuente.
+Mínimas:
 
-#### RF-032. Interpretar preparación parcial
-
-Cuando `qty_prepared < qty_offered`, el saldo seguirá visible como pendiente hasta el próximo recálculo o cierre.
-
-No se debe crear automáticamente una segunda oferta dentro de la misma ventana salvo regla explícita y control idempotente.
-
-#### RF-033. Recalcular backlog regular
-
-El nuevo cálculo diario debe incluir el pipeline válido para evitar volver a pedir cantidades ya comprometidas.
-
-El remanente del documento anterior se usará como evidencia, no como suma automática, salvo que la fórmula de negocio lo defina expresamente.
-
-#### RF-034. Calcular backlog de excepción
-
-Para una excepción:
-
-```text
-exception_backlog =
-  qty_exception
-  - qty_fulfilled_allocated
-  - qty_cancelled
-```
-
-La asignación de una cantidad preparada a sus fuentes seguirá una regla determinística y auditable, por defecto:
-
-1. excepción con SLA vencido o más próximo;
-2. excepción con mayor prioridad;
-3. excepción más antigua;
-4. necesidad regular.
-
-Esta regla de imputación no constituye prorrateo logístico entre sucursales.
-
-#### RF-035. Detectar estados estancados
-
-El sistema debe alertar documentos o líneas sin actualización por encima del umbral configurado según estado.
-
-#### RF-036. Procesar cancelaciones
-
-Una cancelación en Valkimia:
-
-- no borrará la necesidad;
-- liberará la cantidad del pipeline;
-- dejará motivo y evento;
-- permitirá que el próximo cálculo la reevalúe.
-
-### 6.5 Panel de Compras
-
-#### RF-040. Proveer vista multidimensional
-
-El panel debe permitir agrupar y filtrar por:
-
-- proveedor;
-- sucursal;
-- artículo;
-- familia/categoría;
-- comprador;
-- CD;
-- estado de pipeline;
-- tipo de necesidad;
-- SLA;
-- nivel de cobertura;
-- severidad de alerta.
-
-#### RF-041. Mostrar posición integral
-
-Cada fila debe mostrar:
-
-- stock sucursal y fecha;
-- cobertura/días de stock;
-- stock CD de referencia y fecha;
-- demanda/horizonte;
-- necesidad regular;
-- excepciones;
-- ofrecido;
-- en proceso;
-- preparado;
-- despachado/en tránsito;
-- recibido, si existe;
-- backlog;
-- SLA más exigente;
-- última actualización;
-- alerta y próxima acción.
-
-#### RF-042. Gestionar por excepción
-
-Desde el panel, el comprador podrá:
-
-- abrir detalle;
-- registrar Venta Especial, Acuerdo Comercial o Acopio;
-- solicitar transferencia intersucursal;
-- reconocer/asignar una alerta;
-- agregar comentario;
-- exportar información autorizada.
-
-No podrá crear reposición regular manual ni publicar directamente a Valkimia.
-
-#### RF-043. Alertar bajo stock y atraso
-
-Alertas mínimas:
-
-- sucursal bajo mínimo o con riesgo de quiebre;
-- stock CD insuficiente para la necesidad visible;
-- SLA próximo o vencido;
-- oferta no recibida por Valkimia;
-- documento sin avance;
+- quiebre o cobertura crítica;
+- compromiso E/C vencido o próximo;
+- parámetros/datos ausentes o vencidos;
+- importación sin avance;
 - preparación parcial;
-- fuente de datos desactualizada;
-- transferencia intersucursal atrasada.
+- estado externo desconocido;
+- referencia duplicada o resultado ambiguo;
+- diferencia inválida de cantidades.
 
-### 6.6 Transferencias intersucursal
+#### RF-053. Auditoría
 
-#### RF-050. Crear solicitud intersucursal
+Altas, cambios, corridas, consolidaciones, importaciones, eventos externos, imputaciones, reintentos y cierres generan eventos append-only.
 
-Campos mínimos:
+#### RF-054. Parametrización
 
-- origen y destino;
-- artículo;
-- cantidad;
-- fecha requerida/SLA;
-- motivo;
-- prioridad;
-- solicitante;
-- evidencia/comentario.
+Debe versionar PDVB/lead time/días, umbrales IRQ, redondeos, prioridades, imputación, frescura, polling y mappings.
 
-Debe validarse que origen y destino sean distintos.
+#### RF-055. Separar permisos
 
-#### RF-051. Evaluar stock del origen
+Compras no ejecuta reintentos técnicos; IT no modifica necesidades comerciales sin permiso; Valkimia solo consume y reporta dentro del contrato.
 
-El sistema debe mostrar stock disponible y proyectado de la sucursal origen. La aprobación no debe permitir una cantidad superior al máximo definido por política sin autorización especial.
+## 7. Estados mínimos
 
-#### RF-052. Administrar estados
+### Corrida
 
-Estados mínimos:
+`STARTED`, `VALIDATING`, `CALCULATING`, `COMPLETED`, `FAILED`, `SUPERSEDED`.
 
-- `DRAFT`
-- `PENDING_APPROVAL`
-- `APPROVED`
-- `REJECTED`
-- `PENDING_LOGISTICS`
-- `IN_PREPARATION`
-- `DISPATCHED`
-- `RECEIVED`
-- `CANCELLED`
+### Necesidad dirigida
 
-#### RF-053. Mantener circuito separado
+`DRAFT`, `ACTIVE`, `FULFILLED`, `EXPIRED`, `CANCELLED`.
 
-La solicitud intersucursal:
+### Línea ofrecida a Valkimia
 
-- no generará oferta CD -> sucursal;
-- no será publicada a Valkimia CD salvo integración futura específica;
-- sí integrará la visión de pipeline y stock proyectado;
-- tendrá auditoría y responsables propios.
+`OPEN`, `IMPORTED_PARTIAL`, `IMPORTED`, `PREPARED_PARTIAL`, `PREPARED`, `DISPATCHED`, `CANCELLED`, `TECHNICAL_ERROR`, `UNKNOWN_EXTERNAL_STATUS`.
 
-### 6.7 Corte, auditoría y administración
+Los estados de ejecución describen información recibida; no convierten a Connexa en gestor logístico.
 
-#### RF-060. Cargar inventario inicial
-
-El sistema debe permitir una carga única y controlada de pendientes del corte.
-
-Criterios:
-
-- lote identificado;
-- conteos de origen y destino;
-- clasificación por estado;
-- rechazo de duplicados;
-- reporte de conciliación;
-- aprobación de negocio.
-
-#### RF-061. Bloquear origen SGM
-
-Las interfaces del módulo no deben aceptar nuevas necesidades con `source_system=SGM` después del timestamp de corte.
-
-Los registros históricos conservarán su origen para consulta.
-
-#### RF-062. Auditar eventos
-
-Toda alta, cálculo, modificación, aprobación, publicación, respuesta, estado, comentario y cancelación debe generar un evento append-only.
-
-#### RF-063. Parametrizar
-
-Parámetros mínimos:
-
-- frecuencia y calendario;
-- fórmula/horizonte;
-- cobertura/stock objetivo;
-- múltiplos;
-- políticas de excepción;
-- mapping de estados;
-- intervalos de polling;
-- umbrales de alertas;
-- regla de imputación;
-- permisos;
-- fecha de corte.
-
-#### RF-064. Operar contingencia
-
-El sistema debe soportar cola de salida y envío manual controlado sin crear una segunda fuente de necesidad.
-
-Toda contingencia debe reutilizar la referencia de Connexa y reconciliarse después.
-
----
-
-## 7. Modelo de datos lógico
-
-Entidades mínimas:
+## 8. Modelo lógico mínimo
 
 | Entidad | Propósito |
 | --- | --- |
-| `calculation_run` | Cabecera de corrida y estado |
-| `calculation_source_snapshot` | Lotes/frescura de entradas |
-| `regular_need_snapshot` | Resultado histórico por corrida |
-| `current_distribution_need` | Vista/materialización vigente |
-| `exception_need` | Cabecera de excepción |
-| `exception_need_line` | Artículo-sucursal-vigencia |
-| `need_source_allocation` | Descomposición del consolidado |
-| `distribution_offer` | Lote/cabecera publicado |
-| `distribution_offer_line` | Línea sucursal-artículo |
-| `offer_external_reference` | Correspondencia Connexa-Valkimia |
-| `offer_status_event` | Estados y cantidades externas |
-| `branch_transfer_request` | Cabecera intersucursal |
-| `branch_transfer_line` | Líneas de rebalanceo |
-| `business_event_log` | Auditoría funcional |
-| `integration_message` | Request/response/reintento técnico |
-| `configuration_version` | Parámetros versionados |
+| `calculation_run` | Corrida y versión vigente |
+| `source_snapshot` | Evidencia de fuentes |
+| `branch_stock_position` | Componentes de stock neto |
+| `need_snapshot` | D/S calculadas e IRQ |
+| `directed_need` / `directed_need_line` | E/C/A persistentes |
+| `current_backlog_line` | Proyección consolidada vigente |
+| `backlog_source_allocation` | Origen DECAS e imputación |
+| `valkimia_import` / `valkimia_import_line` | Selección oportunista |
+| `execution_event` | Preparado/despacho/estado externo |
+| `configuration_version` | Fórmulas y parámetros |
+| `integration_message` | Inbox/outbox e idempotencia |
+| `business_event_log` | Auditoría |
 
-Restricciones:
+No implementar en Fase 1 entidades `trip`, `route`, `vehicle`, `load_plan`, `reservation`, `allocation_run` ni `branch_transfer_request`.
 
-- UUID interno para entidades.
-- Referencia externa única por oferta.
-- `numeric(18,4)` para cantidades.
-- cantidades no negativas;
-- vigencia `from <= to`;
-- origen y destino intersucursal diferentes;
-- una sola foto vigente por ámbito;
-- eventos append-only;
-- timestamps en UTC y presentación en zona local.
+## 9. Interfaces mínimas
 
-No se requiere `external_execution` para convivencia con SGM. Los documentos migrados al corte se identifican mediante `migration_batch_id`.
+### IF-01. Datos diarios de entrada
 
----
+Batch o API idempotente por fuente y fecha operativa. Debe soportar validación previa, rechazo por línea y control de totales.
 
-## 8. Interfaces
+### IF-02. Consulta de backlog para Valkimia
 
-### IF-01. Entradas de datos diarios
+`GET` lógico paginado con filtros, versión de foto y totales informativos.
 
-Contrato lógico:
+### IF-03. Confirmación de importación
 
-```text
-source
-batch_id
-as_of_ts
-cd_id
-branch_id
-item_id
-stock_qty / demand_qty / inbound_qty / parameter values
-```
+`POST` lógico idempotente con versión y cantidades seleccionadas.
 
-Se definirá si cada fuente se integra por base, archivo, servicio o API.
+### IF-04. Eventos de ejecución
 
-### IF-02. Publicación a Valkimia
+`POST`/polling lógico idempotente por documento, línea, tipo de evento y timestamp.
 
-Contrato interno:
+### IF-05. Consulta operativa Connexa
 
-```text
-publishDistributionOffer(offer)
-  -> external_document_id
-  -> accepted/status
-  -> line_results
-  -> messages
-```
+APIs para panel, detalle explicable, excepciones, alertas, corridas y auditoría.
 
-El adaptador actual deberá mapear los campos reales, incluyendo tipo de documento, operación, depósito, destino, artículo, cantidad, fecha y referencia externa.
+El adaptador oculta endpoints, tablas y códigos específicos de la versión instalada de Valkimia.
 
-### IF-03. Tracking Valkimia
+## 10. Requerimientos no funcionales
 
-Contrato interno:
+- **RNF-01 Idempotencia:** reintentos de lotes, importaciones y eventos no duplican efectos.
+- **RNF-02 Trazabilidad:** de una línea se navega a fuente, fórmula, excepción, importación y ejecución.
+- **RNF-03 Rendimiento:** la corrida completa termina dentro de la ventana acordada; consultas comunes responden p95 < 3 s bajo volumen de diseño.
+- **RNF-04 Consistencia:** actualización de eventos e imputación es transaccional o compensable.
+- **RNF-05 Seguridad:** autenticación corporativa, mínimo privilegio, secretos fuera de logs y payloads protegidos.
+- **RNF-06 Observabilidad:** métricas, correlación, colas, latencia, errores, estados desconocidos y frescura.
+- **RNF-07 Recuperación:** última foto válida sigue consultable si falla una corrida.
+- **RNF-08 Configurabilidad:** cambios versionados, con vigencia y auditoría.
+- **RNF-09 Usabilidad:** fórmulas, timestamps, obligatoriedad y saldos son visibles.
+- **RNF-10 Evolución:** el dominio no depende de la versión actual o WEB de Valkimia.
 
-```text
-getDistributionStatus(external_document_id)
-  -> normalized_status
-  -> lines[item, requested_qty, confirmed_qty]
-  -> last_update_ts
-  -> messages
-```
+## 11. Criterios de aceptación de Fase 1
 
-### IF-04. Documentos finalizados
+1. Una muestra acordada reproduce Stock Neto Sucursal y D/S con exactitud.
+2. El signo de NDD-D y los bordes `PDVB=0`, stock negativo y parámetros faltantes están probados.
+3. E/C/A conservan identidad y saldo entre dos corridas.
+4. DECAS se consolida sin perder origen ni obligatoriedad.
+5. IRQ y prioridad se explican por línea.
+6. Dos confirmaciones iguales de importación producen un solo efecto.
+7. Una preparación parcial reduce solo lo confirmado.
+8. Una línea importada pero no preparada permanece en backlog.
+9. La corrida del día siguiente no duplica pipeline ni excepciones.
+10. Stock Base 2 y unidades logísticas se muestran como información, no como asignación.
+11. Un estado Valkimia desconocido queda alertado y no cierra la necesidad.
+12. Compras navega del panel al cálculo y a la ejecución en no más de tres interacciones.
+13. Auditoría reconstruye los cambios de una línea.
+14. UAT demuestra de punta a punta D, E, C, A y S.
+15. No existen funciones de viajes, rutas, vehículos, cubicaje, optimización o transferencias intersucursal.
 
-Cuando exista, Connexa podrá consultar documentos finalizados no procesados, registrarlos y confirmar su procesamiento solo después de persistirlos correctamente.
+## 12. Plan mínimo de pruebas
 
-### IF-05. Stock Neto Disponible opcional
+- unitarias de fórmulas, IRQ, redondeo, prioridad e imputación;
+- propiedades: no negatividad, conservación de cantidades e idempotencia;
+- integración de todas las fuentes;
+- contrato Valkimia: filtros, paginación, versión vencida, parcial, timeout y duplicado;
+- reconciliación de acumulados/deltas y estados desconocidos;
+- rendimiento de corrida y consulta;
+- permisos y auditoría;
+- UAT con datos reales anonimizados o controlados;
+- regresión del recálculo durante al menos tres días operativos simulados.
 
-La Fase 1 no depende de esta interfaz. Si se habilita:
+## 13. Inicio del equipo de desarrollo
 
-```text
-getNetAvailableStock(cd_id, item_ids)
-```
+### 13.1 Orden de construcción
 
-se usará para mejorar visibilidad y factibilidad, sin convertir a Connexa en asignador logístico.
+1. **Vertical 0 — Contratos y datos:** fixtures reales, catálogo, decisiones y prueba de conectividad Valkimia.
+2. **Vertical 1 — Cálculo:** snapshots, Stock Neto, D/S, IRQ y explicación.
+3. **Vertical 2 — Dirigidas:** altas E/C/A, vigencia, versiones y saldos.
+4. **Vertical 3 — Backlog:** consolidación, prioridad, imputación y panel.
+5. **Vertical 4 — Valkimia:** consulta/importación, idempotencia y ejecución parcial.
+6. **Vertical 5 — Cierre:** recálculo, alertas, auditoría, operación y UAT.
 
-### IF-06. Versión WEB futura
+### 13.2 Plan Día 1–40
 
-Deberá implementar los mismos contratos internos con un adaptador nuevo. El cambio de adaptador requerirá pruebas de contrato y no migración del dominio.
-
----
-
-## 9. Requerimientos no funcionales
-
-### RNF-01. Idempotencia
-
-Corridas, publicaciones, tracking y carga inicial deben poder reejecutarse sin duplicar efectos.
-
-### RNF-02. Trazabilidad
-
-Debe reconstruirse el camino:
-
-```text
-dato fuente -> cálculo -> necesidad -> oferta -> documento Valkimia
--> cantidad preparada -> backlog/pipeline
-```
-
-### RNF-03. Rendimiento
-
-Objetivos iniciales a validar con volumen:
-
-- cálculo diario completo dentro de la ventana acordada;
-- panel inicial en menos de 5 segundos para filtros habituales;
-- detalle en menos de 3 segundos;
-- publicación por lotes compatibles con límites Valkimia;
-- exportaciones grandes mediante proceso asíncrono.
-
-### RNF-04. Disponibilidad y recuperación
-
-- Fallas de Valkimia no perderán necesidades.
-- Los mensajes permanecerán en cola reintentable.
-- Reiniciar un worker no duplicará documentos.
-- Debe existir recuperación desde último estado persistido.
-
-### RNF-05. Seguridad
-
-Control por roles, mínimo privilegio, auditoría de cambios, protección de payloads y separación de permisos de crear/aprobar/publicar.
-
-### RNF-06. Observabilidad
-
-Métricas mínimas:
-
-- frescura de fuentes;
-- duración y resultado de corridas;
-- necesidades y ofertas por estado;
-- latencia/error del adaptador;
-- reintentos;
-- documentos sin actualización;
-- diferencias de cantidades;
-- backlog y SLA.
-
-### RNF-07. Usabilidad
-
-La interfaz debe operar por excepción, conservar filtros, permitir navegación al detalle y explicar cantidades/estados sin requerir consulta técnica.
-
-### RNF-08. Configurabilidad
-
-Reglas funcionales modificables por configuración versionada, con vigencia y aprobación.
-
-### RNF-09. Calidad de datos
-
-Los datos inválidos se aislarán por línea. El sistema no publicará artículos, sucursales o unidades sin correspondencia válida.
-
-### RNF-10. Desacople
-
-No se admitirán reglas de negocio dentro del adaptador Valkimia ni referencias a estructuras externas dentro del dominio.
-
----
-
-## 10. Reglas de negocio críticas
-
-| ID | Regla |
+| Período | Resultado |
 | --- | --- |
-| RN-01 | Connexa es el único origen después del corte |
-| RN-02 | SGM no tiene convivencia operativa |
-| RN-03 | La foto regular vigente se reemplaza, no se acumula |
-| RN-04 | Una excepción tiene identidad y vigencia propias |
-| RN-05 | Falta de stock CD no borra la necesidad |
-| RN-06 | Valkimia decide cuánto puede preparar en Fase 1 |
-| RN-07 | Cantidades activas del pipeline no vuelven a pedirse |
-| RN-08 | Cancelaciones liberan pipeline, no eliminan necesidad |
-| RN-09 | Toda oferta tiene referencia estable |
-| RN-10 | Transferencias intersucursal no pasan por el CD |
-| RN-11 | Compras no publica directamente a Valkimia |
-| RN-12 | Fase 2 no forma parte de la aceptación de Fase 1 |
+| D1–D5 | decisiones críticas, datos de prueba, contratos, arquitectura y backlog refinado |
+| D6–D14 | cálculo diario vertical con detalle explicable |
+| D10–D18 | E/C/A y parámetros, en paralelo con UI base |
+| D15–D24 | consolidado DECAS, IRQ, prioridad, Base 2 y panel |
+| D20–D30 | integración Valkimia, parcialidad, idempotencia y monitor |
+| D31–D35 | cierre diario, reconciliación, seguridad y rendimiento |
+| D36–D38 | UAT punta a punta y correcciones |
+| D39–D40 | despliegue controlado, capacitación y estabilización |
 
----
+### 13.3 Definición de terminado
 
-## 11. Casos de uso principales
+Una historia está terminada cuando tiene criterios automatizados, trazabilidad, permisos, observabilidad, documentación de contrato y evidencia con fixture representativo. Una épica no termina solo con UI o persistencia aislada: debe demostrar su vertical de punta a punta.
 
-### CU-01. Calcular necesidades diarias
+## 14. Decisiones críticas de los primeros cinco días
 
-1. Validar fuentes.
-2. Crear corrida.
-3. Calcular stock proyectado y necesidad.
-4. Descontar pipeline válido.
-5. Publicar nueva foto vigente.
-6. Generar alertas.
+No deben frenar la preparación técnica, pero sí cerrarse antes de comprometer UAT:
 
-### CU-02. Registrar Venta Especial
+1. ratificación funcional del signo y redondeo de NDD-D/NDD-S;
+2. granularidad y fuente oficial de PDVB, lead time y días;
+3. composición exacta de ingresos y compromisos;
+4. unidad base y factores logísticos;
+5. regla de prioridad e imputación;
+6. contrato pull/importación con Valkimia y campo de ID Connexa;
+7. semántica de cantidad preparada: delta o acumulada;
+8. estados que prueban despacho/tránsito;
+9. volumen, ventana y SLA de frescura;
+10. calendario exacto del Día 1 al Día 40.
 
-1. Comprador ingresa datos y SLA.
-2. Sistema valida duplicados y política.
-3. Se solicita aprobación si corresponde.
-4. La excepción activa entra al consolidado.
+Toda decisión se registra en un ADR o acta breve y actualiza la configuración o el contrato correspondiente.
 
-### CU-03. Enviar consolidado a Valkimia
+## 15. Evolución posterior
 
-1. Connexa crea oferta con referencia.
-2. Adaptador valida mappings.
-3. Publica o encola.
-4. Persiste referencia/respuesta.
-5. Actualiza panel.
-
-### CU-04. Valkimia prepara parcialmente
-
-1. Tracking informa cantidad confirmada menor.
-2. Connexa registra evento por línea.
-3. Imputa cantidad a fuentes.
-4. Mantiene saldo visible.
-5. El cálculo siguiente evita duplicar pipeline y reevalúa el remanente.
-
-### CU-05. Solicitar rebalanceo
-
-1. Comprador selecciona origen, destino y artículo.
-2. Sistema muestra impacto en ambos stocks.
-3. Supervisor aprueba/rechaza.
-4. Logística ejecuta.
-5. Despacho y recepción actualizan pipeline.
-
-### CU-06. Gestionar atraso
-
-1. Panel genera alerta.
-2. Comprador abre detalle y timeline.
-3. Asigna/escala la acción.
-4. Sistema conserva responsable, comentario y resolución.
-
----
-
-## 12. Criterios de aceptación del MVP
-
-El MVP se acepta cuando:
-
-1. Una corrida diaria completa produce una sola foto vigente y es reejecutable.
-2. La necesidad puede explicarse con sus datos y fórmula.
-3. Un comprador registra los tres tipos de excepción.
-4. Las excepciones no duplican silenciosamente la necesidad regular.
-5. Connexa publica una oferta con referencia única y un reintento no duplica.
-6. Se visualizan estado y cantidad confirmada/preparada por línea.
-7. Una preparación parcial deja saldo visible.
-8. El cálculo del día siguiente no vuelve a pedir pipeline activo.
-9. El panel filtra por proveedor, sucursal y artículo.
-10. Las alertas de SLA, bajo stock y estancamiento son accionables.
-11. Se registra y sigue una transferencia intersucursal separada del CD.
-12. SGM no puede ingresar nuevas necesidades después del corte.
-13. Toda entidad tiene timeline de auditoría.
-14. La caída del adaptador no pierde ni duplica ofertas.
-15. Los conteos del inventario inicial concilian con el acta de corte.
-
----
-
-## 13. Pruebas mínimas
-
-### Datos
-
-- fuente ausente/desactualizada;
-- artículo sin mapping;
-- stock negativo;
-- múltiplos y redondeos;
-- pipeline duplicado;
-- relanzamiento de corrida.
-
-### Negocio
-
-- necesidad regular con/sin stock CD;
-- cada política de excepción;
-- excepción vencida/cancelada;
-- consolidación de varias fuentes;
-- preparación total, parcial y nula;
-- cancelación Valkimia;
-- intersucursal aprobada/rechazada.
-
-### Integración
-
-- alta individual y lista;
-- timeout antes/después de respuesta;
-- respuesta ambigua;
-- reintento idempotente;
-- consulta por ID/referencia;
-- mapping de cada estado real;
-- cantidades confirmadas;
-- marcado de finalizado procesado.
-
-### Corte
-
-- carga inicial repetida;
-- pendientes duplicados;
-- bloqueo de SGM;
-- contingencia de publicación;
-- conciliación posterior.
-
-### Seguridad y UX
-
-- permisos por rol;
-- aprobación segregada;
-- exportación;
-- filtros y tiempos;
-- auditoría de cambios.
-
----
-
-## 14. Dependencias y decisiones abiertas
-
-| Tema | Responsable sugerido | Bloquea |
-| --- | --- | --- |
-| Fórmula/horizonte regular | Compras + Datos | Construcción del cálculo |
-| Fuentes y SLA de datos | Datos + IT | Integración |
-| Política por excepción | Compras | Consolidación |
-| Aprobaciones | Negocio | Workflow |
-| Contrato Valkimia real | Valkimia + IT | Adaptador |
-| Mapping de estados | Operación CD + Valkimia | Tracking |
-| Idempotencia viable | Arquitectura + Valkimia | Productivo |
-| Fuente de recepción | Logística + IT | Pipeline completo |
-| Fecha/universo del corte | Sponsor + Operación | Go-live |
-| Estados intersucursal | Compras + Logística | Circuito |
-
----
-
-## 15. Evolución a Fase 2
-
-La arquitectura deberá permitir incorporar, sin redefinir Need/Offer/Event:
-
-- SND en tiempo cercano a real;
-- asignación de stock;
-- score y *fair share*;
-- reservas;
-- simulación;
-- capacidad, peso, volumen y pallets;
-- consolidación por viaje;
-- ruteo y optimización;
-- eventos WEB.
-
-Estas capacidades se mantendrán como épicas separadas y no condicionarán el cierre del MVP.
+Gestión de Distribución Inteligente, asignación, reservas, prorrateo, transferencias, vehículos, viajes, rutas, cubicaje y optimización se mantienen en un backlog de Fase 2 separado. No se anticipan entidades, pantallas ni reglas de esas capacidades dentro del MVP.
 

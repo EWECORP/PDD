@@ -1,800 +1,301 @@
-# Diseño de Pantallas Operativas — Necesidades de Distribución
+# Diseño de Pantallas Operativas — Fase 1
 
-Versión: **2.0**
-Fecha: **2026-07-24**
-Destino: Producto, UX/UI, Desarrollo, QA, Compras, Logística e IT
-Reemplaza: `PDD - Diseno de Pantallas Operativas Connexa v1.0.md`
+Versión: **2.1**
+Fecha: **2026-07-28**
+Estado: **Alcance UX para construcción**
 
 ---
 
 ## 1. Objetivo
 
-Diseñar una experiencia centrada en el comprador:
-
-- ver stock y pipeline por proveedor, sucursal y artículo;
-- detectar bajo stock, atrasos y preparación parcial;
-- comprender cómo se calculó una necesidad;
-- registrar únicamente Ventas Especiales, Acuerdos Comerciales y Acopios;
-- solicitar rebalanceos intersucursal;
-- seguir la respuesta de Valkimia;
-- operar por excepción, no línea por línea.
-
-La interfaz no incluye en Fase 1 un simulador de asignación, *fair share*, cubicaje o planificación de camiones.
-
----
+Permitir que Compras entienda qué necesita cada sucursal y por qué, gestione E/C/A y siga lo que Valkimia importó y preparó. Las pantallas no administran distribución, viajes ni cargas.
 
 ## 2. Principios UX
 
-### P1. Posición integral
+- mostrar siempre fecha y frescura;
+- distinguir necesidad, importado y preparado;
+- mantener visibles D/E/C obligatorias y A/S opcionales;
+- explicar fórmula, IRQ y saldo;
+- priorizar excepciones y compromisos;
+- no presentar stock Base 2 como reservado;
+- usar unidades logísticas solo como estimación;
+- ocultar de Fase 1 toda acción de vehículos, viajes, rutas o carga.
 
-Una fila debe reunir:
-
-```text
-stock sucursal + necesidad + stock CD + pipeline + backlog + SLA
-```
-
-### P2. Excepción antes que volumen
-
-El inicio debe priorizar las líneas que requieren una acción, no la totalidad del catálogo.
-
-### P3. Cantidades explicables
-
-Cada cantidad permite ver origen, fecha, fórmula, movimientos incluidos y vínculo con Valkimia.
-
-### P4. Frescura visible
-
-Todo stock, demanda o estado externo muestra fecha/hora. Un dato vencido nunca parece actual.
-
-### P5. Un solo canal
-
-No se ofrece ninguna acción que derive la carga hacia SGM o una publicación directa a Valkimia.
-
-### P6. Fase 1 y Fase 2 separadas
-
-La UI no prometerá asignación inteligente de stock. “Stock CD” es referencia; “Preparado” es confirmación de Valkimia.
-
----
-
-## 3. Roles
-
-| Rol | Capacidades |
-| --- | --- |
-| Comprador | Consulta, crea excepciones, solicita rebalanceos, gestiona alertas |
-| Supervisor de Compras | Aprueba, cancela, modifica umbrales autorizados, ve KPIs |
-| Logística | Gestiona ejecución intersucursal y consulta pipeline |
-| Operación CD | Consulta ofertas/estados e incidencias |
-| IT Integraciones | Monitor, errores, payloads, reintentos controlados |
-| Auditor | Solo lectura y exportación |
-| Administrador | Parámetros, mappings, fuentes, permisos y calendarios |
-
-Segregación recomendada:
-
-- quien crea una excepción de alto impacto no la aprueba;
-- Compras no reintenta técnicamente;
-- IT no modifica cantidades de negocio;
-- un cambio de cantidad aprobado vuelve a aprobación si supera tolerancia.
-
----
-
-## 4. Navegación
+## 3. Roles y navegación
 
 ```text
-Inicio — Mi Panel
-  |
-  +-- Stock y Necesidades
-  |     +-- Detalle Sucursal–Artículo
-  |
-  +-- Excepciones
-  |     +-- Ventas Especiales
-  |     +-- Acuerdos Comerciales
-  |     +-- Acopios
-  |
-  +-- Ofertas y Ejecución
-  |     +-- Consolidado enviado
-  |     +-- Documento Valkimia
-  |
-  +-- Transferencias Intersucursal
-  |     +-- Nueva solicitud
-  |     +-- Seguimiento logístico
-  |
+Inicio
+  +-- Panel diario
+  +-- Stock y necesidades
+  +-- Excepciones E/C/A
+  +-- Backlog para Valkimia
+  +-- Ejecución Valkimia
   +-- Alertas
-  |
   +-- Administración
         +-- Corridas y fuentes
-        +-- Integraciones
-        +-- Mappings y parámetros
+        +-- Parámetros
+        +-- Monitor
         +-- Auditoría
 ```
 
----
+## 4. Pantalla 1 — Panel diario
 
-## 5. Pantalla 1 — Mi Panel de Compras
-
-### Pregunta que responde
-
-> ¿Dónde tengo riesgo de stock, un compromiso próximo o una entrega atrasada?
-
-### Wireframe
+Pregunta: **¿Qué requiere atención hoy?**
 
 ```text
-+----------------------------------------------------------------------------------+
-| Necesidades de Distribución                      Datos al 24/07 06:10  [Actualizar]|
-+----------------------------------------------------------------------------------+
-| Riesgo quiebre | SLA vencidos | Prep. parcial | Sin avance | Datos vencidos      |
-|      128       |      19      |       34      |     11     |       7              |
-+----------------------------------------------------------------------------------+
-| Mis filtros: Comprador [EE] Proveedor [Todos] Familia [Todos] Sucursal [Todas]   |
-+----------------------------------------------------------------------------------+
-| Prioridad | Proveedor | Sucursal | Artículo | Cobertura | Backlog | Estado | SLA  |
-| CRÍTICA   | Prov. A   | 041      | 1234     | 0,8 días  | 60      | PARCIAL| -4h  |
-| ALTA      | Prov. B   | 052      | 9876     | 1,2 días  | 20      | SIN CD | 12h  |
-+----------------------------------------------------------------------------------+
-| [Ver posición completa] [Nueva excepción] [Solicitar rebalanceo]                 |
-+----------------------------------------------------------------------------------+
++--------------------------------------------------------------------------------+
+| Necesidades de Distribución                 Foto: 28/07 06:10   [Datos frescos] |
++--------------------------------------------------------------------------------+
+| IRQ 100 | E/C vencidas | Parciales | Sin avance | Datos faltantes              |
+|   128   |      19      |    34     |     11     |        7                     |
++--------------------------------------------------------------------------------+
+| Filtros: Comprador | Proveedor | Sucursal | DECAS | Oblig./Opc. | SLA          |
++--------------------------------------------------------------------------------+
+| Pri | IRQ | Prov | Suc | Artículo | D | E | C | A | S | Preparado | Saldo     |
++--------------------------------------------------------------------------------+
 ```
 
-### Componentes
+Acciones:
 
-- KPIs accionables.
-- Lista priorizada de alertas.
-- Filtros persistentes del comprador.
-- Semáforo de frescura.
-- Accesos rápidos.
-- Evolución de backlog y cobertura.
-
-### Acciones
-
-- Abrir posición filtrada.
-- Crear excepción.
-- Solicitar transferencia intersucursal.
-- Asignar/reconocer alerta.
-- Guardar vista.
-
----
-
-## 6. Pantalla 2 — Stock y Necesidades
-
-### Pregunta que responde
-
-> ¿Cuál es la posición completa por proveedor, sucursal y artículo?
-
-### Wireframe
-
-```text
-+--------------------------------------------------------------------------------------------------+
-| Stock y Necesidades                                                                               |
-+--------------------------------------------------------------------------------------------------+
-| Agrupar por [Proveedor > Sucursal > Artículo]  Buscar [...]  Datos [Actuales ▾]                   |
-| Filtros: Comprador | CD | Proveedor | Familia | Sucursal | Artículo | Estado | SLA | Alerta       |
-+--------------------------------------------------------------------------------------------------+
-| Prov | Suc | Artículo | Stock Suc | Cob. | Stock CD* | Regular | Excep. | Ofrec. | Prep. | Backlog|
-| A    | 041 | 1234     | 20 06:00  | 0,8  | 70 05:55  | 80      | 30     | 110    | 60    | 50     |
-+--------------------------------------------------------------------------------------------------+
-| * Stock CD de referencia; Valkimia confirma disponibilidad real al preparar.                      |
-+--------------------------------------------------------------------------------------------------+
-```
-
-### Filtros
-
-- comprador;
-- proveedor;
-- familia/categoría;
-- CD;
-- sucursal;
-- artículo;
-- tipo de necesidad;
-- cobertura;
-- estado pipeline;
-- SLA;
-- severidad;
-- frescura.
-
-### Columnas
-
-- proveedor;
-- sucursal;
-- artículo y descripción;
-- stock sucursal + timestamp;
-- cobertura;
-- stock CD de referencia + timestamp;
-- necesidad regular;
-- Venta Especial;
-- Acuerdo;
-- Acopio;
-- ofrecido;
-- en proceso;
-- preparado;
-- despachado/en tránsito;
-- recibido;
-- backlog;
-- SLA;
-- última actividad;
-- alerta;
-- próxima acción.
-
-### Vistas
-
-- compacta;
-- posición completa;
-- solo excepciones;
-- solo riesgo de quiebre;
-- solo atraso;
-- por proveedor;
-- por sucursal.
-
-### Reglas visuales
-
-- Rojo: quiebre o SLA vencido.
-- Ámbar: cobertura baja, parcial o SLA próximo.
-- Azul: en proceso.
-- Verde: cubierto/recibido.
-- Gris rayado: dato desactualizado.
-- Ícono de advertencia: stock CD es referencia, no reserva.
-
----
-
-## 7. Pantalla 3 — Detalle Sucursal–Artículo
-
-### Pregunta que responde
-
-> ¿Por qué Connexa dice que se necesitan estas unidades y qué pasó con ellas?
-
-### Wireframe
-
-```text
-+----------------------------------------------------------------------------------+
-| Sucursal 041 — Artículo 1234                               Riesgo: CRÍTICO         |
-+----------------------------------------------------------------------------------+
-| Stock sucursal 20 | Objetivo 100 | Pipeline 60 | Regular abierta 20 | Excep. 30  |
-| Stock CD ref. 70 (05:55) | Cobertura 0,8 días | Próximo SLA 24/07 14:00          |
-+----------------------------------------------------------------------------------+
-| Cómo se calculó                                                                  |
-| Objetivo 100 - Stock 20 - Pipeline 60 = Regular 20                              |
-+----------------------------------------------------------------------------------+
-| Excepciones: VE-120 30 u, SLA 14:00, parcial 10/30                              |
-+----------------------------------------------------------------------------------+
-| Pipeline                                                                          |
-| Oferta CNX-... 110 -> VKM 55431 -> En curso -> Preparado 60 -> Últ. 10:32       |
-+----------------------------------------------------------------------------------+
-| Timeline | Comentarios | Calidad de datos                                        |
-+----------------------------------------------------------------------------------+
-```
-
-### Secciones
-
-- posición actual;
-- explicación de fórmula;
-- datos fuente y frescura;
-- excepciones;
-- ofertas y documentos Valkimia;
-- cantidades por etapa;
-- transferencias intersucursal relacionadas;
-- timeline;
-- alertas y responsable.
-
-### Acciones
-
-- crear excepción;
-- solicitar rebalanceo;
-- ver documento Valkimia;
-- comentar;
-- reconocer/escalar alerta;
-- exportar timeline.
-
----
-
-## 8. Pantalla 4 — Nueva Venta Especial
-
-### Formulario
-
-```text
-Sucursal* | Artículo* | Cantidad*
-Fecha/hora objetivo* | SLA*
-Cliente/campaña/referencia*
-Prioridad | Política [Adicional / Mínimo / Reemplazo]
-Observaciones | Evidencia
-```
-
-### Panel lateral
-
-Mientras se completa, mostrar:
-
-- stock sucursal;
-- cobertura;
-- stock CD de referencia;
-- necesidad regular;
-- otras excepciones coincidentes;
-- pipeline;
-- impacto total;
-- advertencia de posible duplicado.
-
-### Acciones
-
-- guardar borrador;
-- enviar a aprobación;
-- activar si el permiso/umbral lo permite;
-- cancelar.
-
----
-
-## 9. Pantalla 5 — Acuerdos Comerciales
-
-### Listado
-
-Columnas:
-
-- acuerdo;
-- proveedor;
-- vigencia;
-- artículos;
-- sucursales;
-- regla/cantidad;
-- política;
-- cumplimiento;
-- próximo SLA;
-- estado.
-
-### Alta/edición
-
-```text
-Proveedor* | Referencia*
-Inicio* | Fin*
-Política* | Prioridad | SLA
-Artículos [selector/importación]
-Sucursales [selector/grupo/importación]
-Cantidad fija / mínimo / regla
-```
-
-### Validaciones
-
-- período válido;
-- artículos vinculados al proveedor;
-- líneas duplicadas;
-- superposición con otro acuerdo;
-- impacto estimado;
-- aprobación por umbral.
-
-### Detalle
-
-Mostrar cumplimiento por artículo y sucursal, cantidades ofrecidas/preparadas, pendientes, SLA y versiones.
-
----
-
-## 10. Pantalla 6 — Acopios
-
-### Listado
-
-- ID;
-- destino;
-- artículo;
-- cantidad;
-- motivo;
-- requerida;
-- vigencia;
-- cumplida;
-- backlog;
-- estado.
-
-### Alta
-
-Debe mostrar la posición actual y requerir:
-
-- motivo;
-- fecha requerida;
-- fin de vigencia;
-- política de combinación;
-- prioridad.
-
-No se permitirá un acopio indefinido.
-
----
-
-## 11. Pantalla 7 — Excepciones
-
-### Pregunta que responde
-
-> ¿Qué excepciones están activas, pendientes o vencidas?
-
-### Wireframe
-
-```text
-+----------------------------------------------------------------------------------+
-| Excepciones                         [Nueva Venta] [Nuevo Acuerdo] [Nuevo Acopio]  |
-+----------------------------------------------------------------------------------+
-| Tipo | Ref | Proveedor | Suc | Art | Cant. | Cumplida | Saldo | SLA | Estado    |
-+----------------------------------------------------------------------------------+
-| Filtros: Tipo | Creador | Aprobador | Vigencia | SLA | Estado | Posible duplicado|
-+----------------------------------------------------------------------------------+
-```
-
-Acciones masivas limitadas a exportar/asignar; no se habilitará cancelación masiva sin flujo específico.
-
----
-
-## 12. Pantalla 8 — Ofertas a Valkimia
-
-### Pregunta que responde
-
-> ¿Qué consolidado se envió y cuánto tomó Valkimia?
-
-### Wireframe
-
-```text
-+----------------------------------------------------------------------------------+
-| Ofertas a Valkimia                                                               |
-+----------------------------------------------------------------------------------+
-| Oferta | Fecha | CD | Destinos | Líneas | Ofrecido | Preparado | Estado | Alerta |
-| CNX-01 | 24/07 | 01 | 84       | 3.210  | 125.000  | 88.500    | PARCIAL| 34 SLA |
-+----------------------------------------------------------------------------------+
-```
-
-### Detalle
-
-- referencia Connexa;
-- documento(s) Valkimia;
-- adaptador usado;
-- timestamps;
-- líneas;
-- origen regular/excepcional;
-- ofrecido/confirmado;
-- estados;
-- errores;
-- timeline técnico resumido.
-
-### Acciones por rol
-
-Compras:
-
-- ver y filtrar;
 - abrir posición;
-- gestionar alerta.
+- crear E/C/A;
+- reconocer/escalar alerta;
+- guardar filtro;
+- exportar vista autorizada.
 
-IT:
+No incluye “solicitar rebalanceo”, “armar carga” ni “crear viaje”.
 
-- consultar estado;
-- reintentar solo error técnico;
-- ver payload;
-- vincular respuesta ambigua con controles.
+## 5. Pantalla 2 — Stock y necesidades
 
----
+Pregunta: **¿Cuál es la posición completa por proveedor–sucursal–artículo?**
 
-## 13. Pantalla 9 — Documento Valkimia
+Columnas mínimas:
 
-### Contenido
+- proveedor, sucursal, artículo;
+- stock físico, ingresos, compromisos y stock neto;
+- PDVB, lead time y cobertura;
+- crítico, mínimo, máximo;
+- D/E/C/A/S;
+- obligatoriedad;
+- IRQ y prioridad;
+- Base 2 físico, OC on-time/vencidas y cobertura;
+- importado, preparado, despacho/tránsito;
+- saldo, fecha objetivo, SLA;
+- frescura y alertas;
+- bultos, pallets, kg y volumen estimados.
 
-- ID y estado externo original;
-- estado normalizado;
-- tipo/operación/depósito/destino;
-- fecha de generación;
-- líneas con cantidad requerida y confirmada;
-- última consulta;
-- mensajes;
-- oferta Connexa asociada;
-- timeline.
+Reglas visuales:
 
-Debe distinguir claramente:
+- rojo: IRQ 90/100 o SLA vencido;
+- ámbar: IRQ 50, parcial o dato próximo a vencer;
+- azul: importado/en proceso;
+- verde: preparado/cubierto con evidencia;
+- gris: opcional o dato logístico ausente;
+- etiqueta permanente: “Stock Base 2 informativo; no reservado”.
 
-- `Ofrecido por Connexa`.
-- `Confirmado/preparado por Valkimia`.
-- `Despachado/recibido`, solo si existe evidencia.
+## 6. Pantalla 3 — Detalle artículo–sucursal
 
-No etiquetar `TER` automáticamente como “recibido” sin validación del mapping.
-
----
-
-## 14. Pantalla 10 — Transferencias Intersucursal
-
-### Listado
-
-```text
-ID | Origen | Destino | Artículo | Cantidad | SLA | Estado | Responsable | Alerta
-```
-
-### Nueva solicitud
+Pregunta: **¿Cómo se calculó y qué ocurrió con la línea?**
 
 ```text
-Sucursal origen* | Sucursal destino*
-Artículo* | Cantidad* | Fecha requerida*
-Motivo* | Prioridad | Observación
++----------------------------------------------------------------------------+
+| Sucursal 041 / Artículo 1234                         IRQ 90 / Obligatoria    |
++----------------------------------------------------------------------------+
+| Físico 20 + Ingresos 15 - Compromisos 5 = Stock Neto 30                    |
+| PDVB 10 | LT 2 | Máximo 70 | D 40 | S 20                                   |
++----------------------------------------------------------------------------+
+| E 10 | C 0 | A 0 | Total abierto 70 | Preparado 25 | Saldo 45              |
++----------------------------------------------------------------------------+
+| Base 2: físico 300 | OC on-time 100 | vencidas 20 | actualizado 05:55      |
++----------------------------------------------------------------------------+
+| Fuentes | Fórmula | Excepciones | Importaciones | Ejecución | Timeline      |
++----------------------------------------------------------------------------+
 ```
 
-Panel de impacto:
+Debe mostrar:
+
+- versión de corrida y fórmula;
+- valores fuente;
+- composición DECAS;
+- regla de prioridad/IRQ;
+- imputación de cantidades preparadas;
+- IDs Connexa y Valkimia;
+- historial append-only.
+
+## 7. Pantallas 4–6 — E, C y A
+
+### NDD-E — Venta especial
+
+Campos: sucursal, artículo, cantidad, fecha/SLA, cliente/referencia, prioridad, responsable, observación y evidencia.
+
+### NDD-C — Campaña
+
+Campos: campaña, proveedor, vigencia, artículos, sucursales, cantidades, fechas objetivo y responsable. Debe soportar carga masiva controlada.
+
+### NDD-A — Acopio
+
+Campos: sucursal, artículo, cantidad, motivo, vigencia, fecha requerida y responsable.
+
+Comportamiento común:
+
+- mostrar posición e impacto;
+- advertir posibles duplicados;
+- guardar borrador;
+- activar/aprobar según permiso;
+- versionar cambios;
+- cancelar/cerrar con motivo;
+- mostrar cantidad original, imputada y saldo.
+
+## 8. Pantalla 7 — Excepciones DECAS dirigidas
+
+Listado filtrable por tipo, referencia, proveedor, sucursal, artículo, responsable, vigencia, SLA, estado y posible duplicado.
+
+Columnas: ID, tipo, cantidad original, preparada, cancelada, saldo, prioridad, fechas, estado y última modificación.
+
+## 9. Pantalla 8 — Backlog para Valkimia
+
+Pregunta: **¿Qué líneas están disponibles para selección?**
 
 ```text
-Origen: stock 100 -> proyectado 60 -> cobertura 4,2 días
-Destino: stock 5 -> proyectado 45 -> cobertura 3,1 días
++--------------------------------------------------------------------------------+
+| Backlog vigente — Foto 2026-07-28 / versión 07                                 |
++--------------------------------------------------------------------------------+
+| Filtros: CD | Suc | Prov | DECAS | Oblig./Opc. | IRQ | Peso | Vol. | Pallets  |
++--------------------------------------------------------------------------------+
+| ID | Tipo | O/O | IRQ | Suc | Art | Saldo | Kg | m3 | Pallets | Fecha/SLA      |
++--------------------------------------------------------------------------------+
+| Totales visibles: líneas, unidades, bultos, pallets, kg, volumen               |
++--------------------------------------------------------------------------------+
 ```
 
-### Flujo de estado
+Para usuarios Connexa es de consulta. La selección operativa ocurre en Valkimia. No se incluye botón “optimizar”, “completar camión” o “crear viaje”.
 
-Barra visual:
+## 10. Pantalla 9 — Ejecución Valkimia
 
-```text
-Solicitud -> Aprobación -> Logística -> Preparación -> Despacho -> Recepción
-```
+Debe distinguir:
 
-### Acciones
+- disponible;
+- importado;
+- preparado;
+- despachado/tránsito si hay evidencia;
+- remanente.
 
-- aprobar/rechazar;
-- asignar responsable logístico;
-- registrar preparación;
-- registrar despacho;
-- confirmar recepción;
-- cancelar con motivo.
+Filtros: referencia Connexa/Valkimia, estado, sucursal, artículo, fecha, parcialidad, sin avance y error.
 
----
+El detalle muestra eventos originales, normalización, cantidades, timestamps, imputación DECAS y reintentos técnicos.
 
-## 15. Pantalla 11 — Centro de Alertas
+## 11. Pantalla 10 — Stock y cobertura Base 2
 
-### Tipos
+Pregunta: **¿Cómo se relaciona la demanda consolidada con la disponibilidad informada del CD?**
 
-| Grupo | Ejemplos |
-| --- | --- |
-| Abastecimiento | Quiebre, cobertura baja, stock CD insuficiente |
-| Comercial | Venta/Acuerdo/Acopio próximo o vencido |
-| Ejecución | Sin recepción, preparación parcial, documento estancado |
-| Datos | Stock/demanda/maestro desactualizado |
-| Integración | Error, timeout, respuesta ambigua, estado desconocido |
-| Intersucursal | Aprobación o entrega vencida |
-| Gobierno | Intento de origen SGM posterior al corte |
+Incluye:
 
-### Gestión
+- D/E/C obligatorias;
+- A/S opcionales;
+- stock físico;
+- OC pendientes on-time/vencidas;
+- índice de cobertura;
+- antigüedad y criticidad;
+- unidades logísticas estimadas.
 
-Cada alerta tendrá:
+Incluye un aviso: **“Vista informativa. No asigna ni reserva stock.”**
 
-- severidad;
-- entidad;
-- responsable;
-- creación;
-- SLA de atención;
-- estado;
-- comentario;
-- acción recomendada;
-- resolución.
+## 12. Pantalla 11 — Alertas
 
----
+Grupos:
 
-## 16. Pantalla 12 — Corridas Diarias
+- abastecimiento: IRQ, cobertura y quiebre;
+- comercial: E/C vencida o próxima;
+- datos: fuente o parámetro inválido;
+- ejecución: parcial o sin avance;
+- integración: timeout, duplicado, estado desconocido;
+- control: cantidad inconsistente o evento pendiente.
 
-### Usuarios
+Cada alerta tiene severidad, entidad, responsable, SLA de atención, estado, recomendación y comentarios.
 
-Supervisor, Datos, IT y auditor.
+## 13. Pantalla 12 — Corridas y fuentes
 
-### Contenido
+Muestra fecha, fórmula, estado, versión vigente, fuentes, frescura, conteos, rechazados, totales DECAS y errores.
 
-- fecha operativa;
-- versión de fórmula;
-- ámbitos;
-- fuentes/lotes/frescura;
-- inicio/fin;
-- registros procesados;
-- rechazados;
-- necesidades resultantes;
-- alertas;
-- versión vigente;
-- usuario/proceso.
+Acciones autorizadas:
 
-### Acciones
+- ver diferencias;
+- descargar rechazados;
+- reejecutar ámbito;
+- promover corrida válida;
+- conservar la anterior si falla.
 
-- ver diferencias contra corrida anterior;
-- ver errores por línea;
-- relanzar ámbito autorizado;
-- promover una versión como vigente;
-- exportar control.
+## 14. Pantalla 13 — Parámetros
 
-Un relanzamiento debe advertir que reemplazará la foto vigente; nunca “agregar” resultados.
+Secciones:
 
----
+- PDVB y fuente;
+- lead time, días stock y sobre-stock;
+- redondeos;
+- umbrales IRQ;
+- prioridad e imputación;
+- frescura;
+- unidades logísticas;
+- mapping Valkimia;
+- polling y alertas.
 
-## 17. Pantalla 13 — Monitor Técnico
+Todo cambio requiere vigencia, motivo, versión y permiso.
 
-### Tarjetas
+## 15. Pantalla 14 — Monitor y auditoría
 
-- fuentes de datos;
-- publicador Valkimia;
-- tracking Valkimia;
-- cola de salida;
-- documentos finalizados;
-- recálculo;
-- notificaciones.
+Monitor:
 
-### Métricas
-
-- última ejecución exitosa;
-- latencia p50/p95;
-- tasa de error;
-- cola/reintentos;
-- respuestas ambiguas;
+- ingestas;
+- corrida;
+- consulta/importación Valkimia;
+- eventos de ejecución;
+- cola y reintentos;
+- referencias ambiguas;
 - estados desconocidos;
-- referencias sin vínculo;
-- documentos sin actualización;
-- diferencia ofrecido/confirmado.
+- latencia y frescura.
 
-### Reintentos
+Auditoría: búsqueda por fecha, sucursal, artículo, proveedor, DECAS, ID Connexa/Valkimia, corrida, usuario y evento.
 
-La UI debe mostrar primero:
+## 16. MVP Día 1–40
 
-1. si existe documento externo;
-2. referencia utilizada;
-3. último request/response;
-4. riesgo de duplicación.
+Imprescindibles:
 
-Solo entonces un usuario autorizado podrá reintentar.
+1. Panel diario.
+2. Stock y necesidades.
+3. Detalle explicable.
+4. Formularios y listado E/C/A.
+5. Backlog para Valkimia.
+6. Ejecución Valkimia.
+7. Cobertura Base 2.
+8. Alertas.
+9. Corridas/fuentes.
+10. Parámetros básicos.
+11. Monitor/auditoría.
 
----
+Postergar:
 
-## 18. Pantalla 14 — Parámetros y Mappings
+- personalización avanzada;
+- analítica histórica compleja;
+- notificaciones multicanal;
+- importadores comerciales no esenciales.
 
-### Secciones
+Reservar para Fase 2:
 
-- calendario/frecuencia;
-- fórmula e horizonte;
-- cobertura/stock objetivo;
-- múltiplos;
-- política por excepción;
-- aprobación por umbral;
-- mapping de estados Valkimia;
-- intervalos de polling;
-- umbrales de alerta;
-- imputación de preparados;
-- stock protegido intersucursal;
-- fecha de corte y fuentes permitidas.
+- transferencias intersucursal;
+- asignación y fair share;
+- reservas;
+- capacidad, vehículos y viajes;
+- rutas, cubicaje y optimización.
 
-### Reglas
+## 17. Criterios de aceptación UX
 
-- versionado con vigencia;
-- comparación antes/después;
-- motivo obligatorio;
-- aprobación;
-- aplicación a nuevas corridas;
-- no alterar historia.
-
----
-
-## 19. Pantalla 15 — Auditoría
-
-Búsqueda por:
-
-- sucursal;
-- artículo;
-- proveedor;
-- necesidad;
-- excepción;
-- oferta;
-- ID Valkimia;
-- transferencia intersucursal;
-- usuario;
-- evento;
-- fecha.
-
-Cada evento muestra:
-
-- valor anterior/nuevo;
-- actor/sistema;
-- timestamp;
-- correlación;
-- payload protegido;
-- comentario.
-
----
-
-## 20. Flujos principales
-
-### Flujo A — Revisión diaria
-
-```text
-Mi Panel
-  -> alerta de quiebre
-  -> Stock y Necesidades
-  -> Detalle Sucursal–Artículo
-  -> revisar pipeline
-  -> crear excepción o escalar atraso
-```
-
-### Flujo B — Venta Especial
-
-```text
-Nueva Venta Especial
-  -> validar impacto/duplicados
-  -> aprobación
-  -> Excepciones activas
-  -> Oferta Valkimia
-  -> preparación
-  -> cumplimiento/SLA
-```
-
-### Flujo C — Preparación parcial
-
-```text
-Alerta
-  -> Oferta
-  -> Documento Valkimia
-  -> línea parcial
-  -> posición sucursal–artículo
-  -> saldo y próxima acción
-```
-
-### Flujo D — Rebalanceo
-
-```text
-Stock y Necesidades
-  -> solicitar intersucursal
-  -> impacto origen/destino
-  -> aprobación
-  -> Logística
-  -> despacho
-  -> recepción
-```
-
-### Flujo E — Error técnico
-
-```text
-Monitor
-  -> resultado ambiguo
-  -> consulta por referencia
-  -> vincular o reintentar con misma referencia
-  -> reconciliación
-```
-
----
-
-## 21. MVP de pantallas
-
-### Imprescindibles para Big‑Bang
-
-1. Mi Panel de Compras.
-2. Stock y Necesidades.
-3. Detalle Sucursal–Artículo.
-4. Venta Especial.
-5. Acuerdos Comerciales.
-6. Acopios.
-7. Excepciones.
-8. Ofertas a Valkimia.
-9. Documento Valkimia.
-10. Transferencias Intersucursal.
-11. Centro de Alertas.
-12. Corridas Diarias.
-13. Monitor Técnico.
-14. Parámetros/mappings básicos.
-15. Auditoría.
-
-### Posteriores dentro de Fase 1
-
-- vistas comparativas históricas avanzadas;
-- personalización amplia del dashboard;
-- importadores masivos con plantillas;
-- analítica de cumplimiento por proveedor;
-- notificaciones multicanal.
-
-### Reservadas para Fase 2
-
-- simulador de asignación;
-- *fair share*;
-- tablero de capacidad;
-- cubicaje;
-- viajes y rutas;
-- optimización.
-
----
-
-## 22. Criterios de aceptación UX
-
-- Un comprador identifica sus cinco excepciones más críticas en menos de 2 minutos.
-- Puede pasar de una alerta a su cálculo, oferta y documento Valkimia sin buscar IDs manualmente.
-- La fecha de cada stock y estado externo es visible.
-- “Stock CD de referencia” no se confunde con SND reservado.
-- Una preparación parcial muestra cantidad y saldo.
-- El usuario puede distinguir regular, Venta Especial, Acuerdo y Acopio.
-- No existe acción de carga regular manual.
-- No existe acción de envío por SGM.
-- Un rebalanceo muestra impacto en origen y destino antes de aprobar.
-- Un error técnico presenta una acción segura y riesgo de duplicación.
-- Cambios sensibles solicitan confirmación y motivo.
-- La interfaz es utilizable con teclado y cumple contraste/accesibilidad definidos por el estándar corporativo.
-
----
-
-## 23. Resultado
-
-La interfaz convierte a Connexa en la torre de control funcional de la Fase 1. El comprador ve la posición completa y actúa únicamente cuando existe una excepción, un riesgo o un atraso. Valkimia conserva la ejecución oportunista y sus cantidades quedan reflejadas en el mismo pipeline. El diseño evita anticipar funciones de planificación inteligente que pertenecen a la Fase 2.
+- Compras identifica las cinco prioridades en menos de dos minutos.
+- El cálculo y el IRQ de una línea son explicables sin consultar base de datos.
+- D/E/C se distinguen de A/S.
+- “Importado” nunca aparece como “cumplido”.
+- Una preparación parcial muestra preparado, imputación y saldo.
+- Todas las cantidades muestran unidad y timestamp.
+- Base 2 se identifica como información no reservada.
+- Datos logísticos faltantes se muestran sin ocultar la línea.
+- No existe ninguna acción de gestión u optimización logística.
 

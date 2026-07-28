@@ -1,471 +1,387 @@
-# Modelo de Datos Conceptual — Necesidades de Distribución
+# Modelo de Datos Conceptual — Fase 1
 
-Versión: **2.0**
-Fecha: **2026-07-24**
-Estado: **Base conceptual; modelo físico pendiente de decisiones de arquitectura**
-
----
-
-## 1. Objetivo
-
-Definir el modelo que soporta la Fase 1 sin heredar estructuras de convivencia con SGM ni anticipar entidades propias de optimización logística.
-
-El modelo debe representar:
-
-- fotos diarias de cálculo;
-- necesidad regular vigente;
-- excepciones persistentes;
-- consolidado ofrecido a Valkimia;
-- cantidades y estados informados;
-- pipeline y backlog;
-- transferencias intersucursal;
-- auditoría e integración.
+Versión: **2.1**
+Fecha: **2026-07-28**
+Estado: **Base para modelo físico**
 
 ---
 
-## 2. Decisiones de diseño
+## 1. Objetivo y límites
 
-1. **Histórico y vigente separados.** Las corridas son inmutables; una proyección/vista identifica la foto vigente.
-2. **Necesidad y oferta separadas.** Una necesidad puede alimentar varias ofertas y una oferta puede consolidar varias fuentes.
-3. **Excepciones con identidad.** No se recrean cada día.
-4. **Tracking por línea.** Las cantidades se registran por artículo.
-5. **Estado externo conservado.** Se almacena el valor Valkimia y su normalización.
-6. **Sin convivencia.** No existen `external_execution` ni entidades de absorción SGM.
-7. **Carga inicial explícita.** Los pendientes del corte se identifican con lote de migración.
-8. **Intersucursal separada.** No se modela como oferta del CD.
-9. **Eventos append-only.** Ningún cambio sensible queda sin auditoría.
-10. **Adaptadores desacoplados.** El dominio no almacena estructuras específicas de una API salvo en mensajes técnicos.
+Modelar cálculo diario, DECAS, backlog, consulta/importación Valkimia y ejecución por línea. El modelo no administra distribución.
 
----
+Entidades prohibidas en Fase 1:
+
+```text
+allocation_run, reservation, branch_transfer_request,
+vehicle, trip, route, load_plan, load_optimization, capacity_slot
+```
+
+Peso, volumen, bultos y pallets son atributos derivados o snapshots informativos, no entidades de planificación.
+
+## 2. Principios
+
+1. snapshots históricos inmutables;
+2. proyección vigente separada;
+3. D/S recalculadas y E/C/A persistentes;
+4. necesidad, importación y ejecución separadas;
+5. eventos externos append-only;
+6. idempotencia mediante claves explícitas;
+7. cantidades e imputaciones por línea;
+8. configuración versionada;
+9. adaptadores fuera del dominio;
+10. sin anticipar Fase 2.
 
 ## 3. Mapa de entidades
 
 ```text
 CalculationRun
-  ├── CalculationSourceSnapshot
-  └── RegularNeedSnapshot ─────────────┐
-                                      │
-ExceptionNeed ── ExceptionNeedLine ────┼── NeedSourceAllocation
-                                      │          │
-                                      v          v
-                              DistributionOffer ── DistributionOfferLine
-                                                        │
-                                                        v
-                                              OfferExternalReference
-                                                        │
-                                                        v
-                                                OfferStatusEvent
+  ├── SourceSnapshot
+  ├── BranchStockPosition
+  └── NeedSnapshot (D/S)
+              │
+DirectedNeed ─┴── DirectedNeedLine (E/C/A)
+              │
+              v
+      CurrentBacklogLine
+              │
+              └── BacklogSourceAllocation
+                         │
+                         v
+              ValkimiaImportLine ── ValkimiaImport
+                         │
+                         v
+                   ExecutionEvent
 
-BranchTransferRequest ── BranchTransferLine ── BranchTransferEvent
-
-Todas las entidades ──> BusinessEventLog
-Integraciones ────────> IntegrationMessage
-Configuración ────────> ConfigurationVersion
-Carga inicial ────────> MigrationBatch
+ConfigurationVersion
+IntegrationMessage
+BusinessEventLog
 ```
 
----
+## 4. Corrida y fuentes
 
-## 4. Cálculo diario
+### `calculation_run`
 
-### 4.1 `calculation_run`
+Campos:
 
-| Campo | Descripción |
-| --- | --- |
-| `calculation_run_id` | UUID |
-| `business_date` | Fecha operativa |
-| `scope_type`, `scope_id` | Universo calculado |
-| `formula_version` | Versión de regla |
-| `status` | `STARTED`, `VALIDATING`, `CALCULATING`, `COMPLETED`, `FAILED`, `SUPERSEDED` |
-| `is_current` | Indicador de versión vigente del ámbito |
-| `started_at`, `finished_at` | Timestamps |
-| `created_by` | Proceso/usuario |
-| `summary` | Conteos y totales controlados |
+- `calculation_run_id`;
+- `business_date`;
+- `scope_type`, `scope_id`;
+- `formula_version`;
+- `status`;
+- `is_current`;
+- inicio/fin;
+- resumen de conteos y cantidades;
+- actor.
 
-Restricción: solo una corrida `is_current=true` por `business_date + scope`.
+Unicidad: una corrida vigente por fecha y ámbito.
 
-### 4.2 `calculation_source_snapshot`
+### `source_snapshot`
 
-Registra:
-
-- fuente;
+- corrida;
+- tipo de fuente;
 - lote;
 - `as_of_ts`;
+- obligatoriedad y frescura;
+- conteos/checksum;
+- estado y errores.
+
+## 5. Posición de stock
+
+### `branch_stock_position`
+
+Grano:
+
+```text
+corrida + CD + sucursal + artículo
+```
+
+Campos:
+
+- stock físico;
+- ingreso OC directo;
+- tránsito desde CD;
+- compromiso venta especial;
+- transferencia confirmada pendiente;
+- Stock Neto Sucursal;
+- PDVB;
+- lead time;
+- días stock/sobre-stock;
+- crítico, mínimo, máximo, sobre-stock;
+- cobertura;
+- IDs de snapshots fuente;
+- explicación y alertas.
+
+Las transferencias aparecen solo como cantidad fuente; no tienen ciclo gestionado.
+
+### `cd_stock_position`
+
+Grano: corrida + CD + artículo.
+
+Campos:
+
+- stock físico de referencia;
+- OC pendiente on-time;
+- OC vencida;
+- demanda DECAS consolidada;
+- índice de cobertura;
+- timestamp.
+
+No contiene reserva o cantidad asignada.
+
+## 6. Necesidades automáticas
+
+### `need_snapshot`
+
+Grano:
+
+```text
+corrida + CD + sucursal + artículo + tipo(D|S)
+```
+
+Campos:
+
+- `need_snapshot_id`;
+- proveedor;
+- tipo;
 - obligatorio/opcional;
-- estado de calidad;
-- cantidad de registros;
-- checksum o control;
-- mensaje de degradación.
-
-### 4.3 `regular_need_snapshot`
-
-Grano:
-
-```text
-calculation_run + CD + sucursal + artículo
-```
-
-Campos:
-
-- demanda/horizonte;
-- stock sucursal;
-- inbound válido;
-- compromisos;
-- stock proyectado;
-- stock objetivo;
-- necesidad bruta;
-- pipeline descontado;
-- necesidad abierta;
-- stock CD de referencia;
-- cantidad ofertable;
-- múltiplo;
-- alertas;
-- explicación serializada/versionada.
-
-Esta tabla es histórica. No se actualiza cuando llega un estado Valkimia.
-
-### 4.4 `current_distribution_need`
-
-Puede implementarse como vista o proyección materializada.
-
-Combina:
-
-- último `regular_need_snapshot`;
-- excepciones activas;
-- ofertas activas;
-- cantidades preparadas;
-- intersucursales activas;
-- backlog y alertas.
-
-Es la fuente principal del panel, no un segundo registro maestro.
-
----
-
-## 5. Excepciones
-
-### 5.1 `exception_need`
-
-Cabecera común:
-
-- `exception_need_id`;
-- tipo: `SPECIAL_SALE`, `COMMERCIAL_AGREEMENT`, `STOCKPILE`;
-- referencia;
-- proveedor opcional;
-- inicio/fin;
-- SLA;
+- cantidad calculada y redondeada;
+- IRQ;
 - prioridad;
-- política `ADDITIVE`, `MINIMUM_GUARANTEE`, `REPLACE`;
-- estado;
-- creador/aprobador;
-- timestamps;
-- motivo/observación.
-
-### 5.2 `exception_need_line`
-
-Grano:
-
-```text
-exception_need + sucursal + artículo
-```
-
-Cantidades:
-
-- requerida;
-- imputada como preparada;
-- recibida, si aplica;
-- cancelada;
-- backlog.
-
-Debe soportar materialización masiva de un acuerdo, manteniendo la referencia común.
-
-### 5.3 `exception_need_version`
-
-Recomendado para cambios sensibles:
-
-- versión;
-- valores;
-- vigencia;
-- usuario;
-- motivo;
-- aprobación.
-
----
-
-## 6. Oferta y ejecución Valkimia
-
-### 6.1 `distribution_offer`
-
-Cabecera de lote:
-
-- `distribution_offer_id`;
-- referencia externa estable;
-- fecha operativa;
-- CD;
-- adaptador;
-- estado técnico/funcional;
-- creación/publicación;
-- correlación;
-- cantidad de líneas y total;
-- usuario/proceso.
-
-### 6.2 `distribution_offer_line`
-
-Grano:
-
-```text
-oferta + sucursal + artículo + unidad
-```
-
-Campos:
-
-- `offer_line_id`;
 - fecha objetivo;
-- prioridad informativa;
-- cantidad ofrecida;
-- cantidad confirmada/preparada acumulada;
-- cantidad despachada/recibida cuando exista;
-- estado normalizado;
-- última actualización;
-- error/motivo.
+- fórmula y parámetros;
+- explicación;
+- alertas;
+- factores/logística estimada;
+- estado de cálculo.
 
-### 6.3 `need_source_allocation`
+Es inmutable. La nueva corrida crea otra foto.
 
-Explica qué fuentes forman una línea:
+## 7. Necesidades dirigidas
 
-| Campo | Uso |
-| --- | --- |
-| `offer_line_id` | Línea consolidada |
-| `source_type` | `REGULAR_SNAPSHOT` o `EXCEPTION_LINE` |
-| `source_id` | Entidad de origen |
-| `qty_contributed` | Cantidad aportada |
-| `qty_prepared_allocated` | Preparado imputado |
-| `allocation_order` | Orden determinístico |
-| `rule_version` | Regla aplicada |
-
-No representa asignación de SND entre sucursales. Solo descompone e imputa el resultado de una línea ya preparada.
-
-### 6.4 `offer_external_reference`
-
-Campos:
-
-- oferta/línea;
-- sistema/version/adaptador;
-- documento externo;
-- línea externa;
-- tipo/operación;
-- referencia enviada;
-- fecha de vínculo;
-- estado de validación.
-
-Unicidades:
-
-- sistema + documento externo;
-- adaptador + referencia enviada.
-
-### 6.5 `offer_status_event`
-
-Evento inmutable:
-
-- documento/línea;
-- estado externo;
-- estado normalizado;
-- cantidades;
-- fecha del evento externo;
-- fecha de recepción;
-- payload/referencia técnica;
-- versión de mapping.
-
-El estado actual se deriva del último evento válido, no reemplaza la historia.
-
----
-
-## 7. Transferencia intersucursal
-
-### 7.1 `branch_transfer_request`
+### `directed_need`
 
 Cabecera:
 
-- ID;
+- `directed_need_id`;
+- tipo `E`, `C` o `A`;
 - referencia;
-- sucursal origen/destino;
-- fecha requerida;
-- motivo;
+- proveedor;
+- vigencia;
 - prioridad;
+- responsable/aprobador;
 - estado;
-- solicitante/aprobador;
-- responsable logístico;
+- versión;
+- motivo/observación;
 - timestamps.
 
-### 7.2 `branch_transfer_line`
+### `directed_need_line`
 
-- artículo;
-- cantidad solicitada;
-- aprobada;
-- preparada;
-- despachada;
-- recibida;
+Grano: necesidad + sucursal + artículo.
+
+Campos:
+
+- cantidad original;
+- fecha objetivo/SLA;
+- preparada imputada;
 - cancelada;
-- stock origen al solicitar/aprobar;
-- stock protegido;
-- alertas.
+- saldo;
+- unidad;
+- factores logísticos snapshot;
+- última actividad.
 
-### 7.3 `branch_transfer_event`
+Restricción: el saldo nunca es negativo.
 
-Timeline de aprobación y ejecución. Puede resolverse con `business_event_log` si se garantiza el detalle.
+### `directed_need_version`
 
----
+Conserva antes/después, actor, motivo y vigencia de cambios.
 
-## 8. Datos transversales
+## 8. Backlog vigente
 
-### 8.1 `business_event_log`
+### `current_backlog_line`
 
-- `event_id`;
-- entidad/tipo/ID;
-- evento;
-- estado anterior/nuevo;
-- actor/sistema;
-- fecha;
-- correlación;
-- motivo;
-- payload funcional.
+Vista o proyección reconstruible:
 
-Append-only a nivel funcional.
+```text
+fecha vigente + CD + sucursal + artículo + proveedor
+```
 
-### 8.2 `integration_message`
+Campos:
 
-- mensaje/correlación;
-- adaptador/operación;
-- dirección;
-- referencia funcional;
-- intento;
-- request/response protegidos;
-- estado HTTP/técnico;
-- inicio/fin;
-- próximo reintento;
-- clasificación del error.
+- `backlog_line_id`;
+- `snapshot_version`;
+- D/E/C/A/S abiertas;
+- obligatorio total;
+- opcional total;
+- cantidad total abierta;
+- IRQ/prioridad;
+- fechas;
+- importado activo;
+- preparado;
+- tránsito;
+- saldo;
+- Base 2 de referencia;
+- bultos/pallets/kg/volumen estimados;
+- frescura y alertas.
 
-### 8.3 `configuration_version`
+No es un segundo maestro editable.
 
-Versiona:
+### `backlog_source_allocation`
 
-- fórmula;
-- políticas de excepción;
-- mappings;
-- polling;
-- alertas;
-- imputación;
-- múltiplos;
-- calendario;
-- permisos funcionales.
+Explica e imputa:
 
-### 8.4 `migration_batch`
+- línea de backlog/importación;
+- tipo e ID fuente;
+- cantidad aportada;
+- cantidad preparada imputada;
+- orden;
+- versión de regla.
 
-- lote;
-- fecha de corte;
-- origen;
-- conteos/totales;
+El término `allocation` refiere a atribución contable del cumplimiento, no a asignación de stock.
+
+## 9. Importación Valkimia
+
+### `valkimia_import`
+
+- `valkimia_import_id`;
+- clave idempotente;
+- adaptador;
+- CD;
+- fecha/hora;
+- operador/sistema;
+- versión de foto;
+- referencia externa;
 - estado;
-- aprobación;
-- reporte de conciliación.
+- totales.
 
-Los registros migrados guardan `migration_batch_id`. El origen histórico SGM no habilita nuevas cargas.
+### `valkimia_import_line`
 
----
+- importación;
+- línea backlog;
+- versión de línea;
+- artículo/sucursal;
+- cantidad importada;
+- cantidad preparada;
+- estado normalizado;
+- referencia/línea externa;
+- última actualización.
 
-## 9. Saldos y fórmulas
+Unicidad: adaptador + clave idempotente + línea.
 
-### Necesidad regular abierta
+Importar no reduce el saldo de necesidad.
+
+## 10. Ejecución
+
+### `execution_event`
+
+Evento inmutable:
+
+- `execution_event_id`;
+- clave de deduplicación;
+- importación/línea;
+- documento y línea externa;
+- tipo (`IMPORTED`, `PREPARED`, `DISPATCHED`, `CANCELLED`, etc.);
+- estado externo y normalizado;
+- cantidad delta o acumulada con semántica explícita;
+- remito/ETA opcional;
+- timestamp externo y de recepción;
+- payload técnico protegido;
+- versión de mapping.
+
+La proyección actual se deriva de eventos válidos.
+
+## 11. Datos logísticos informativos
+
+### `item_logistics_snapshot`
+
+Puede estar embebido en la corrida o referenciado por versión:
+
+- unidad base;
+- unidades por bulto;
+- bultos por pallet;
+- peso;
+- volumen;
+- fuente y vigencia;
+- estado de calidad.
+
+Si falta, la necesidad continúa con indicador `logistics_data_missing`.
+
+## 12. Transversales
+
+### `configuration_version`
+
+Fórmulas, parámetros, IRQ, prioridad, imputación, redondeos, frescura y mappings, con vigencia y aprobación.
+
+### `integration_message`
+
+Inbox/outbox:
+
+- correlación/idempotencia;
+- interfaz;
+- dirección;
+- estado;
+- hash;
+- intentos;
+- timestamps;
+- error;
+- referencia al payload protegido.
+
+### `business_event_log`
+
+Entidad, ID, evento, actor, fecha, correlación, antes/después y motivo.
+
+## 13. Saldos
 
 ```text
-regular_open_qty =
-  max(gross_regular_need - valid_inbound_pipeline, 0)
+directed_open =
+  max(original - prepared_allocated - cancelled, 0)
+
+automatic_open =
+  max(current_calculated - valid_pipeline_at_snapshot, 0)
+
+import_unprepared =
+  max(imported - prepared, 0)
+
+backlog_open =
+  suma de fuentes vigentes menos cumplimiento imputado
 ```
 
-El pipeline incluido debe identificarse para no descontarlo dos veces.
+`import_unprepared` y `backlog_open` no se suman: la importación es una vista del mismo universo, no nueva demanda.
 
-### Backlog de excepción
-
-```text
-exception_backlog_qty =
-  max(requested_qty - prepared_or_fulfilled_allocated - cancelled_qty, 0)
-```
-
-### Saldo de oferta
-
-```text
-offer_open_qty =
-  max(offered_qty - prepared_qty - cancelled_or_rejected_qty, 0)
-```
-
-Estos saldos tienen propósitos diferentes y no deben sumarse sin conocer sus vínculos.
-
----
-
-## 10. Índices y controles recomendados
-
-Índices:
-
-- necesidades por comprador/proveedor/sucursal/artículo;
-- corrida por fecha/ámbito/vigente;
-- excepción por tipo/estado/vigencia/SLA;
-- oferta por referencia/estado/fecha;
-- documento externo;
-- eventos por entidad/fecha;
-- intersucursal por origen/destino/estado/SLA;
-- mensajes por correlación/estado/reintento.
+## 14. Controles e índices
 
 Controles:
 
 - cantidades no negativas;
-- confirmada no superior a ofrecida sin evento de corrección;
-- una referencia externa funcional;
-- no crear oferta con mapping maestro inválido;
-- no aceptar fuente SGM posterior al corte;
-- no aprobar intersucursal origen=destino;
-- no modificar snapshots históricos;
-- no borrar eventos.
+- un solo snapshot vigente;
+- evento externo deduplicado;
+- preparado no superior al permitido sin corrección explícita;
+- E/C/A no recreadas por corrida;
+- D/S no acumuladas entre fotos;
+- versión de línea validada al importar;
+- fuente y fórmula recuperables;
+- ningún campo de reserva, viaje o carga.
 
----
+Índices:
 
-## 11. Privacidad, retención y seguridad
+- backlog por proveedor/sucursal/artículo/IRQ/SLA;
+- corrida por fecha/ámbito;
+- dirigida por tipo/estado/vigencia;
+- importación por clave/referencia/estado;
+- evento por documento/línea/fecha;
+- mensaje por correlación/estado;
+- auditoría por entidad/fecha.
 
-- Payloads técnicos deben enmascarar credenciales y datos sensibles.
-- Auditoría y mensajes tendrán políticas de retención distintas.
-- Los permisos de datos deberán respetar ámbito de comprador/proveedor cuando aplique.
-- Las correcciones se registran como nuevos eventos, no sobrescritura silenciosa.
-- La carga inicial y cambios de parámetros requieren controles reforzados.
+## 15. Pendientes de modelo físico
 
----
-
-## 12. Evolución a Fase 2
-
-El modelo podrá extenderse con:
-
-- `net_stock_snapshot`;
-- `allocation_run`;
-- `allocation_line`;
-- `reservation`;
-- `load_plan`;
-- `trip`;
-- `vehicle_capacity`;
-- `route`;
-- `optimization_scenario`.
-
-Estas entidades no deben implementarse anticipadamente dentro de Need u Offer. La separación evita que la Fase 1 quede acoplada al futuro algoritmo.
-
----
-
-## 13. Pendientes para modelo físico
-
-- motor de base de datos y esquema;
-- volumen/retención;
-- particionado de snapshots y eventos;
-- estrategia de vista vigente;
-- transacciones de publicación;
-- outbox/inbox;
-- locking de referencia;
-- granularidad exacta de unidad de medida;
-- fuente de recepciones;
-- catálogo de estados validado;
-- requisitos corporativos de seguridad.
+- motor y esquema;
+- volumen y particionado;
+- unidad y precisión decimal;
+- estrategia de proyección vigente;
+- transacción inbox/outbox;
+- locking idempotente;
+- retención de snapshots/payloads;
+- seguridad por ámbito;
+- semántica acumulada o delta de Valkimia;
+- catálogo final de estados.
 
