@@ -1,0 +1,23 @@
+-- PDD / Manifiesto de DDL vigentes - v2.0 - 2026-08-03
+-- Este archivo es informativo y no ejecuta sentencias.
+--
+-- MIGRACIONES VIGENTES
+--
+-- Base diarco_data:
+--   1. PDD - DDL Analitico diarco_data v2.0.sql
+--
+-- Base connexa_platform_ms:
+--   1. PDD - DDL Operativo Core connexa_platform_ms v2.0.sql
+--   2. PDD - DDL Operativo DECAS connexa_platform_ms v2.0.sql
+--
+-- Los dos grupos son independientes en su instalacion. Para operar/publicar
+-- PDVB deben estar instalados ambos. No existen FK entre bases: el contrato
+-- usa UUID, conteos y checksums, y publica por staging transaccional.
+--
+-- ARCHIVOS REEMPLAZADOS; NO EJECUTAR
+--   - PDD - DDL Demanda Basal PostgreSQL v1.0.sql
+--   - PDD - DDL Addendum CD41 y Stock Canonico v1.1.sql
+--   - PDD - DDL Decision Scope CD41 v1.2.sql
+--
+-- Los v1.x se conservan temporalmente como antecedentes. Suponen que pdd y
+-- datamart viven en la misma base, decision que fue reemplazada por v2.0.
