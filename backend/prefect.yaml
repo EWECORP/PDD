@@ -1,0 +1,30 @@
+name: diarco_pdd_flows
+prefect-version: 3.4.0
+
+work_pool:
+  name: diarco-ms
+  work_queue_name: pdd
+  job_variables: {}
+
+deployments:
+  - name: PDD_ANALYTICAL_DAILY_PROD
+    entrypoint: pdd_backend/flows/analytical.py:pdd_daily_flow
+    parameters: {}
+    work_pool:
+      name: diarco-ms
+      work_queue_name: pdd
+
+  - name: PDD_INITIAL_BACKFILL_MANUAL
+    entrypoint: pdd_backend/flows/analytical.py:pdd_initial_backfill_flow
+    parameters: {}
+    work_pool:
+      name: diarco-ms
+      work_queue_name: pdd
+
+  - name: PDD_BACKTEST_MANUAL
+    entrypoint: pdd_backend/flows/analytical.py:pdd_backtest_flow
+    parameters: {}
+    work_pool:
+      name: diarco-ms
+      work_queue_name: pdd
+

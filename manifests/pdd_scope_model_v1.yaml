@@ -1,0 +1,188 @@
+manifest:
+  schema_version: "1.0"
+  manifest_uuid: "66835924-af1b-4969-b3d6-408bd3a47072"
+  package_code: "PDD_CD41_PDVB"
+  package_version: 1
+  created_at: "2026-08-03T18:01:09-03:00"
+  created_by: "codex-assisted-design"
+  source_database: "diarco_data"
+  notes: >-
+    Primera identidad versionada del universo distribuible CD41 y del modelo
+    PDVB. Los UUID son permanentes para estas versiones y no deben regenerarse
+    en cada corrida.
+
+scope_version:
+  scope_version_uuid: "96a3775e-de50-4bac-919f-95132ad195d9"
+  scope_code: "CD41_DISTRIBUTABLE_ASSORTMENT"
+  version_no: 1
+  status: "APPROVED"
+  origin_cd: 41
+  business_date: "2026-08-03"
+  source:
+    database: "diarco_data"
+    relation: "src.base_productos_vigentes"
+    source_as_of_ts: "2026-08-03T13:46:39.101840"
+
+  approval:
+    decision_reference: "PDD - ADR-001 Universo Distribuible CD41.md"
+    confirmed_at: "2026-08-02"
+    confirmed_by_role: "responsable_funcional"
+    confirmed_by_identifier: "PENDING_FORMAL_REGISTRATION"
+    evidence: >-
+      Confirmacion explicita del filtro normativo durante la definicion del
+      proyecto. Antes de insertar el registro APPROVED en
+      connexa_platform_ms debe reemplazarse el identificador pendiente por el
+      usuario corporativo correspondiente.
+
+  article_filter:
+    description: "Articulos habilitados para compra en CD 41"
+    predicates:
+      c_sucu_empr: 41
+      active_for_purchase: 1
+    sql: |-
+      SELECT DISTINCT c_articulo
+      FROM src.base_productos_vigentes
+      WHERE c_sucu_empr = 41
+        AND active_for_purchase = 1
+
+  pair_filter:
+    description: "Pares articulo-sucursal distribuidos desde CD 41"
+    requires_article_membership: true
+    excludes_origin_as_destination: true
+    predicates:
+      cod_cd: "41CD"
+      abastecimiento: 0
+      habilitado: 1
+      active_for_sale: 1
+      active_on_mix: 1
+    sql: |-
+      SELECT DISTINCT
+          bpv.c_articulo,
+          bpv.c_sucu_empr AS destination_branch
+      FROM src.base_productos_vigentes AS bpv
+      INNER JOIN (
+          SELECT DISTINCT c_articulo
+          FROM src.base_productos_vigentes
+          WHERE c_sucu_empr = 41
+            AND active_for_purchase = 1
+      ) AS cd_articles USING (c_articulo)
+      WHERE bpv.cod_cd = '41CD'
+        AND bpv.abastecimiento = 0
+        AND bpv.habilitado = 1
+        AND bpv.active_for_sale = 1
+        AND bpv.active_on_mix = 1
+        AND bpv.c_sucu_empr <> 41
+
+  snapshot:
+    article_count: 2908
+    routed_article_count: 2231
+    pair_count: 59031
+    destination_count: 49
+    checksum_algorithm: "SHA-256"
+    canonicalization:
+      encoding: "UTF-8"
+      row_separator: "LF"
+      field_separator: "|"
+      article_order: ["codigo_articulo"]
+      pair_order: ["destination_branch", "codigo_articulo"]
+      null_representation: ""
+    article_checksum: "38a30408a71e5ca607ae0646257e092ca992d76a0a81cf7895389db15d5d3a49"
+    pair_checksum: "a6202b0b33353e491f0d8611627db0e2ef609e8432a077051998d89f16255cb9"
+    scope_checksum: "7f85e68802278f26236740d5d133c6406b614c34c2455c9be388c8f0e92ee991"
+
+  change_policy:
+    reuse_uuid_when_checksum_unchanged: true
+    create_new_version_when:
+      - "article_checksum changes"
+      - "pair_checksum changes"
+      - "article or pair filter changes"
+      - "origin CD changes"
+    never_generate_per_run: true
+
+model_version:
+  model_version_uuid: "4bf8d74b-a3da-4385-af02-dccbbc055548"
+  model_code: "PDVB_CD41"
+  version_no: 1
+  status: "DRAFT"
+  approval_required_before_publication: true
+  purpose: >-
+    Estimar el Promedio Diario de Venta Basal por articulo-sucursal para las
+    necesidades automaticas D y S de DECAS.
+
+  parameters:
+    cutoff_lag_days: 1
+    windows:
+      recent_days: 28
+      previous_days: 28
+      seasonal_days: 28
+      seasonal_offset_years: 1
+    weights:
+      recent: "0.60"
+      previous: "0.25"
+      seasonal: "0.15"
+      normalization: "AVAILABLE_WINDOWS"
+    evidence:
+      minimum_recent_eligible_days: 7
+      minimum_total_eligible_days: 14
+      warning_coverage: "0.70"
+    availability:
+      positive_stock_without_sale: "IN_STOCK_INCLUDE_ZERO"
+      negative_or_zero_stock_without_sale: "OUT_OF_STOCK_EXCLUDE"
+      missing_stock: "UNKNOWN_EXCLUDE"
+      positive_sale_without_stock: "INFERRED_FROM_SALE_INCLUDE"
+    promotions:
+      enriched: "USE_VENTA_BASAL"
+      raw_flags_without_enrichment: "EXCLUDE_DAY"
+    fallback:
+      missing_seasonal_level: 1
+      recent_only_level: 2
+      blocked_level: 9
+    floor: null
+    statuses: ["OK", "WARN", "BLOCKED", "ZERO_VALID"]
+
+  parameter_canonical_json: >-
+    {"availability":{"missing_stock":"UNKNOWN_EXCLUDE","negative_or_zero_stock_without_sale":"OUT_OF_STOCK_EXCLUDE","positive_sale_without_stock":"INFERRED_FROM_SALE_INCLUDE","positive_stock_without_sale":"IN_STOCK_INCLUDE_ZERO"},"cutoff_lag_days":1,"evidence":{"minimum_recent_eligible_days":7,"minimum_total_eligible_days":14,"warning_coverage":"0.70"},"fallback":{"blocked_level":9,"missing_seasonal_level":1,"recent_only_level":2},"floor":null,"promotions":{"enriched":"USE_VENTA_BASAL","raw_flags_without_enrichment":"EXCLUDE_DAY"},"statuses":["OK","WARN","BLOCKED","ZERO_VALID"],"weights":{"normalization":"AVAILABLE_WINDOWS","previous":"0.25","recent":"0.60","seasonal":"0.15"},"windows":{"previous_days":28,"recent_days":28,"seasonal_days":28,"seasonal_offset_years":1}}
+  parameters_sha256: "d3660674f45bcb7bece744a8fdfe1bc7187be547b13f68dddf9fabf39a40ade8"
+
+  implementation:
+    combined_sha256: "d9950722136ab6d49df894a039309d118d2934bb54e9a0c20520009b2648a75c"
+    files:
+      pdd_backend/jobs/pdvb.py: "dff13778ee430af6a843554a7b90fb258c6976062ba14ad12201022747d53d44"
+      pdd_backend/jobs/sales_daily.py: "7f75f276f342572f33e9aa00fe6edadf6cdeb522eac4375c49d50bea8394f579"
+      pdd_backend/jobs/stock_daily.py: "d5e7b6c712854bd0f4c147000cb3aa8a5fabb7ff615af9794bbf82b0d2d33853"
+      pdd_backend/windows.py: "edfa24faf5a19556c891a8704f9dada6bef5f3733443617f783b418de5952434"
+      pdd_backend/sql/pdvb/insert_pdvb_detail.sql: "ff23d45ea2c536318ed3c84a2e19d88c76a8cb45203cb8a2ad3c68899dfbc6bd"
+      pdd_backend/sql/sales/upsert_sales_daily.sql: "b42833dacdd66eab7444b4edef0fec5bcaada52d3141bc9bd580bfe2ff6e2067"
+      pdd_backend/sql/stock/upsert_stock_daily.sql: "6023b5c0f7519ef2b6d3db61e78239b5b1b6637b395eca104f3348b29ae63c6a"
+    combined_canonicalization: >-
+      SHA-256 de las lineas path:sha256 ordenadas alfabeticamente y separadas
+      por LF.
+
+  model_checksum: "fdd97655533a9680afe6be5a1d045f9db77a98999c17a70355e85c71a8b4b728"
+  model_checksum_canonicalization: >-
+    SHA-256 de
+    parameters:{parameters_sha256}|implementation:{implementation_sha256}.
+
+  approval_gates:
+    - "Backtest rolling-origin completado"
+    - "Metricas MAE, WAPE, BIAS y RMSE revisadas"
+    - "Pesos y ventanas ratificados o versionados"
+    - "Tratamiento de promociones aceptado"
+    - "Cobertura de stock y bloqueos dentro de tolerancia"
+    - "Aprobador e identificador corporativo registrados"
+
+runtime_contract:
+  environment_variables:
+    PDD_SCOPE_VERSION_UUID: "96a3775e-de50-4bac-919f-95132ad195d9"
+    PDD_MODEL_VERSION_UUID: "4bf8d74b-a3da-4385-af02-dccbbc055548"
+  cross_database_mapping:
+    scope_target: >-
+      connexa_platform_ms.pdd.distribution_scope_version.scope_version_uuid
+    model_target: >-
+      connexa_platform_ms.pdd.pdvb_model_version.model_version_uuid
+  rules:
+    - "Los UUID no son secretos"
+    - "No deben generarse nuevamente en cada corrida"
+    - "Una nueva corrida recibe calculation_run_uuid propio"
+    - "Una nueva version de scope o modelo recibe un UUID nuevo"
+
