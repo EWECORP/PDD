@@ -2,7 +2,7 @@
 
 ## Versión vigente
 
-`pdd_scope_model_v1.yaml` es la fuente de verdad para las primeras identidades
+`pdd_scope_model_v1.2.yaml` es la fuente de verdad para las primeras identidades
 lógicas del scope CD41 y del modelo PDVB.
 
 Identidades:
@@ -14,7 +14,7 @@ Model v1: 4bf8d74b-a3da-4385-af02-dccbbc055548
 
 El scope está funcionalmente aprobado porque el filtro fue confirmado. El
 identificador corporativo del aprobador queda pendiente antes de persistir el
-estado `APPROVED` en `connexa_platform_ms`.
+estado `APPROVED` en `connexa_platform_ms.stock_management`.
 
 El modelo está en `DRAFT`: puede utilizarse para backfill y backtest, pero no
 debe publicarse como modelo operativo aprobado hasta superar los gates del

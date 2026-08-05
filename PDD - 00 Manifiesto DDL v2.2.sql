@@ -1,0 +1,30 @@
+-- PDD / Manifiesto de DDL vigentes - v2.2 - 2026-08-05
+-- Este archivo es informativo y no ejecuta sentencias.
+--
+-- UBICACION FISICA
+--   - analitica pesada: diarco_data.datamart
+--   - Test: connexa_platform_test.stock_management
+--   - Produccion: connexa_platform_ms.stock_management
+--   - PDD continua siendo el nombre funcional del proyecto, no un esquema
+--
+-- MIGRACIONES VIGENTES
+--
+-- Base diarco_data:
+--   1. PDD - DDL Analitico diarco_data v2.2.sql
+--
+-- Bases Connexa admitidas, esquema stock_management:
+--   1. PDD - DDL Operativo Core connexa_platform_ms v2.2.sql
+--   2. PDD - DDL Operativo DECAS connexa_platform_ms v2.2.sql
+--
+-- Los DDL operativos contienen un guard que rechaza cualquier base distinta
+-- de connexa_platform_test o connexa_platform_ms.
+--
+-- No existen FK entre diarco_data y Connexa: el contrato usa UUID, conteos y
+-- checksums, y publica por staging transaccional.
+--
+-- ARCHIVOS REEMPLAZADOS; NO EJECUTAR
+--   - versiones v1.x
+--   - versiones v2.0 (esquema operativo pdd)
+--   - versiones v2.1 (solo declaraban connexa_platform_ms)
+--
+-- Las versiones reemplazadas se conservan en Antecedentes.

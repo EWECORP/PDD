@@ -1,0 +1,33 @@
+-- PDD / Manifiesto de DDL vigentes - v2.1 - 2026-08-05
+-- Este archivo es informativo y no ejecuta sentencias.
+--
+-- DECISION FISICA VIGENTE
+--   - analitica pesada: diarco_data.datamart
+--   - dominio operativo: connexa_platform_ms.stock_management
+--   - PDD continua siendo el nombre funcional del proyecto, no un esquema
+--
+-- MIGRACIONES VIGENTES
+--
+-- Base diarco_data:
+--   1. PDD - DDL Analitico diarco_data v2.1.sql
+--
+-- Base connexa_platform_ms, esquema stock_management:
+--   1. PDD - DDL Operativo Core connexa_platform_ms v2.1.sql
+--   2. PDD - DDL Operativo DECAS connexa_platform_ms v2.1.sql
+--
+-- Los dos grupos son independientes en su instalacion. Para operar/publicar
+-- PDVB deben estar instalados ambos. No existen FK entre bases: el contrato
+-- usa UUID, conteos y checksums, y publica por staging transaccional.
+--
+-- ARCHIVOS REEMPLAZADOS; NO EJECUTAR
+--   - PDD - DDL Demanda Basal PostgreSQL v1.0.sql
+--   - PDD - DDL Addendum CD41 y Stock Canonico v1.1.sql
+--   - PDD - DDL Decision Scope CD41 v1.2.sql
+--   - PDD - 00 Manifiesto DDL v2.0.sql
+--   - PDD - DDL Analitico diarco_data v2.0.sql
+--   - PDD - DDL Operativo Core connexa_platform_ms v2.0.sql
+--   - PDD - DDL Operativo DECAS connexa_platform_ms v2.0.sql
+--
+-- Los v1.x y v2.0 se conservan en Antecedentes. Los DDL v2.0 suponian un
+-- esquema operativo pdd; la decision del equipo del 2026-08-05 lo reemplazo
+-- por el esquema existente stock_management.

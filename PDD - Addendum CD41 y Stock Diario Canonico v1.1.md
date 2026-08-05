@@ -194,9 +194,9 @@ Se agregan:
 
 | Tabla | Grano |
 | --- | --- |
-| `pdd.distribution_scope_version` | una versión del universo de un CD |
-| `pdd.distribution_scope_article` | versión + artículo elegible en CD |
-| `pdd.distribution_scope_pair` | versión + sucursal destino + artículo |
+| `stock_management.distribution_scope_version` | una versión del universo de un CD |
+| `stock_management.distribution_scope_article` | versión + artículo elegible en CD |
+| `stock_management.distribution_scope_pair` | versión + sucursal destino + artículo |
 | `datamart.dm_pdd_stock_diario` | fecha + sucursal + artículo |
 
 Se modifican:

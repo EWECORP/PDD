@@ -205,14 +205,14 @@ El DDL detallado está en `PDD - DDL Demanda Basal PostgreSQL v1.0.sql`.
 
 | Tabla | Propósito y grano |
 | --- | --- |
-| `pdd.pdvb_model_version` | Configuración inmutable, vigencia, parámetros, checksum, commit y aprobación |
-| `pdd.calculation_run` | Tipo + fecha operativa + ámbito + intento; cabecera común del modelo conceptual |
-| `pdd.source_snapshot` | Una fuente consumida por corrida, con rango, frescura, filas y checksum |
+| `stock_management.pdvb_model_version` | Configuración inmutable, vigencia, parámetros, checksum, commit y aprobación |
+| `stock_management.calculation_run` | Tipo + fecha operativa + ámbito + intento; cabecera común del modelo conceptual |
+| `stock_management.source_snapshot` | Una fuente consumida por corrida, con rango, frescura, filas y checksum |
 | `datamart.dm_pdd_venta_diaria` | Feature incremental: fecha + artículo + sucursal |
-| `pdd.pdvb_estimate` | Resultado inmutable por corrida + artículo + sucursal, con componentes explicativos |
-| `pdd.pdvb_current` | Proyección vigente por artículo + sucursal, publicada atómicamente |
-| `pdd.pdvb_quality_issue` | Excepciones y resolución, sin copiar líneas correctas |
-| `pdd.pdvb_backtest_metric` | Métrica por versión, período, horizonte y segmento |
+| `stock_management.pdvb_estimate` | Resultado inmutable por corrida + artículo + sucursal, con componentes explicativos |
+| `stock_management.pdvb_current` | Proyección vigente por artículo + sucursal, publicada atómicamente |
+| `stock_management.pdvb_quality_issue` | Excepciones y resolución, sin copiar líneas correctas |
+| `stock_management.pdvb_backtest_metric` | Métrica por versión, período, horizonte y segmento |
 
 `dm_pdd_venta_diaria` se actualiza idempotentemente cuando upstream reprocesa 14 días. `pdvb_estimate` nunca se muta y guarda sumas, días, medias, pesos, PDVB raw/publicado, ADI/CV², confianza, fallback, explicación y linaje.
 
@@ -281,5 +281,5 @@ Migraciones; carga incremental/reproceso; persistencia de corrida/snapshots/esti
 
 ## 14. Resultado
 
-Si se aprueba, D/S consumirá `pdd.pdvb_current`, conservando vínculo a `pdd.pdvb_estimate`. `dm_bve_baseline_mensual` seguirá como insumo auxiliar del detector de promoción y no se expondrá como PDVB.
+Si se aprueba, D/S consumirá `stock_management.pdvb_current`, conservando vínculo a `stock_management.pdvb_estimate`. `dm_bve_baseline_mensual` seguirá como insumo auxiliar del detector de promoción y no se expondrá como PDVB.
 

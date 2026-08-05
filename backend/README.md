@@ -36,7 +36,7 @@ PDD_SCOPE_VERSION_UUID
 PDD_MODEL_VERSION_UUID
 ```
 
-Son identidades lógicas. Cuando se instale `connexa_platform_ms.pdd`, esos UUID
+Son identidades lógicas. Cuando se instale `connexa_platform_ms.stock_management`, esos UUID
 deben registrarse allí con sus filtros, parámetros, estado y aprobación.
 
 ## Instalación en el entorno FORECAST
