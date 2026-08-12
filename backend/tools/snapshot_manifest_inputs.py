@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import argparse
 import json
 from pathlib import Path
 
@@ -10,22 +11,42 @@ from sqlalchemy import text
 
 from pdd_backend.config import Settings
 from pdd_backend.db import build_engine
+from pdd_backend.scope_rules import (
+    load_scope_exclusion_policy,
+    scope_exclusion_policy_json,
+)
 
 
 SCOPE_SQL = """
-WITH cd_articles AS (
+WITH excluded_categories AS (
+    SELECT
+        (rule ->> 'c_rubro')::integer AS c_rubro,
+        (rule ->> 'c_subrubro_1')::integer AS c_subrubro_1
+    FROM jsonb_array_elements(
+        CAST(:exclusion_policy_json AS jsonb) -> 'rules'
+    ) AS rules(rule)
+),
+cd_articles AS (
     SELECT DISTINCT ON (c_articulo)
-        c_articulo,
-        c_proveedor_primario,
-        active_for_purchase,
-        habilitado,
-        active_for_sale,
-        active_on_mix,
-        fecha_extraccion
-    FROM src.base_productos_vigentes
-    WHERE c_sucu_empr = 41
-      AND active_for_purchase = 1
-    ORDER BY c_articulo, fecha_extraccion DESC NULLS LAST
+        bpv.c_articulo,
+        bpv.c_proveedor_primario,
+        bpv.active_for_purchase,
+        bpv.habilitado,
+        bpv.active_for_sale,
+        bpv.active_on_mix,
+        bpv.fecha_extraccion
+    FROM src.base_productos_vigentes AS bpv
+    WHERE bpv.c_sucu_empr = 41
+      AND bpv.active_for_purchase = 1
+      AND NOT EXISTS (
+          SELECT 1
+          FROM src.m_3_articulos AS art
+          INNER JOIN excluded_categories AS excluded
+              ON excluded.c_rubro = art.c_rubro::integer
+             AND excluded.c_subrubro_1 = art.c_subrubro_1::integer
+          WHERE art.c_articulo::integer = bpv.c_articulo::integer
+      )
+    ORDER BY bpv.c_articulo, bpv.fecha_extraccion DESC NULLS LAST
 ),
 pairs AS (
     SELECT DISTINCT ON (b.c_sucu_empr, b.c_articulo)
@@ -126,6 +147,27 @@ CROSS JOIN pair_manifest AS p
 
 
 IMPLEMENTATION_FILES = (
+    "pdd_backend/flows/analytical.py",
+    "pdd_backend/jobs/common.py",
+    "pdd_backend/jobs/stock_daily.py",
+    "pdd_backend/jobs/sales_daily.py",
+    "pdd_backend/jobs/scope_snapshot.py",
+    "pdd_backend/scope_rules.py",
+    "pdd_backend/rules/scope_exclusions.json",
+    "pdd_backend/jobs/pdvb.py",
+    "pdd_backend/windows.py",
+    "pdd_backend/sql/scope/prepare_scope_snapshot.sql",
+    "pdd_backend/sql/scope/insert_scope_version.sql",
+    "pdd_backend/sql/scope/insert_scope_articles.sql",
+    "pdd_backend/sql/scope/insert_scope_pairs.sql",
+    "pdd_backend/sql/stock/upsert_stock_daily.sql",
+    "pdd_backend/sql/sales/upsert_sales_daily.sql",
+    "pdd_backend/sql/pdvb/insert_pdvb_detail.sql",
+)
+
+MODEL_IMPLEMENTATION_FILES = (
+    "pdd_backend/flows/analytical.py",
+    "pdd_backend/jobs/common.py",
     "pdd_backend/jobs/stock_daily.py",
     "pdd_backend/jobs/sales_daily.py",
     "pdd_backend/jobs/pdvb.py",
@@ -135,10 +177,43 @@ IMPLEMENTATION_FILES = (
     "pdd_backend/sql/pdvb/insert_pdvb_detail.sql",
 )
 
+SCOPE_IMPLEMENTATION_FILES = (
+    "pdd_backend/jobs/scope_snapshot.py",
+    "pdd_backend/scope_rules.py",
+    "pdd_backend/rules/scope_exclusions.json",
+    "pdd_backend/sql/scope/prepare_scope_snapshot.sql",
+    "pdd_backend/sql/scope/insert_scope_version.sql",
+    "pdd_backend/sql/scope/insert_scope_articles.sql",
+    "pdd_backend/sql/scope/insert_scope_pairs.sql",
+)
 
-def file_hashes(root: Path) -> tuple[dict[str, str], str]:
+
+FROZEN_SCOPE_SQL = """
+SELECT
+    scope_version_uuid,
+    scope_code,
+    version_no,
+    status,
+    business_date,
+    source_as_of_ts,
+    article_count,
+    routed_article_count,
+    pair_count,
+    destination_count,
+    article_checksum,
+    pair_checksum,
+    scope_checksum
+FROM datamart.dm_pdd_scope_version
+WHERE scope_version_uuid = CAST(:scope_version_uuid AS uuid)
+"""
+
+
+def file_hashes_for(
+    root: Path,
+    relative_paths: tuple[str, ...],
+) -> tuple[dict[str, str], str]:
     hashes: dict[str, str] = {}
-    for relative_path in IMPLEMENTATION_FILES:
+    for relative_path in relative_paths:
         payload = (root / relative_path).read_bytes()
         hashes[relative_path] = hashlib.sha256(payload).hexdigest()
     canonical = "\n".join(f"{name}:{hashes[name]}" for name in sorted(hashes))
@@ -146,22 +221,60 @@ def file_hashes(root: Path) -> tuple[dict[str, str], str]:
     return hashes, combined
 
 
+def file_hashes(root: Path) -> tuple[dict[str, str], str]:
+    return file_hashes_for(root, IMPLEMENTATION_FILES)
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--scope-version-uuid")
+    args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     settings = Settings.from_env()
     engine = build_engine(settings)
     try:
         with engine.connect() as connection:
-            scope = dict(connection.execute(text(SCOPE_SQL)).mappings().one())
+            if args.scope_version_uuid:
+                row = connection.execute(
+                    text(FROZEN_SCOPE_SQL),
+                    {"scope_version_uuid": args.scope_version_uuid},
+                ).mappings().one_or_none()
+                if row is None:
+                    raise RuntimeError(
+                        f"Scope congelado inexistente: {args.scope_version_uuid}"
+                    )
+                scope = dict(row)
+            else:
+                scope = dict(
+                    connection.execute(
+                        text(SCOPE_SQL),
+                        {"exclusion_policy_json": scope_exclusion_policy_json()},
+                    ).mappings().one()
+                )
     finally:
         engine.dispose()
 
     hashes, combined = file_hashes(root)
+    model_hashes, model_combined = file_hashes_for(
+        root, MODEL_IMPLEMENTATION_FILES
+    )
+    scope_hashes, scope_combined = file_hashes_for(
+        root, SCOPE_IMPLEMENTATION_FILES
+    )
     result = {
         "scope": scope,
+        "scope_exclusion_policy": load_scope_exclusion_policy(),
         "implementation": {
             "files": hashes,
             "combined_sha256": combined,
+        },
+        "model_implementation": {
+            "files": model_hashes,
+            "combined_sha256": model_combined,
+        },
+        "scope_implementation": {
+            "files": scope_hashes,
+            "combined_sha256": scope_combined,
         },
     }
     print(json.dumps(result, default=str, indent=2, sort_keys=True))

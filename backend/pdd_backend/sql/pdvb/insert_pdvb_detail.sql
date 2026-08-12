@@ -1,26 +1,20 @@
 WITH cd_articles AS (
-    SELECT DISTINCT
-        bpv.c_articulo AS codigo_articulo,
-        bpv.c_proveedor_primario
-    FROM src.base_productos_vigentes AS bpv
-    WHERE bpv.c_sucu_empr = :origin_cd
-      AND bpv.active_for_purchase = 1
+    SELECT
+        a.codigo_articulo,
+        a.c_proveedor_primario
+    FROM datamart.dm_pdd_scope_article AS a
+    WHERE a.scope_version_uuid = CAST(:scope_version_uuid AS uuid)
 ),
 scope_pairs AS (
-    SELECT DISTINCT ON (bpv.c_sucu_empr, bpv.c_articulo)
-        bpv.c_articulo AS codigo_articulo,
-        bpv.c_sucu_empr AS sucursal,
-        coalesce(bpv.c_proveedor_primario, a.c_proveedor_primario) AS c_proveedor_primario
-    FROM src.base_productos_vigentes AS bpv
-    INNER JOIN cd_articles AS a
-        ON a.codigo_articulo = bpv.c_articulo
-    WHERE bpv.cod_cd = '41CD'
-      AND bpv.abastecimiento = 0
-      AND bpv.habilitado = 1
-      AND bpv.active_for_sale = 1
-      AND bpv.active_on_mix = 1
-      AND bpv.c_sucu_empr <> :origin_cd
-    ORDER BY bpv.c_sucu_empr, bpv.c_articulo, bpv.fecha_extraccion DESC NULLS LAST
+    SELECT
+        p.codigo_articulo,
+        p.destination_branch AS sucursal,
+        coalesce(p.c_proveedor_primario, a.c_proveedor_primario)
+            AS c_proveedor_primario
+    FROM datamart.dm_pdd_scope_pair AS p
+    INNER JOIN cd_articles AS a USING (codigo_articulo)
+    WHERE p.scope_version_uuid = CAST(:scope_version_uuid AS uuid)
+      AND p.origin_cd = :origin_cd
 ),
 stats AS (
     SELECT
@@ -307,4 +301,3 @@ SELECT
 FROM final
 ON CONFLICT (business_date, calculation_run_uuid, codigo_articulo, sucursal)
 DO NOTHING;
-

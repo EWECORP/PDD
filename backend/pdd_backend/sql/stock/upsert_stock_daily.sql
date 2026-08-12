@@ -1,22 +1,15 @@
 WITH cd_articles AS (
-    SELECT DISTINCT bpv.c_articulo AS codigo_articulo
-    FROM src.base_productos_vigentes AS bpv
-    WHERE bpv.c_sucu_empr = :origin_cd
-      AND bpv.active_for_purchase = 1
+    SELECT a.codigo_articulo
+    FROM datamart.dm_pdd_scope_article AS a
+    WHERE a.scope_version_uuid = CAST(:scope_version_uuid AS uuid)
 ),
 distribution_pairs AS (
-    SELECT DISTINCT
-        bpv.c_articulo AS codigo_articulo,
-        bpv.c_sucu_empr AS sucursal
-    FROM src.base_productos_vigentes AS bpv
-    INNER JOIN cd_articles AS a
-        ON a.codigo_articulo = bpv.c_articulo
-    WHERE bpv.cod_cd = '41CD'
-      AND bpv.abastecimiento = 0
-      AND bpv.habilitado = 1
-      AND bpv.active_for_sale = 1
-      AND bpv.active_on_mix = 1
-      AND bpv.c_sucu_empr <> :origin_cd
+    SELECT
+        p.codigo_articulo,
+        p.destination_branch AS sucursal
+    FROM datamart.dm_pdd_scope_pair AS p
+    WHERE p.scope_version_uuid = CAST(:scope_version_uuid AS uuid)
+      AND p.origin_cd = :origin_cd
 ),
 stock_scope AS (
     SELECT codigo_articulo, sucursal
@@ -27,7 +20,10 @@ stock_scope AS (
 ),
 expanded AS (
     SELECT
-        make_date(s.c_anio::integer, s.c_mes::integer, d.day_no) AS stock_date,
+        (
+            make_date(s.c_anio::integer, s.c_mes::integer, 1)
+            + (d.day_no - 1)
+        ) AS stock_date,
         s.c_articulo::integer AS codigo_articulo,
         s.c_sucu_empr::integer AS sucursal,
         d.qty::numeric(18,6) AS stock_quantity,
@@ -151,4 +147,3 @@ SET stock_quantity = EXCLUDED.stock_quantity,
     source_row_hash = EXCLUDED.source_row_hash,
     normalized_at = clock_timestamp()
 WHERE dm_pdd_stock_diario.source_row_hash IS DISTINCT FROM EXCLUDED.source_row_hash;
-

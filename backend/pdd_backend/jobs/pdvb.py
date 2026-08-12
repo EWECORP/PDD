@@ -11,7 +11,7 @@ from ..config import Settings
 from ..db import execute_sql, transactional_connection
 from ..partitioning import ensure_monthly_partitions
 from ..windows import build_pdvb_windows
-from .common import JobResult
+from .common import JobResult, require_frozen_scope
 
 
 def calculate_pdvb(
@@ -46,6 +46,7 @@ def calculate_pdvb(
             text("SELECT pg_advisory_xact_lock(hashtext(:lock_name))"),
             {"lock_name": "pdd.job.pdvb"},
         )
+        require_frozen_scope(connection, scope_version_uuid, settings.origin_cd)
         partitions = ensure_monthly_partitions(
             connection,
             "dm_pdd_pdvb_estimate_detail",
@@ -86,4 +87,3 @@ def calculate_pdvb(
         ),
         run_uuid,
     )
-

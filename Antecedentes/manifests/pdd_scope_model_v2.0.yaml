@@ -1,0 +1,232 @@
+manifest:
+  schema_version: "1.2"
+  manifest_uuid: "221c505d-74aa-4deb-80dc-be3d746c9fc6"
+  package_code: "PDD_CD41_PDVB"
+  package_version: "2.0"
+  created_at: "2026-08-12T16:36:00-03:00"
+  created_by: "codex-assisted-design"
+  source_database: "diarco_data"
+  notes: >-
+    Primera fotografia transaccional e inmutable del universo distribuible
+    CD41. El modelo PDVB pasa a v2 porque ahora stock, venta diaria y PDVB
+    consumen la membresia congelada y validan su integridad antes de calcular.
+
+scope_version:
+  scope_version_uuid: "b710f4d6-1bd8-4c32-8b1d-a3425c252cb9"
+  scope_code: "CD41_DISTRIBUTABLE_ASSORTMENT"
+  version_no: 3
+  status: "DRAFT"
+  supersedes_scope_version_uuid: null
+  origin_cd: 41
+  business_date: "2026-08-12"
+  source:
+    database: "diarco_data"
+    relation: "src.base_productos_vigentes"
+    source_as_of_ts: "2026-08-12T13:46:46.076892"
+    frozen_version_relation: "datamart.dm_pdd_scope_version"
+    frozen_article_relation: "datamart.dm_pdd_scope_article"
+    frozen_pair_relation: "datamart.dm_pdd_scope_pair"
+
+  approval:
+    decision_reference: "PDD - ADR-001 Universo Distribuible CD41.md"
+    confirmed_at: "2026-08-12T19:30:49.078609Z"
+    confirmed_by_role: "responsable_funcional"
+    confirmed_by_identifier: "eduardo.ettlin"
+    evidence: >-
+      El filtro normativo permanece sin cambios. La membresia fue capturada en
+      una transaccion REPEATABLE READ y sus conteos persistidos fueron
+      contrastados con la cabecera. Esta version queda habilitada para piloto y
+      backtest como DRAFT; la aprobacion operativa requiere superar los gates.
+
+  change_from_previous:
+    reason: "FROZEN_SCOPE_AFTER_SOURCE_SYNC"
+    previous_scope_version_uuid: "c18fb653-47c3-4554-9bf3-5e983ce31145"
+    previous_scope_status: "REJECTED"
+    previous_source_as_of_ts: "2026-08-12T07:27:46.630320"
+    article_count_delta: -1
+    routed_article_count_delta: -1
+    pair_count_delta: -45
+    destination_count_delta: 0
+    previous_scope_checksum: "9ba57653b76378094297a72010e079746e7974d1c952a2b26a462faf2681db64"
+
+  capture:
+    isolation_level: "REPEATABLE READ"
+    captured_at: "2026-08-12T19:30:49.078609Z"
+    captured_by: "eduardo.ettlin"
+    flow_run_uuid: "df1780b6-8195-44a6-8cb8-14b090e68144"
+    article_rows_persisted: 2887
+    pair_rows_persisted: 58092
+    integrity_check: "PASSED"
+
+  article_filter:
+    description: "Articulos habilitados para compra en CD 41"
+    predicates:
+      c_sucu_empr: 41
+      active_for_purchase: 1
+    sql: |-
+      SELECT DISTINCT c_articulo
+      FROM src.base_productos_vigentes
+      WHERE c_sucu_empr = 41
+        AND active_for_purchase = 1
+
+  pair_filter:
+    description: "Pares articulo-sucursal distribuidos desde CD 41"
+    requires_article_membership: true
+    excludes_origin_as_destination: true
+    predicates:
+      cod_cd: "41CD"
+      abastecimiento: 0
+      habilitado: 1
+      active_for_sale: 1
+      active_on_mix: 1
+    sql: |-
+      SELECT DISTINCT
+          bpv.c_articulo,
+          bpv.c_sucu_empr AS destination_branch
+      FROM src.base_productos_vigentes AS bpv
+      INNER JOIN (
+          SELECT DISTINCT c_articulo
+          FROM src.base_productos_vigentes
+          WHERE c_sucu_empr = 41
+            AND active_for_purchase = 1
+      ) AS cd_articles USING (c_articulo)
+      WHERE bpv.cod_cd = '41CD'
+        AND bpv.abastecimiento = 0
+        AND bpv.habilitado = 1
+        AND bpv.active_for_sale = 1
+        AND bpv.active_on_mix = 1
+        AND bpv.c_sucu_empr <> 41
+
+  snapshot:
+    article_count: 2887
+    routed_article_count: 2203
+    pair_count: 58092
+    destination_count: 49
+    checksum_algorithm: "SHA-256"
+    canonicalization:
+      encoding: "UTF-8"
+      row_separator: "LF"
+      field_separator: "|"
+      article_order: ["codigo_articulo"]
+      pair_order: ["destination_branch", "codigo_articulo"]
+      null_representation: ""
+    article_checksum: "723e64bd0529e506f5bb701ff06aeaf68b9f116ea8d46b4aca94e46b5906960e"
+    pair_checksum: "2bcd1782c0f70fa0b3be7e7a012dfd13224210b115c71c5c97a44554fd28aa4d"
+    scope_checksum: "0afda3f32c2f96f2a663020b8ad7e3d68089a972b73f9cefc171293449fb0757"
+
+  change_policy:
+    reuse_uuid_when_checksum_unchanged: true
+    create_new_version_when:
+      - "article_checksum changes"
+      - "pair_checksum changes"
+      - "article or pair filter changes"
+      - "origin CD changes"
+    never_generate_per_run: true
+
+model_version:
+  model_version_uuid: "dc2b38a9-dc91-443c-9b25-fe89236a225b"
+  model_code: "PDVB_CD41"
+  version_no: 2
+  status: "DRAFT"
+  approval_required_before_publication: true
+  purpose: >-
+    Estimar el Promedio Diario de Venta Basal por articulo-sucursal para las
+    necesidades automaticas D y S de DECAS.
+
+  change_from_previous:
+    previous_model_version_uuid: "4bf8d74b-a3da-4385-af02-dccbbc055548"
+    parameter_change: false
+    implementation_change: true
+    reason: >-
+      Se incorpora captura inmutable del scope, validacion de integridad y
+      consumo por UUID en stock, venta diaria y PDVB.
+
+  parameters:
+    cutoff_lag_days: 1
+    windows:
+      recent_days: 28
+      previous_days: 28
+      seasonal_days: 28
+      seasonal_offset_years: 1
+    weights:
+      recent: "0.60"
+      previous: "0.25"
+      seasonal: "0.15"
+      normalization: "AVAILABLE_WINDOWS"
+    evidence:
+      minimum_recent_eligible_days: 7
+      minimum_total_eligible_days: 14
+      warning_coverage: "0.70"
+    availability:
+      positive_stock_without_sale: "IN_STOCK_INCLUDE_ZERO"
+      negative_or_zero_stock_without_sale: "OUT_OF_STOCK_EXCLUDE"
+      missing_stock: "UNKNOWN_EXCLUDE"
+      positive_sale_without_stock: "INFERRED_FROM_SALE_INCLUDE"
+    promotions:
+      enriched: "USE_VENTA_BASAL"
+      raw_flags_without_enrichment: "EXCLUDE_DAY"
+    fallback:
+      missing_seasonal_level: 1
+      recent_only_level: 2
+      blocked_level: 9
+    floor: null
+    statuses: ["OK", "WARN", "BLOCKED", "ZERO_VALID"]
+
+  parameter_canonical_json: >-
+    {"availability":{"missing_stock":"UNKNOWN_EXCLUDE","negative_or_zero_stock_without_sale":"OUT_OF_STOCK_EXCLUDE","positive_sale_without_stock":"INFERRED_FROM_SALE_INCLUDE","positive_stock_without_sale":"IN_STOCK_INCLUDE_ZERO"},"cutoff_lag_days":1,"evidence":{"minimum_recent_eligible_days":7,"minimum_total_eligible_days":14,"warning_coverage":"0.70"},"fallback":{"blocked_level":9,"missing_seasonal_level":1,"recent_only_level":2},"floor":null,"promotions":{"enriched":"USE_VENTA_BASAL","raw_flags_without_enrichment":"EXCLUDE_DAY"},"statuses":["OK","WARN","BLOCKED","ZERO_VALID"],"weights":{"normalization":"AVAILABLE_WINDOWS","previous":"0.25","recent":"0.60","seasonal":"0.15"},"windows":{"previous_days":28,"recent_days":28,"seasonal_days":28,"seasonal_offset_years":1}}
+  parameters_sha256: "d3660674f45bcb7bece744a8fdfe1bc7187be547b13f68dddf9fabf39a40ade8"
+
+  implementation:
+    combined_sha256: "0eeecc576cb9e9cfb583f9bc7bb3f420c51f3af204ecb640c8bd40e46f5e1aba"
+    files:
+      pdd_backend/flows/analytical.py: "7a5cc3596a0b79419d75e357b86d9a3e865d541bebd4681abfb128c1b5909327"
+      pdd_backend/jobs/common.py: "09e8436c4986797d816e45ec1b8484dd2aa2fa490e819cec3ef7262d3855a2a4"
+      pdd_backend/jobs/pdvb.py: "15c11b9341be8ae09c49f3dc4a50508cebe68029161b5fb8dfcb68c41258db66"
+      pdd_backend/jobs/sales_daily.py: "a6db2fc0b515b1fe88b6630a3c7142dd1c26888ddf2ace7d3126792192e0da74"
+      pdd_backend/jobs/scope_snapshot.py: "ab243909d745af2cc8b70ce50332e23d5c47833b8ca14b44f6a3a5c1e9c80cb0"
+      pdd_backend/jobs/stock_daily.py: "640a908e63fc2d864c171d93e9cb9dc5a44cbf193c445daec73b08c9741ca874"
+      pdd_backend/windows.py: "edfa24faf5a19556c891a8704f9dada6bef5f3733443617f783b418de5952434"
+      pdd_backend/sql/pdvb/insert_pdvb_detail.sql: "0bd4104e110021adf9cf040201300eabb1cb11459f53d9a8286ee524eefcebef"
+      pdd_backend/sql/sales/upsert_sales_daily.sql: "672f9b6bb41d9da8755e2701626629c5b249c2a43889bf4470c063fb8431ed5e"
+      pdd_backend/sql/scope/insert_scope_articles.sql: "98b03341383429e61bd527e06baa817b3b2a4d882699be1981f0665196fb8e41"
+      pdd_backend/sql/scope/insert_scope_pairs.sql: "5ef3a76e42306152c9e85ba5658124d8106404d5f422fa2e3104ff44a83f700c"
+      pdd_backend/sql/scope/insert_scope_version.sql: "2c65da7d030143a09cb95e72746c74aa2fec7a4522b478b9fc87f7965f8a19f5"
+      pdd_backend/sql/scope/prepare_scope_snapshot.sql: "142dd6fadfef6e17f7f68d046309c82c5d15e00a2d3311a7e2c626b49f05e6a0"
+      pdd_backend/sql/stock/upsert_stock_daily.sql: "1852122e823432738eaf24afb9f1495512506a0cbd6c173e00666c79f2ba49f0"
+    combined_canonicalization: >-
+      SHA-256 de las lineas path:sha256 ordenadas alfabeticamente y separadas
+      por LF.
+
+  model_checksum: "664ef1d16149ee6cd5a45acddbf3cc225cdaea850123a2645cb17d7d5bfc788b"
+  model_checksum_canonicalization: >-
+    SHA-256 de
+    parameters:{parameters_sha256}|implementation:{implementation_sha256}.
+
+  approval_gates:
+    - "Backtest rolling-origin completado"
+    - "Metricas MAE, WAPE, BIAS y RMSE revisadas"
+    - "Pesos y ventanas ratificados o versionados"
+    - "Tratamiento de promociones aceptado"
+    - "Cobertura de stock y bloqueos dentro de tolerancia"
+    - "Aprobador e identificador corporativo registrados"
+
+runtime_contract:
+  environment_variables:
+    PDD_SCOPE_VERSION_UUID: "b710f4d6-1bd8-4c32-8b1d-a3425c252cb9"
+    PDD_MODEL_VERSION_UUID: "dc2b38a9-dc91-443c-9b25-fe89236a225b"
+  cross_database_mapping:
+    database_by_environment:
+      test: "connexa_platform_test"
+      production: "connexa_platform_ms"
+    operational_schema: "stock_management"
+    scope_target: >-
+      {connexa_database}.stock_management.distribution_scope_version.scope_version_uuid
+    model_target: >-
+      {connexa_database}.stock_management.pdvb_model_version.model_version_uuid
+  rules:
+    - "Los UUID no son secretos"
+    - "No deben generarse nuevamente en cada corrida"
+    - "Una nueva corrida recibe calculation_run_uuid propio"
+    - "Una nueva version de scope o modelo recibe un UUID nuevo"
+    - "Los calculos leen exclusivamente la membresia congelada por UUID"
+    - "El scope v2 rechazado no puede etiquetar datos analiticos"

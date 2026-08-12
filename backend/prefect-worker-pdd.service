@@ -1,0 +1,26 @@
+# /etc/systemd/system/prefect-worker-pdd.service
+
+[Unit]
+Description=Prefect Worker PDD Analitico
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/srv/PDD/backend
+
+Environment="PATH=/srv/FORECAST/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PYTHONPATH=/srv/PDD/backend"
+Environment="PREFECT_API_URL=https://orquestador.connexa-cloud.com/api"
+Environment="PDD_ENV_PATH=/srv/PDD/backend/.env"
+
+ExecStart=/srv/FORECAST/venv/bin/prefect worker start --name "pdd-diarco-prod" --pool "diarco-pdd" --work-queue "pdd" --limit 1
+
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

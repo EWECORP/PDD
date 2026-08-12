@@ -3,6 +3,9 @@
 Primera implementación de las entidades pesadas alojadas en
 `diarco_data.datamart`:
 
+- `dm_pdd_scope_version`;
+- `dm_pdd_scope_article`;
+- `dm_pdd_scope_pair`;
 - `dm_pdd_stock_diario`;
 - `dm_pdd_venta_diaria`;
 - `dm_pdd_pdvb_estimate_detail`;
@@ -52,6 +55,37 @@ Esto reutiliza el entorno, no el código monolítico de FORECAST.
 
 ## Primera carga
 
+Antes de calcular features se debe capturar una versión inmutable del scope.
+El comando usa una transacción `REPEATABLE READ`, materializa artículos y pares
+y guarda conteos y checksums en la misma confirmación:
+
+La política de categorías no comerciales vive en
+`pdd_backend/rules/scope_exclusions.json`. Actualmente excluye del PDVB el
+rubro 13, subrubros de nivel 1 3818 y 3838 (`INSUMOS`). La captura valida los
+códigos y nombres contra `src.m_1_categorias` y excluye los artículos asignados
+en `src.m_3_articulos`. Para incorporar otra categoría se agrega una regla al
+JSON y se emite una nueva versión de scope; nunca se modifica una versión ya
+capturada.
+
+La captura debe programarse después de confirmar la finalización de la
+sincronización diaria de `src.base_productos_vigentes`. En el ambiente actual
+esa fuente se actualiza al mediodía; el horario definitivo de captura deberá
+quedar fuera de esa ventana y depender del cierre exitoso de la sincronización,
+no solamente de una hora fija.
+
+```bash
+pdd-etl scope-snapshot \
+  --scope-version-uuid UUID_NUEVO \
+  --version-no 4 \
+  --business-date 2026-08-12 \
+  --captured-by identificador_corporativo \
+  --supersedes-scope-version-uuid b710f4d6-1bd8-4c32-8b1d-a3425c252cb9
+```
+
+Stock, venta diaria y PDVB rechazan un UUID que no exista o cuya membresía no
+coincida con los conteos sellados. Nunca vuelven a calcular el scope desde la
+tabla viva durante una corrida.
+
 La primera corrida carga únicamente las tres ventanas de evidencia usadas por
 PDVB: reciente, anterior y estacional. No materializa innecesariamente todos
 los días intermedios del año.
@@ -77,7 +111,7 @@ pdd-etl features --start 2026-07-01 --end 2026-07-31
 
 ## Prefect
 
-`prefect.yaml` declara tres deployments manuales en el pool `diarco-ms` y la
+`prefect.yaml` declara cuatro deployments manuales en el pool `diarco-pdd` y la
 cola `pdd`. No se definió todavía un cron de producción: primero deben medirse
 duración, bloqueos, fecha real de cierre y horario de disponibilidad.
 
@@ -90,6 +124,7 @@ prefect deploy --all
 - Las particiones se crean por mes con `CREATE TABLE IF NOT EXISTS` y advisory
   locks transaccionales.
 - Stock y venta diaria usan `ON CONFLICT ... DO UPDATE` solo si cambió el hash.
+- La membresía del scope se inserta una sola vez; un UUID no puede recapturarse.
 - PDVB y backtest son snapshots: una nueva corrida usa otro UUID y no modifica
   la corrida anterior.
 - Cada job tiene un advisory lock para impedir dos escrituras simultáneas del
@@ -99,6 +134,7 @@ prefect deploy --all
 
 ```bash
 python tools/validate_sql.py
+python -c "from prefect.utilities.importtools import load_script_as_module; load_script_as_module('pdd_backend/flows/analytical.py'); print('OK carga Prefect')"
 ```
 
 El validador usa `EXPLAIN` para los cuatro INSERT y crea particiones futuras

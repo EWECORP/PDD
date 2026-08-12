@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from datetime import date
 
 from .flows.analytical import (
@@ -8,6 +9,7 @@ from .flows.analytical import (
     pdd_daily_flow,
     pdd_features_flow,
     pdd_initial_backfill_flow,
+    pdd_scope_snapshot_flow,
     pdvb_task,
 )
 
@@ -22,6 +24,16 @@ def parse_date(value: str) -> date:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="pdd-etl")
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    scope = subparsers.add_parser(
+        "scope-snapshot",
+        help="Congela la membresia de una nueva version de scope",
+    )
+    scope.add_argument("--scope-version-uuid", required=True)
+    scope.add_argument("--version-no", required=True, type=int)
+    scope.add_argument("--business-date", required=True, type=parse_date)
+    scope.add_argument("--captured-by", required=True)
+    scope.add_argument("--supersedes-scope-version-uuid")
 
     features = subparsers.add_parser("features", help="Carga stock y venta diaria")
     features.add_argument("--start", required=True, type=parse_date)
@@ -54,7 +66,16 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = build_parser().parse_args()
-    if args.command == "features":
+    if args.command == "scope-snapshot":
+        result = pdd_scope_snapshot_flow(
+            args.scope_version_uuid,
+            args.version_no,
+            args.business_date,
+            args.captured_by,
+            args.supersedes_scope_version_uuid,
+        )
+        print(json.dumps(result, default=str, indent=2, sort_keys=True))
+    elif args.command == "features":
         pdd_features_flow(args.start, args.end, args.scope_version_uuid)
     elif args.command == "initial-backfill":
         pdd_initial_backfill_flow(
@@ -86,4 +107,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

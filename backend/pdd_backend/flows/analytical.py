@@ -5,15 +5,16 @@ from uuid import UUID
 
 from prefect import flow, get_run_logger, task
 
-from ..clock import business_today
-from ..config import Settings
-from ..db import build_engine
-from ..freshness import read_source_freshness, require_closed_through
-from ..jobs.backtest import generate_backtest_detail
-from ..jobs.pdvb import calculate_pdvb
-from ..jobs.sales_daily import load_sales_daily
-from ..jobs.stock_daily import load_stock_daily
-from ..windows import build_pdvb_windows
+from pdd_backend.clock import business_today
+from pdd_backend.config import Settings
+from pdd_backend.db import build_engine
+from pdd_backend.freshness import read_source_freshness, require_closed_through
+from pdd_backend.jobs.backtest import generate_backtest_detail
+from pdd_backend.jobs.pdvb import calculate_pdvb
+from pdd_backend.jobs.sales_daily import load_sales_daily
+from pdd_backend.jobs.scope_snapshot import capture_scope_snapshot
+from pdd_backend.jobs.stock_daily import load_stock_daily
+from pdd_backend.windows import build_pdvb_windows
 
 
 def _uuid(value: str | None, fallback: UUID | None, name: str) -> UUID:
@@ -24,12 +25,43 @@ def _uuid(value: str | None, fallback: UUID | None, name: str) -> UUID:
     raise RuntimeError(f"Debe informar {name} o configurarlo en el entorno")
 
 
-@task(name="PDD - Normalizar stock diario", retries=2, retry_delay_seconds=60)
-def stock_daily_task(start_date: date, end_date: date) -> dict:
+@task(name="PDD - Capturar scope congelado")
+def scope_snapshot_task(
+    scope_version_uuid: str,
+    version_no: int,
+    business_date: date,
+    captured_by: str,
+    supersedes_scope_version_uuid: str | None,
+) -> dict:
     settings = Settings.from_env()
     engine = build_engine(settings)
     try:
-        result = load_stock_daily(engine, settings, start_date, end_date)
+        result = capture_scope_snapshot(
+            engine,
+            settings,
+            UUID(scope_version_uuid),
+            version_no,
+            business_date,
+            captured_by,
+            UUID(supersedes_scope_version_uuid)
+            if supersedes_scope_version_uuid else None,
+        )
+        return result.serializable()
+    finally:
+        engine.dispose()
+
+
+@task(name="PDD - Normalizar stock diario", retries=2, retry_delay_seconds=60)
+def stock_daily_task(
+    start_date: date,
+    end_date: date,
+    scope_version_uuid: str | None,
+) -> dict:
+    settings = Settings.from_env()
+    scope_uuid = _uuid(scope_version_uuid, settings.scope_version_uuid, "scope_version_uuid")
+    engine = build_engine(settings)
+    try:
+        result = load_stock_daily(engine, settings, start_date, end_date, scope_uuid)
         return result.__dict__
     finally:
         engine.dispose()
@@ -130,7 +162,7 @@ def pdd_features_flow(
     scope_version_uuid: str | None = None,
 ) -> dict:
     logger = get_run_logger()
-    stock_result = stock_daily_task(start_date, end_date)
+    stock_result = stock_daily_task(start_date, end_date, scope_version_uuid)
     freshness = freshness_gate_task(end_date, wait_for=[stock_result])
     sales_result = sales_daily_task(
         start_date,
@@ -144,6 +176,24 @@ def pdd_features_flow(
         "freshness": freshness,
         "sales": sales_result,
     }
+
+
+@flow(name="PDD - Capturar scope congelado", log_prints=True)
+def pdd_scope_snapshot_flow(
+    scope_version_uuid: str,
+    version_no: int,
+    business_date: date,
+    captured_by: str,
+    supersedes_scope_version_uuid: str | None = None,
+) -> dict:
+    result = scope_snapshot_task(
+        scope_version_uuid,
+        version_no,
+        business_date,
+        captured_by,
+        supersedes_scope_version_uuid,
+    )
+    return {"scope": result}
 
 
 @flow(name="PDD - Backfill inicial y PDVB", log_prints=True)
@@ -211,4 +261,3 @@ def pdd_backtest_flow(
         forecast_horizon_days,
     )
     return {"backtest": result}
-

@@ -9,7 +9,7 @@ from sqlalchemy.engine import Engine
 from ..config import Settings
 from ..db import execute_sql, transactional_connection
 from ..partitioning import ensure_monthly_partitions
-from .common import JobResult, validate_date_range
+from .common import JobResult, require_frozen_scope, validate_date_range
 
 
 def load_sales_daily(
@@ -28,6 +28,7 @@ def load_sales_daily(
             text("SELECT pg_advisory_xact_lock(hashtext(:lock_name))"),
             {"lock_name": "pdd.job.sales_daily"},
         )
+        require_frozen_scope(connection, scope_version_uuid, settings.origin_cd)
         partitions = ensure_monthly_partitions(
             connection,
             "dm_pdd_venta_diaria",
@@ -52,4 +53,3 @@ def load_sales_daily(
         affected_rows=affected,
         partitions=tuple(partitions),
     )
-
