@@ -212,6 +212,9 @@ El DDL detallado está en `PDD - DDL Demanda Basal PostgreSQL v1.0.sql`.
 | `stock_management.pdvb_estimate` | Resultado inmutable por corrida + artículo + sucursal, con componentes explicativos |
 | `stock_management.pdvb_current` | Proyección vigente por artículo + sucursal, publicada atómicamente |
 | `stock_management.pdvb_quality_issue` | Excepciones y resolución, sin copiar líneas correctas |
+| `datamart.dm_pdd_pdvb_backtest_run` | Cabecera y estado de una evaluación rolling-origin |
+| `datamart.dm_pdd_pdvb_backtest_detail` | Fecha origen + fecha evaluación + estimador + artículo + sucursal |
+| `datamart.dm_pdd_pdvb_backtest_metric` | Métrica analítica comparativa por estimador, muestra y segmento |
 | `stock_management.pdvb_backtest_metric` | Métrica por versión, período, horizonte y segmento |
 
 `dm_pdd_venta_diaria` se actualiza idempotentemente cuando upstream reprocesa 14 días. `pdvb_estimate` nunca se muta y guarda sumas, días, medias, pesos, PDVB raw/publicado, ADI/CV², confianza, fallback, explicación y linaje.
@@ -246,7 +249,21 @@ Después: PDVB finito/no negativo, pesos suman 1, días dentro de ventana, `ZERO
 
 Backtest rolling-origin: para `T` sólo datos disponibles hasta `T-1`. Cubrir alta/baja rotación, intermitentes, pesables, Diarco/Barrio, promociones, quiebres, nuevos/discontinuados y estacionalidad.
 
-Comparar media simple 28 días, ALGO_05 corregido, ALGO_01 normalizado, PDVB v1 y PDVB v1 sin ajuste promocional.
+La comparación implementada conserva `PDVB_CANDIDATE`, media simple de 28
+días y dos variantes explícitas de `ALGO_01`: `ALGO_01_GROWTH` usa
+0,8/0,1/0,2 sin normalizar porque el total 1,1 representa crecimiento
+intencional; `ALGO_01_NORMALIZED` divide por los pesos disponibles y permite
+aislar el efecto estadístico de ese uplift. La fase experimental agrega
+`OCCURRENCE_SIZE`, `CROSTON_SBA` y `HYBRID_EXPERIMENTAL`. Ninguno sustituye al
+PDVB publicado sin una nueva versión de modelo aprobada.
+
+La evaluación admite `POINT_DAILY` para el día `T+h` y `CUMULATIVE` para la
+demanda total de `T+1..T+h`. El modo acumulado registra días elegibles,
+cobertura real y demanda observada estandarizada a la ventana completa; el
+umbral inicial de cobertura es 70%. Los resultados se segmentan también por
+régimen ADI/CV², rubro y subrubro de nivel 1.
+
+Las métricas se calculan sobre dos muestras. `OWN_VALID` refleja cobertura y precisión propia de cada estimador. `COMMON_VALID` usa exclusivamente observaciones válidas para todos los candidatos y es la muestra rectora para comparar algoritmos sin sesgo de selección. BIAS positivo significa subpronóstico (`real - pronóstico`) y BIAS negativo, sobrepronóstico.
 
 Criterios: cero fuga temporal; resultados explicables; reconciliación; idempotencia; ningún bloqueado convertido en cero; bias/WAPE no peores que media simple por segmentos acordados; impacto D/S validado; SLA cumplido. MAPE no es métrica rectora por demanda cero.
 
@@ -282,4 +299,3 @@ Migraciones; carga incremental/reproceso; persistencia de corrida/snapshots/esti
 ## 14. Resultado
 
 Si se aprueba, D/S consumirá `stock_management.pdvb_current`, conservando vínculo a `stock_management.pdvb_estimate`. `dm_bve_baseline_mensual` seguirá como insumo auxiliar del detector de promoción y no se expondrá como PDVB.
-

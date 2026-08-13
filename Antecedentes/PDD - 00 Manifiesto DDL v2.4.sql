@@ -1,0 +1,35 @@
+-- PDD / Manifiesto de DDL vigentes - v2.4 - 2026-08-13
+-- Este archivo es informativo y no ejecuta sentencias.
+--
+-- UBICACION FISICA
+--   - analitica pesada: diarco_data.datamart
+--   - Test: connexa_platform_test.stock_management
+--   - Produccion: connexa_platform_ms.stock_management
+--   - PDD continua siendo el nombre funcional del proyecto, no un esquema
+--
+-- MIGRACIONES VIGENTES
+--
+-- Base diarco_data, en este orden:
+--   1. PDD - DDL Analitico diarco_data v2.2.sql
+--   2. PDD - Migracion Analitica Scope Congelado v2.3.sql
+--   3. PDD - Migracion Analitica Backtest Rolling v2.4.sql
+--
+-- Bases Connexa admitidas, esquema stock_management:
+--   1. PDD - DDL Operativo Core connexa_platform_ms v2.2.sql
+--   2. PDD - DDL Operativo DECAS connexa_platform_ms v2.2.sql
+--   3. PDD - Migracion Operativa Metricas Backtest v2.4.sql
+--
+-- v2.3 agrega en diarco_data la fotografia reproducible del scope mediante
+-- dm_pdd_scope_version, dm_pdd_scope_article y dm_pdd_scope_pair. Los procesos
+-- analiticos dejan de consultar membresia viva durante una corrida.
+--
+-- v2.4 agrega backtest rolling-origin reproducible, cuatro estimadores
+-- comparables, muestra propia/comun y metricas MAE, WAPE, BIAS y RMSE.
+--
+-- Los DDL operativos contienen un guard que rechaza cualquier base distinta
+-- de connexa_platform_test o connexa_platform_ms.
+--
+-- No existen FK entre diarco_data y Connexa: el contrato usa UUID, conteos y
+-- checksums, y publica por staging transaccional.
+--
+-- Las versiones reemplazadas se conservan en Antecedentes.

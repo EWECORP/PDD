@@ -111,13 +111,157 @@ pdd-etl features --start 2026-07-01 --end 2026-07-31
 
 ## Prefect
 
-`prefect.yaml` declara cuatro deployments manuales en el pool `diarco-pdd` y la
+`prefect.yaml` declara cinco deployments manuales en el pool `diarco-pdd` y la
 cola `pdd`. No se definió todavía un cron de producción: primero deben medirse
 duración, bloqueos, fecha real de cierre y horario de disponibilidad.
 
 ```bash
 prefect deploy --all
 ```
+
+## Backtest rolling-origin
+
+La versión 0.5.0 extiende el backtest reproducible que genera una estimación para
+cada fecha de origen y usa solamente observaciones anteriores a esa fecha. Antes
+de instalarla se debe aplicar, con `ON_ERROR_STOP`, la migración:
+
+```text
+PDD - Migracion Analitica Backtest Intermitente v2.5.sql
+```
+
+La v2.5 se aplica después de la v2.4 y conserva las observaciones ya generadas.
+Las identifica como `POINT_DAILY`, completa sus campos compatibles y amplía las
+restricciones de estimadores. No borra ni recalcula el piloto anterior.
+
+```sql
+SELECT count(*) FROM datamart.dm_pdd_pdvb_backtest_detail;
+```
+
+El proceso compara siete estimadores sobre las mismas features basales y de
+disponibilidad:
+
+- `PDVB_CANDIDATE`: modelo indicado por `PDD_MODEL_VERSION_UUID`;
+- `MEAN_28`: media servible de la ventana reciente;
+- `ALGO_01_GROWTH`: factores 0,8/0,1/0,2 sin normalizar; la suma 1,1 representa
+  el crecimiento intencional usado en FORECAST;
+- `ALGO_01_NORMALIZED`: los mismos factores normalizados por ventanas
+  disponibles, para aislar estadísticamente el efecto del uplift.
+- `OCCURRENCE_SIZE`: probabilidad ponderada de ocurrencia por tamaño medio de
+  una venta positiva; separa explícitamente frecuencia y magnitud.
+- `CROSTON_SBA`: Croston con corrección SBA y `alpha=0,10`, calculado con días
+  servibles de las ventanas anterior y reciente.
+- `HYBRID_EXPERIMENTAL`: usa Croston/SBA en regímenes intermitentes, lumpies o
+  con evidencia escasa; conserva PDVB para los demás y ALGO_01 normalizado sólo
+  como recuperación de bloqueados.
+
+La segmentación usa ADI=1,32 y CV²=0,49 como umbrales configurables y genera
+métricas adicionales por `DEMAND_REGIME`, `RUBRO` y `SUBRUBRO_1`. Es una capa
+experimental: no modifica el cálculo ni la publicación de `PDVB_CANDIDATE`.
+
+Primero conviene ejecutar un piloto corto. Con fuentes cerradas hasta
+`2026-08-11`, un ejemplo evaluable a horizonte 1 es:
+
+```bash
+pdd-etl rolling-backtest \
+  --origin-from 2026-08-04 \
+  --origin-to 2026-08-10 \
+  --horizon 1 \
+  --mode POINT_DAILY \
+  --scope-version-uuid 90dcd987-2ad6-4e4e-8d19-2ead45775d1f \
+  --model-version-uuid a0a35b25-628d-43f1-b651-82c97207fc60
+```
+
+`POINT_DAILY` evalúa solamente el día `origen+h`, útil para comprobar la
+estabilidad diaria. `CUMULATIVE` evalúa la necesidad total desde `origen+1`
+hasta `origen+h`; si hay días no servibles, exige por defecto 70% de cobertura
+y escala la demanda basal observada a la ventana completa. Para un piloto común
+de siete orígenes, con fuentes cerradas hasta 2026-08-11:
+
+```bash
+for horizon in 7 14 28; do
+  pdd-etl rolling-backtest \
+    --origin-from 2026-07-08 \
+    --origin-to 2026-07-14 \
+    --horizon "$horizon" \
+    --mode CUMULATIVE \
+    --actual-min-coverage 0.70 \
+    --scope-version-uuid 90dcd987-2ad6-4e4e-8d19-2ead45775d1f \
+    --model-version-uuid a0a35b25-628d-43f1-b651-82c97207fc60
+done
+```
+
+El mismo rango de orígenes permite comparar horizontes sin cambiar la cohorte y
+el mayor final de evaluación es 2026-08-11. Cada horizonte genera una corrida
+independiente. Tras validar volumen y tiempos, el piloto diario de 28 orígenes
+puede ejecutarse con `--origin-from 2026-07-14 --origin-to 2026-08-10`.
+
+El flow carga automáticamente la unión de las ventanas estacionales, recientes,
+anteriores y los días reales a evaluar. El límite predeterminado es 120 fechas
+de origen para impedir una carga masiva accidental.
+
+La cabecera y el avance quedan en `dm_pdd_pdvb_backtest_run`; el detalle por
+estimador en `dm_pdd_pdvb_backtest_detail`; y las métricas en
+`dm_pdd_pdvb_backtest_metric`.
+
+```sql
+SELECT calculation_run_uuid, status, origin_from, origin_to,
+       completed_origin_count, origin_count, detail_row_count,
+       metric_row_count, error_message
+FROM datamart.dm_pdd_pdvb_backtest_run
+ORDER BY started_at DESC
+LIMIT 5;
+
+SELECT estimator_code, sample_code, metric_code, metric_value,
+       sample_size, expected_count, prediction_count,
+       eligible_actual_count, zero_actual_count
+FROM datamart.dm_pdd_pdvb_backtest_metric
+WHERE calculation_run_uuid = 'UUID_CORRIDA'
+  AND evaluation_mode = 'CUMULATIVE'
+  AND segment_type = 'ALL'
+  AND segment_id = 'ALL'
+ORDER BY sample_code, metric_code, estimator_code;
+```
+
+El conteo esperado del detalle se controla sin valores fijos:
+
+```sql
+SELECT
+    r.calculation_run_uuid,
+    r.status,
+    r.evaluation_mode,
+    r.forecast_horizon_days,
+    r.detail_row_count,
+    r.origin_count::bigint * s.pair_count
+        * cardinality(r.estimator_codes) AS detalle_esperado,
+    r.metric_row_count
+FROM datamart.dm_pdd_pdvb_backtest_run AS r
+INNER JOIN datamart.dm_pdd_scope_version AS s
+    USING (scope_version_uuid)
+WHERE r.calculation_run_uuid = 'UUID_CORRIDA';
+
+SELECT
+    count(*) FILTER (
+        WHERE evaluation_window_start > evaluation_date
+           OR actual_window_days <> evaluation_date - evaluation_window_start + 1
+    ) AS ventanas_invalidas,
+    count(*) FILTER (
+        WHERE actual_eligible_days > actual_window_days
+           OR actual_availability_coverage NOT BETWEEN 0 AND 1
+    ) AS coberturas_invalidas,
+    count(*) FILTER (WHERE predicted_horizon_units < 0) AS pronosticos_negativos,
+    count(*) FILTER (
+        WHERE status = 'VALID'
+          AND (actual_basal_units IS NULL OR predicted_horizon_units IS NULL)
+    ) AS validos_incompletos
+FROM datamart.dm_pdd_pdvb_backtest_detail
+WHERE calculation_run_uuid = 'UUID_CORRIDA';
+```
+
+`OWN_VALID` mide cada estimador sobre sus casos utilizables. `COMMON_VALID` es
+la comparación rectora: todos los estimadores se evalúan sobre exactamente los
+mismos pares y fechas. WAPE y BIAS no se emiten cuando la suma real es cero. El
+BIAS se define como `100 × sum(real - pronóstico) / sum(real)`: positivo indica
+subpronóstico y negativo, sobrepronóstico.
 
 ## Idempotencia y concurrencia
 

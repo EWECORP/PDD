@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 from datetime import date
+from decimal import Decimal, InvalidOperation
 
 from .flows.analytical import (
     pdd_backtest_flow,
@@ -12,6 +13,7 @@ from .flows.analytical import (
     pdd_scope_snapshot_flow,
     pdvb_task,
 )
+from .flows.backtest import pdd_rolling_backtest_flow
 
 
 def parse_date(value: str) -> date:
@@ -19,6 +21,13 @@ def parse_date(value: str) -> date:
         return date.fromisoformat(value)
     except ValueError as exc:
         raise argparse.ArgumentTypeError("La fecha debe usar formato YYYY-MM-DD") from exc
+
+
+def parse_decimal(value: str) -> Decimal:
+    try:
+        return Decimal(value)
+    except InvalidOperation as exc:
+        raise argparse.ArgumentTypeError("El valor debe ser numerico") from exc
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -61,6 +70,43 @@ def build_parser() -> argparse.ArgumentParser:
     backtest.add_argument("--horizon", type=int, default=1)
     backtest.add_argument("--scope-version-uuid")
     backtest.add_argument("--model-version-uuid")
+
+    rolling = subparsers.add_parser(
+        "rolling-backtest",
+        help="Genera origenes historicos, benchmarks y metricas",
+    )
+    rolling.add_argument("--origin-from", required=True, type=parse_date)
+    rolling.add_argument("--origin-to", required=True, type=parse_date)
+    rolling.add_argument("--horizon", type=int, default=1)
+    rolling.add_argument("--max-origins", type=int, default=120)
+    rolling.add_argument(
+        "--mode",
+        choices=("POINT_DAILY", "CUMULATIVE"),
+        default="POINT_DAILY",
+        help="Evalua el dia final o la demanda acumulada desde origen+1",
+    )
+    rolling.add_argument(
+        "--actual-min-coverage",
+        type=parse_decimal,
+        default=Decimal("0.70"),
+    )
+    rolling.add_argument(
+        "--croston-alpha",
+        type=parse_decimal,
+        default=Decimal("0.10"),
+    )
+    rolling.add_argument(
+        "--adi-threshold",
+        type=parse_decimal,
+        default=Decimal("1.32"),
+    )
+    rolling.add_argument(
+        "--cv2-threshold",
+        type=parse_decimal,
+        default=Decimal("0.49"),
+    )
+    rolling.add_argument("--scope-version-uuid")
+    rolling.add_argument("--model-version-uuid")
     return parser
 
 
@@ -102,6 +148,20 @@ def main() -> None:
             args.scope_version_uuid,
             args.model_version_uuid,
             args.horizon,
+        )
+    elif args.command == "rolling-backtest":
+        pdd_rolling_backtest_flow(
+            args.origin_from,
+            args.origin_to,
+            args.scope_version_uuid,
+            args.model_version_uuid,
+            args.horizon,
+            args.max_origins,
+            args.mode,
+            args.actual_min_coverage,
+            args.croston_alpha,
+            args.adi_threshold,
+            args.cv2_threshold,
         )
 
 

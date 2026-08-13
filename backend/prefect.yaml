@@ -34,3 +34,10 @@ deployments:
     work_pool:
       name: diarco-pdd
       work_queue_name: pdd
+
+  - name: PDD_ROLLING_BACKTEST_MANUAL
+    entrypoint: pdd_backend/flows/backtest.py:pdd_rolling_backtest_flow
+    parameters: {}
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd

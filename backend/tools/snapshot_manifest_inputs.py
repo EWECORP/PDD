@@ -147,7 +147,12 @@ CROSS JOIN pair_manifest AS p
 
 
 IMPLEMENTATION_FILES = (
+    "pyproject.toml",
+    "pdd_backend/__init__.py",
+    "pdd_backend/cli.py",
     "pdd_backend/flows/analytical.py",
+    "pdd_backend/flows/backtest.py",
+    "pdd_backend/backtest_metrics.py",
     "pdd_backend/jobs/common.py",
     "pdd_backend/jobs/stock_daily.py",
     "pdd_backend/jobs/sales_daily.py",
@@ -155,6 +160,7 @@ IMPLEMENTATION_FILES = (
     "pdd_backend/scope_rules.py",
     "pdd_backend/rules/scope_exclusions.json",
     "pdd_backend/jobs/pdvb.py",
+    "pdd_backend/jobs/backtest.py",
     "pdd_backend/windows.py",
     "pdd_backend/sql/scope/prepare_scope_snapshot.sql",
     "pdd_backend/sql/scope/insert_scope_version.sql",
@@ -163,6 +169,8 @@ IMPLEMENTATION_FILES = (
     "pdd_backend/sql/stock/upsert_stock_daily.sql",
     "pdd_backend/sql/sales/upsert_sales_daily.sql",
     "pdd_backend/sql/pdvb/insert_pdvb_detail.sql",
+    "pdd_backend/sql/backtest/insert_backtest_detail.sql",
+    "pdd_backend/sql/backtest/insert_backtest_metrics.sql",
 )
 
 MODEL_IMPLEMENTATION_FILES = (

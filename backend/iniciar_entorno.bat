@@ -49,3 +49,23 @@ systemctl status prefect-worker-pdd.service --no-pager
 
 ### Revisar Ejecución de Prefect
 prefect flow-run ls   --flow-name "PDD - Backfill inicial y PDVB"   --limit 5
+
+
+
+# Con cada nueva actualización del modelo, se debe actualizar la variable de entorno 
+#  PDD_MODEL_VERSION_UUID en el archivo .env y reiniciar el 
+# worker de Prefect para que tome la nueva versión del modelo. 
+# y reinstalar la aplicación python.
+
+cd /srv/PDD/backend
+source /srv/FORECAST/venv/bin/activate
+export PDD_ENV_PATH=/srv/PDD/backend/.env
+export PREFECT_API_URL=https://orquestador.connexa-cloud.com/api
+
+python -m pip install -e .
+python -m pip show diarco-pdd-backend
+python tools/validate_sql.py
+prefect deploy --all
+
+systemctl start prefect-worker-pdd.service
+systemctl status prefect-worker-pdd.service --no-pager
