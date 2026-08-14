@@ -60,7 +60,7 @@ BusinessEventLog
 
 ## 4. Corrida y fuentes
 
-### `calculation_run`
+### `pdd_calculation_run`
 
 Campos:
 
@@ -76,7 +76,7 @@ Campos:
 
 Unicidad: una corrida vigente por fecha y ámbito.
 
-### `source_snapshot`
+### `pdd_source_snapshot`
 
 - corrida;
 - tipo de fuente;
@@ -88,7 +88,7 @@ Unicidad: una corrida vigente por fecha y ámbito.
 
 ## 5. Posición de stock
 
-### `branch_stock_position`
+### `pdd_branch_stock_position`
 
 Grano:
 
@@ -114,7 +114,7 @@ Campos:
 
 Las transferencias aparecen solo como cantidad fuente; no tienen ciclo gestionado.
 
-### `cd_stock_position`
+### `pdd_cd_stock_position`
 
 Grano: corrida + CD + artículo.
 
@@ -131,7 +131,7 @@ No contiene reserva o cantidad asignada.
 
 ## 6. Necesidades automáticas
 
-### `need_snapshot`
+### `pdd_need_snapshot`
 
 Grano:
 
@@ -159,7 +159,7 @@ Es inmutable. La nueva corrida crea otra foto.
 
 ## 7. Necesidades dirigidas
 
-### `directed_need`
+### `pdd_directed_need`
 
 Cabecera:
 
@@ -175,7 +175,7 @@ Cabecera:
 - motivo/observación;
 - timestamps.
 
-### `directed_need_line`
+### `pdd_directed_need_line`
 
 Grano: necesidad + sucursal + artículo.
 
@@ -192,13 +192,13 @@ Campos:
 
 Restricción: el saldo nunca es negativo.
 
-### `directed_need_version`
+### `pdd_directed_need_version`
 
 Conserva antes/después, actor, motivo y vigencia de cambios.
 
 ## 8. Backlog vigente
 
-### `current_backlog_line`
+### `pdd_current_backlog_line`
 
 Vista o proyección reconstruible:
 
@@ -226,7 +226,7 @@ Campos:
 
 No es un segundo maestro editable.
 
-### `backlog_source_allocation`
+### `pdd_backlog_source_allocation`
 
 Explica e imputa:
 
@@ -241,7 +241,7 @@ El término `allocation` refiere a atribución contable del cumplimiento, no a a
 
 ## 9. Importación Valkimia
 
-### `valkimia_import`
+### `pdd_valkimia_import`
 
 - `valkimia_import_id`;
 - clave idempotente;
@@ -254,7 +254,7 @@ El término `allocation` refiere a atribución contable del cumplimiento, no a a
 - estado;
 - totales.
 
-### `valkimia_import_line`
+### `pdd_valkimia_import_line`
 
 - importación;
 - línea backlog;
@@ -272,7 +272,7 @@ Importar no reduce el saldo de necesidad.
 
 ## 10. Ejecución
 
-### `execution_event`
+### `pdd_execution_event`
 
 Evento inmutable:
 
@@ -292,7 +292,7 @@ La proyección actual se deriva de eventos válidos.
 
 ## 11. Datos logísticos informativos
 
-### `item_logistics_snapshot`
+### `pdd_item_logistics_snapshot`
 
 Puede estar embebido en la corrida o referenciado por versión:
 
@@ -308,11 +308,11 @@ Si falta, la necesidad continúa con indicador `logistics_data_missing`.
 
 ## 12. Transversales
 
-### `configuration_version`
+### `pdd_configuration_version`
 
 Fórmulas, parámetros, IRQ, prioridad, imputación, redondeos, frescura y mappings, con vigencia y aprobación.
 
-### `integration_message`
+### `pdd_integration_message`
 
 Inbox/outbox:
 
@@ -326,7 +326,7 @@ Inbox/outbox:
 - error;
 - referencia al payload protegido.
 
-### `business_event_log`
+### `pdd_business_event_log`
 
 Entidad, ID, evento, actor, fecha, correlación, antes/después y motivo.
 

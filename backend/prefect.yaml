@@ -41,3 +41,10 @@ deployments:
     work_pool:
       name: diarco-pdd
       work_queue_name: pdd
+
+  - name: PDD_PUBLISH_PDVB_TEST_MANUAL
+    entrypoint: pdd_backend/flows/publisher.py:pdd_publish_pdvb_flow
+    parameters: {}
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd

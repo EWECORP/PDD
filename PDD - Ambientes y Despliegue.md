@@ -1,7 +1,7 @@
 # Ambientes y despliegue PDD
 
-Versión: **1.0**  
-Fecha: **2026-08-05**  
+Versión: **1.1**
+Fecha: **2026-08-14**
 Estado: **Vigente**
 
 ## Ubicación por ambiente
@@ -14,6 +14,9 @@ Estado: **Vigente**
 
 Las credenciales no forman parte de este documento ni del repositorio. Deben
 inyectarse mediante variables de entorno o el mecanismo de secretos del worker.
+Como `stock_management` es compartido, todas las tablas de este proyecto se
+identifican con el prefijo `pdd_`; `pdd` sigue siendo un nombre funcional y no
+un esquema independiente.
 
 ## Estado verificado de Test
 
@@ -61,17 +64,18 @@ Una ejecución contra otra base termina con error antes de crear objetos.
 
 ## Configuración
 
-Para herramientas que necesiten acceder a Test se reserva el prefijo:
+El publicador del backend usa variables independientes para la conexión
+operativa:
 
 ```text
-PGP_TEST_HOST
-PGP_TEST_PORT
-PGP_TEST_DB
-PGP_TEST_USER
-PGP_TEST_PASSWORD
+PDD_OPERATIONAL_PG_HOST
+PDD_OPERATIONAL_PG_PORT
+PDD_OPERATIONAL_PG_DB
+PDD_OPERATIONAL_PG_USER
+PDD_OPERATIONAL_PG_PASSWORD
+PDD_OPERATIONAL_ALLOW_PRODUCTION=false
 ```
 
-El backend analítico actual continúa usando `PG_*` contra `diarco_data`. Las
-variables `PGP_TEST_*` serán utilizadas al implementar la publicación hacia
-Connexa y las pruebas de integración.
-
+El backend analítico continúa usando `PG_*` contra `diarco_data`. El código sólo
+admite `connexa_platform_test` como destino predeterminado; Producción requiere
+la habilitación explícita `PDD_OPERATIONAL_ALLOW_PRODUCTION=true`.

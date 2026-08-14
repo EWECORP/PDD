@@ -359,18 +359,18 @@ Los estados de ejecución describen información recibida; no convierten a Conne
 
 | Entidad | Propósito |
 | --- | --- |
-| `calculation_run` | Corrida y versión vigente |
-| `source_snapshot` | Evidencia de fuentes |
-| `branch_stock_position` | Componentes de stock neto |
-| `need_snapshot` | D/S calculadas e IRQ |
-| `directed_need` / `directed_need_line` | E/C/A persistentes |
-| `current_backlog_line` | Proyección consolidada vigente |
-| `backlog_source_allocation` | Origen DECAS e imputación |
-| `valkimia_import` / `valkimia_import_line` | Selección oportunista |
-| `execution_event` | Preparado/despacho/estado externo |
-| `configuration_version` | Fórmulas y parámetros |
-| `integration_message` | Inbox/outbox e idempotencia |
-| `business_event_log` | Auditoría |
+| `pdd_calculation_run` | Corrida y versión vigente |
+| `pdd_source_snapshot` | Evidencia de fuentes |
+| `pdd_branch_stock_position` | Componentes de stock neto |
+| `pdd_need_snapshot` | D/S calculadas e IRQ |
+| `pdd_directed_need` / `pdd_directed_need_line` | E/C/A persistentes |
+| `pdd_current_backlog_line` | Proyección consolidada vigente |
+| `pdd_backlog_source_allocation` | Origen DECAS e imputación |
+| `pdd_valkimia_import` / `pdd_valkimia_import_line` | Selección oportunista |
+| `pdd_execution_event` | Preparado/despacho/estado externo |
+| `pdd_configuration_version` | Fórmulas y parámetros |
+| `pdd_integration_message` | Inbox/outbox e idempotencia |
+| `pdd_business_event_log` | Auditoría |
 
 No implementar en Fase 1 entidades `trip`, `route`, `vehicle`, `load_plan`, `reservation`, `allocation_run` ni `branch_transfer_request`.
 

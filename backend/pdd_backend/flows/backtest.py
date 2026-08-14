@@ -25,6 +25,7 @@ def rolling_backtest_task(
     croston_alpha: Decimal,
     adi_threshold: Decimal,
     cv2_threshold: Decimal,
+    sample_percent: Decimal,
 ) -> dict:
     logger = get_run_logger()
     settings = Settings.from_env()
@@ -41,11 +42,12 @@ def rolling_backtest_task(
     engine = build_engine(settings)
     try:
         logger.info(
-            "Backtest rolling-origin %s a %s; horizonte=%s; modo=%s",
+            "Backtest rolling-origin %s a %s; horizonte=%s; modo=%s; muestra=%s%%",
             origin_from,
             origin_to,
             forecast_horizon_days,
             evaluation_mode,
+            sample_percent,
         )
         result = run_rolling_backtest(
             engine,
@@ -61,12 +63,18 @@ def rolling_backtest_task(
             croston_alpha=croston_alpha,
             adi_threshold=adi_threshold,
             cv2_threshold=cv2_threshold,
-            progress_callback=lambda completed, total, origin, rows: logger.info(
-                "Origen %s completado (%s/%s); detalle=%s",
-                origin,
-                completed,
-                total,
-                rows,
+            sample_percent=sample_percent,
+            progress_callback=(
+                lambda completed, total, origin, rows, estimate_s, detail_s: logger.info(
+                    "Origen %s completado (%s/%s); detalle=%s; "
+                    "pdvb=%.1fs; detalle=%.1fs",
+                    origin,
+                    completed,
+                    total,
+                    rows,
+                    estimate_s,
+                    detail_s,
+                )
             ),
         )
         logger.info(
@@ -94,6 +102,7 @@ def pdd_rolling_backtest_flow(
     croston_alpha: Decimal = Decimal("0.10"),
     adi_threshold: Decimal = Decimal("1.32"),
     cv2_threshold: Decimal = Decimal("0.49"),
+    sample_percent: Decimal = Decimal("100"),
 ) -> dict:
     if origin_to < origin_from:
         raise ValueError("origin_to no puede ser anterior a origin_from")
@@ -129,6 +138,7 @@ def pdd_rolling_backtest_flow(
         croston_alpha,
         adi_threshold,
         cv2_threshold,
+        sample_percent,
         wait_for=[current_and_actual_features],
     )
     return {

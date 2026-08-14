@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "diarco-pdd-backend"
-version = "0.5.0"
+version = "0.6.1"
 description = "Procesos analiticos PDD sobre diarco_data orquestados con Prefect"
 requires-python = ">=3.10"
 dependencies = [
@@ -25,7 +25,7 @@ where = ["."]
 include = ["pdd_backend*"]
 
 [tool.setuptools.package-data]
-pdd_backend = ["sql/**/*.sql", "rules/*.json"]
+pdd_backend = ["sql/**/*.sql", "rules/*.json", "manifests/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

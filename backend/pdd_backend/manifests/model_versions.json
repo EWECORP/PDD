@@ -1,0 +1,46 @@
+{
+  "a0a35b25-628d-43f1-b651-82c97207fc60": {
+    "model_code": "PDVB_CD41",
+    "version_no": 3,
+    "status": "DRAFT",
+    "parameters": {
+      "cutoff_lag_days": 1,
+      "windows": {
+        "recent_days": 28,
+        "previous_days": 28,
+        "seasonal_days": 28,
+        "seasonal_offset_years": 1
+      },
+      "weights": {
+        "recent": "0.60",
+        "previous": "0.25",
+        "seasonal": "0.15",
+        "normalization": "AVAILABLE_WINDOWS"
+      },
+      "evidence": {
+        "minimum_recent_eligible_days": 7,
+        "minimum_total_eligible_days": 14,
+        "warning_coverage": "0.70"
+      },
+      "availability": {
+        "positive_stock_without_sale": "IN_STOCK_INCLUDE_ZERO",
+        "negative_or_zero_stock_without_sale": "OUT_OF_STOCK_EXCLUDE",
+        "missing_stock": "UNKNOWN_EXCLUDE",
+        "positive_sale_without_stock": "INFERRED_FROM_SALE_INCLUDE"
+      },
+      "promotions": {
+        "enriched": "USE_VENTA_BASAL",
+        "raw_flags_without_enrichment": "EXCLUDE_DAY"
+      },
+      "fallback": {
+        "missing_seasonal_level": 1,
+        "recent_only_level": 2,
+        "blocked_level": 9
+      },
+      "floor": null,
+      "statuses": ["OK", "WARN", "BLOCKED", "ZERO_VALID"]
+    },
+    "implementation_sha256": "5812776533c2235045de86984dc6ad4454e2f42c2b7ce324459e5407997b87da",
+    "code_commit_sha": null
+  }
+}

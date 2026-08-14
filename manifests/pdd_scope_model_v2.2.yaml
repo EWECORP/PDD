@@ -289,9 +289,9 @@ runtime_contract:
       production: "connexa_platform_ms"
     operational_schema: "stock_management"
     scope_target: >-
-      {connexa_database}.stock_management.distribution_scope_version.scope_version_uuid
+      {connexa_database}.stock_management.pdd_distribution_scope_version.scope_version_uuid
     model_target: >-
-      {connexa_database}.stock_management.pdvb_model_version.model_version_uuid
+      {connexa_database}.stock_management.pdd_pdvb_model_version.model_version_uuid
   rules:
     - "Los UUID no son secretos"
     - "No deben generarse nuevamente en cada corrida"

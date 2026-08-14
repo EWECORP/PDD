@@ -172,8 +172,8 @@ base_ventas_extendida + dm_bve_ventas_enriquecidas
     └─► dm_pdd_venta_diaria
             + stock diario
             + scope vigente
-                └─► pdvb_estimate
-                        └─► pdvb_current
+                └─► pdd_pdvb_estimate
+                        └─► pdd_pdvb_current
                                 └─► D/S
 ```
 
@@ -194,17 +194,17 @@ Se agregan:
 
 | Tabla | Grano |
 | --- | --- |
-| `stock_management.distribution_scope_version` | una versión del universo de un CD |
-| `stock_management.distribution_scope_article` | versión + artículo elegible en CD |
-| `stock_management.distribution_scope_pair` | versión + sucursal destino + artículo |
+| `stock_management.pdd_distribution_scope_version` | una versión del universo de un CD |
+| `stock_management.pdd_distribution_scope_article` | versión + artículo elegible en CD |
+| `stock_management.pdd_distribution_scope_pair` | versión + sucursal destino + artículo |
 | `datamart.dm_pdd_stock_diario` | fecha + sucursal + artículo |
 
 Se modifican:
 
-- `calculation_run`: referencia obligatoria a la versión de scope para corridas PDVB/Daily DECAS;
+- `pdd_calculation_run`: referencia obligatoria a la versión de scope para corridas PDVB/Daily DECAS;
 - `dm_pdd_venta_diaria`: snapshot de cantidad/hash de stock usado;
-- `pdvb_estimate`: CD origen y versión de scope;
-- `pdvb_current`: CD origen y versión de scope.
+- `pdd_pdvb_estimate`: CD origen y versión de scope;
+- `pdd_pdvb_current`: CD origen y versión de scope.
 
 El SQL incremental está en `PDD - DDL Addendum CD41 y Stock Canonico v1.1.sql` y se aplica después del DDL v1.0.
 
@@ -230,7 +230,7 @@ El SQL incremental está en `PDD - DDL Addendum CD41 y Stock Canonico v1.1.sql` 
 
 ### Publicación
 
-- sólo pares presentes en `distribution_scope_pair`;
+- sólo pares presentes en `pdd_distribution_scope_pair`;
 - scope, stock, venta y estimación comparten fecha de corte;
 - ausencia de stock por encima del umbral bloquea o degrada según versión aprobada;
 - cambios de scope no eliminan historia, sólo la proyección vigente.

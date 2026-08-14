@@ -17,10 +17,10 @@ BEGIN
 END
 $guard$;
 
-CREATE TABLE stock_management.item_logistics_snapshot (
+CREATE TABLE stock_management.pdd_item_logistics_snapshot (
     item_logistics_snapshot_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     calculation_run_id bigint NOT NULL
-        REFERENCES stock_management.calculation_run(calculation_run_id) ON DELETE RESTRICT,
+        REFERENCES stock_management.pdd_calculation_run(calculation_run_id) ON DELETE RESTRICT,
     origin_cd integer NOT NULL,
     codigo_articulo integer NOT NULL,
     base_unit varchar(20) NOT NULL,
@@ -29,24 +29,24 @@ CREATE TABLE stock_management.item_logistics_snapshot (
     unit_weight_kg numeric(18,6) CHECK (unit_weight_kg >= 0),
     unit_volume_m3 numeric(18,9) CHECK (unit_volume_m3 >= 0),
     source_snapshot_id bigint
-        REFERENCES stock_management.source_snapshot(source_snapshot_id) ON DELETE RESTRICT,
+        REFERENCES stock_management.pdd_source_snapshot(source_snapshot_id) ON DELETE RESTRICT,
     quality_status varchar(20) NOT NULL CHECK (
         quality_status IN ('COMPLETE', 'PARTIAL', 'MISSING', 'INVALID')
     ),
     source_as_of_ts timestamptz NOT NULL,
     input_checksum varchar(128) NOT NULL,
     created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-    CONSTRAINT uq_item_logistics_run UNIQUE (calculation_run_id, origin_cd, codigo_articulo),
-    CONSTRAINT ck_item_logistics_origin CHECK (origin_cd = 41)
+    CONSTRAINT uq_pdd_item_logistics_run UNIQUE (calculation_run_id, origin_cd, codigo_articulo),
+    CONSTRAINT ck_pdd_item_logistics_origin CHECK (origin_cd = 41)
 );
 
-CREATE TABLE stock_management.branch_stock_position (
+CREATE TABLE stock_management.pdd_branch_stock_position (
     business_date date NOT NULL,
     branch_stock_position_id bigint GENERATED ALWAYS AS IDENTITY,
     calculation_run_id bigint NOT NULL
-        REFERENCES stock_management.calculation_run(calculation_run_id) ON DELETE RESTRICT,
+        REFERENCES stock_management.pdd_calculation_run(calculation_run_id) ON DELETE RESTRICT,
     scope_version_id bigint NOT NULL
-        REFERENCES stock_management.distribution_scope_version(scope_version_id) ON DELETE RESTRICT,
+        REFERENCES stock_management.pdd_distribution_scope_version(scope_version_id) ON DELETE RESTRICT,
     origin_cd integer NOT NULL,
     sucursal integer NOT NULL,
     codigo_articulo integer NOT NULL,
@@ -74,15 +74,15 @@ CREATE TABLE stock_management.branch_stock_position (
     overstock_quantity numeric(18,6) NOT NULL CHECK (overstock_quantity >= 0),
     coverage_days numeric(18,6),
     stock_source_snapshot_id bigint NOT NULL
-        REFERENCES stock_management.source_snapshot(source_snapshot_id) ON DELETE RESTRICT,
+        REFERENCES stock_management.pdd_source_snapshot(source_snapshot_id) ON DELETE RESTRICT,
     direct_po_source_snapshot_id bigint
-        REFERENCES stock_management.source_snapshot(source_snapshot_id) ON DELETE RESTRICT,
+        REFERENCES stock_management.pdd_source_snapshot(source_snapshot_id) ON DELETE RESTRICT,
     transit_source_snapshot_id bigint
-        REFERENCES stock_management.source_snapshot(source_snapshot_id) ON DELETE RESTRICT,
+        REFERENCES stock_management.pdd_source_snapshot(source_snapshot_id) ON DELETE RESTRICT,
     commitment_source_snapshot_id bigint
-        REFERENCES stock_management.source_snapshot(source_snapshot_id) ON DELETE RESTRICT,
+        REFERENCES stock_management.pdd_source_snapshot(source_snapshot_id) ON DELETE RESTRICT,
     configuration_version_id bigint NOT NULL
-        REFERENCES stock_management.configuration_version(configuration_version_id) ON DELETE RESTRICT,
+        REFERENCES stock_management.pdd_configuration_version(configuration_version_id) ON DELETE RESTRICT,
     calculation_status varchar(20) NOT NULL CHECK (
         calculation_status IN ('OK', 'WARN', 'BLOCKED', 'ZERO_PDVB')
     ),
@@ -91,21 +91,21 @@ CREATE TABLE stock_management.branch_stock_position (
     input_checksum varchar(128) NOT NULL,
     calculated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
     PRIMARY KEY (business_date, branch_stock_position_id),
-    CONSTRAINT uq_branch_stock_position_run UNIQUE (
+    CONSTRAINT uq_pdd_branch_stock_position_run UNIQUE (
         business_date, calculation_run_id, origin_cd, sucursal, codigo_articulo
     ),
     FOREIGN KEY (scope_version_id, sucursal, codigo_articulo)
-        REFERENCES stock_management.distribution_scope_pair
+        REFERENCES stock_management.pdd_distribution_scope_pair
             (scope_version_id, destination_branch, codigo_articulo)
         ON DELETE RESTRICT,
     FOREIGN KEY (pdvb_business_date, pdvb_estimate_id)
-        REFERENCES stock_management.pdvb_estimate (business_date, pdvb_estimate_id)
+        REFERENCES stock_management.pdd_pdvb_estimate (business_date, pdvb_estimate_id)
         ON DELETE RESTRICT,
-    CONSTRAINT ck_branch_stock_position_origin CHECK (origin_cd = 41),
-    CONSTRAINT ck_branch_stock_position_pdvb_date CHECK (
+    CONSTRAINT ck_pdd_branch_stock_position_origin CHECK (origin_cd = 41),
+    CONSTRAINT ck_pdd_branch_stock_position_pdvb_date CHECK (
         pdvb_business_date <= business_date
     ),
-    CONSTRAINT ck_branch_stock_position_formulas CHECK (
+    CONSTRAINT ck_pdd_branch_stock_position_formulas CHECK (
         abs(critical_stock - (pdvb_value * lead_time_days)) <= 0.001
         AND abs(minimum_stock - (pdvb_value * 2 * lead_time_days)) <= 0.001
         AND abs(maximum_stock - (pdvb_value * target_stock_days)) <= 0.001
@@ -113,20 +113,20 @@ CREATE TABLE stock_management.branch_stock_position (
     )
 ) PARTITION BY RANGE (business_date);
 
-CREATE INDEX ix_branch_stock_position_pair_date
-    ON stock_management.branch_stock_position (codigo_articulo, sucursal, business_date DESC);
+CREATE INDEX ix_pdd_branch_stock_position_pair_date
+    ON stock_management.pdd_branch_stock_position (codigo_articulo, sucursal, business_date DESC);
 
-CREATE INDEX ix_branch_stock_position_run_status
-    ON stock_management.branch_stock_position (calculation_run_id, calculation_status);
+CREATE INDEX ix_pdd_branch_stock_position_run_status
+    ON stock_management.pdd_branch_stock_position (calculation_run_id, calculation_status);
 
-CREATE INDEX ix_branch_stock_position_date_brin
-    ON stock_management.branch_stock_position USING brin (business_date);
+CREATE INDEX ix_pdd_branch_stock_position_date_brin
+    ON stock_management.pdd_branch_stock_position USING brin (business_date);
 
-CREATE TABLE stock_management.cd_stock_position (
+CREATE TABLE stock_management.pdd_cd_stock_position (
     business_date date NOT NULL,
     cd_stock_position_id bigint GENERATED ALWAYS AS IDENTITY,
     calculation_run_id bigint NOT NULL
-        REFERENCES stock_management.calculation_run(calculation_run_id) ON DELETE RESTRICT,
+        REFERENCES stock_management.pdd_calculation_run(calculation_run_id) ON DELETE RESTRICT,
     origin_cd integer NOT NULL,
     codigo_articulo integer NOT NULL,
     c_proveedor_primario integer,
@@ -137,34 +137,34 @@ CREATE TABLE stock_management.cd_stock_position (
     optional_backlog numeric(18,6) NOT NULL DEFAULT 0 CHECK (optional_backlog >= 0),
     coverage_index numeric(18,6),
     stock_source_snapshot_id bigint NOT NULL
-        REFERENCES stock_management.source_snapshot(source_snapshot_id) ON DELETE RESTRICT,
+        REFERENCES stock_management.pdd_source_snapshot(source_snapshot_id) ON DELETE RESTRICT,
     po_source_snapshot_id bigint
-        REFERENCES stock_management.source_snapshot(source_snapshot_id) ON DELETE RESTRICT,
+        REFERENCES stock_management.pdd_source_snapshot(source_snapshot_id) ON DELETE RESTRICT,
     status varchar(20) NOT NULL CHECK (status IN ('OK', 'WARN', 'BLOCKED')),
     alert_codes text[] NOT NULL DEFAULT ARRAY[]::text[],
     input_checksum varchar(128) NOT NULL,
     calculated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
     PRIMARY KEY (business_date, cd_stock_position_id),
-    CONSTRAINT uq_cd_stock_position_run UNIQUE (
+    CONSTRAINT uq_pdd_cd_stock_position_run UNIQUE (
         business_date, calculation_run_id, origin_cd, codigo_articulo
     ),
-    CONSTRAINT ck_cd_stock_position_origin CHECK (origin_cd = 41)
+    CONSTRAINT ck_pdd_cd_stock_position_origin CHECK (origin_cd = 41)
 ) PARTITION BY RANGE (business_date);
 
-CREATE INDEX ix_cd_stock_position_article_date
-    ON stock_management.cd_stock_position (codigo_articulo, business_date DESC);
+CREATE INDEX ix_pdd_cd_stock_position_article_date
+    ON stock_management.pdd_cd_stock_position (codigo_articulo, business_date DESC);
 
-CREATE INDEX ix_cd_stock_position_run_status
-    ON stock_management.cd_stock_position (calculation_run_id, status);
+CREATE INDEX ix_pdd_cd_stock_position_run_status
+    ON stock_management.pdd_cd_stock_position (calculation_run_id, status);
 
-CREATE TABLE stock_management.need_snapshot (
+CREATE TABLE stock_management.pdd_need_snapshot (
     business_date date NOT NULL,
     need_snapshot_id bigint GENERATED ALWAYS AS IDENTITY,
     calculation_run_id bigint NOT NULL
-        REFERENCES stock_management.calculation_run(calculation_run_id) ON DELETE RESTRICT,
+        REFERENCES stock_management.pdd_calculation_run(calculation_run_id) ON DELETE RESTRICT,
     branch_stock_position_id bigint NOT NULL,
     scope_version_id bigint NOT NULL
-        REFERENCES stock_management.distribution_scope_version(scope_version_id) ON DELETE RESTRICT,
+        REFERENCES stock_management.pdd_distribution_scope_version(scope_version_id) ON DELETE RESTRICT,
     origin_cd integer NOT NULL,
     sucursal integer NOT NULL,
     codigo_articulo integer NOT NULL,
@@ -181,9 +181,9 @@ CREATE TABLE stock_management.need_snapshot (
     formula_code varchar(40) NOT NULL,
     formula_version varchar(40) NOT NULL,
     configuration_version_id bigint NOT NULL
-        REFERENCES stock_management.configuration_version(configuration_version_id) ON DELETE RESTRICT,
+        REFERENCES stock_management.pdd_configuration_version(configuration_version_id) ON DELETE RESTRICT,
     logistics_snapshot_id bigint
-        REFERENCES stock_management.item_logistics_snapshot(item_logistics_snapshot_id) ON DELETE RESTRICT,
+        REFERENCES stock_management.pdd_item_logistics_snapshot(item_logistics_snapshot_id) ON DELETE RESTRICT,
     estimated_packages numeric(18,6) CHECK (estimated_packages >= 0),
     estimated_pallets numeric(18,6) CHECK (estimated_pallets >= 0),
     estimated_weight_kg numeric(18,6) CHECK (estimated_weight_kg >= 0),
@@ -196,22 +196,22 @@ CREATE TABLE stock_management.need_snapshot (
     input_checksum varchar(128) NOT NULL,
     calculated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
     PRIMARY KEY (business_date, need_snapshot_id),
-    CONSTRAINT uq_need_snapshot_run_pair_type UNIQUE (
+    CONSTRAINT uq_pdd_need_snapshot_run_pair_type UNIQUE (
         business_date, calculation_run_id, origin_cd, sucursal, codigo_articulo, need_type
     ),
     FOREIGN KEY (business_date, branch_stock_position_id)
-        REFERENCES stock_management.branch_stock_position (business_date, branch_stock_position_id)
+        REFERENCES stock_management.pdd_branch_stock_position (business_date, branch_stock_position_id)
         ON DELETE RESTRICT,
     FOREIGN KEY (scope_version_id, sucursal, codigo_articulo)
-        REFERENCES stock_management.distribution_scope_pair
+        REFERENCES stock_management.pdd_distribution_scope_pair
             (scope_version_id, destination_branch, codigo_articulo)
         ON DELETE RESTRICT,
-    CONSTRAINT ck_need_snapshot_origin CHECK (origin_cd = 41),
-    CONSTRAINT ck_need_snapshot_mandatory CHECK (
+    CONSTRAINT ck_pdd_need_snapshot_origin CHECK (origin_cd = 41),
+    CONSTRAINT ck_pdd_need_snapshot_mandatory CHECK (
         (need_type = 'D' AND is_mandatory)
         OR (need_type = 'S' AND NOT is_mandatory)
     ),
-    CONSTRAINT ck_need_snapshot_quantities CHECK (
+    CONSTRAINT ck_pdd_need_snapshot_quantities CHECK (
         (calculation_status = 'BLOCKED'
             AND calculated_quantity IS NULL
             AND rounded_quantity IS NULL
@@ -221,21 +221,21 @@ CREATE TABLE stock_management.need_snapshot (
             AND rounded_quantity >= 0
             AND open_quantity >= 0)
     ),
-    CONSTRAINT ck_need_snapshot_zero CHECK (
+    CONSTRAINT ck_pdd_need_snapshot_zero CHECK (
         calculation_status <> 'ZERO'
         OR (calculated_quantity = 0 AND rounded_quantity = 0 AND open_quantity = 0)
     )
 ) PARTITION BY RANGE (business_date);
 
-CREATE INDEX ix_need_snapshot_backlog
-    ON stock_management.need_snapshot
+CREATE INDEX ix_pdd_need_snapshot_backlog
+    ON stock_management.pdd_need_snapshot
     (business_date DESC, is_mandatory DESC, irq_score DESC, target_date)
     WHERE calculation_status = 'CALCULATED' AND open_quantity > 0;
 
-CREATE INDEX ix_need_snapshot_pair_date
-    ON stock_management.need_snapshot (codigo_articulo, sucursal, business_date DESC, need_type);
+CREATE INDEX ix_pdd_need_snapshot_pair_date
+    ON stock_management.pdd_need_snapshot (codigo_articulo, sucursal, business_date DESC, need_type);
 
-CREATE TABLE stock_management.directed_need (
+CREATE TABLE stock_management.pdd_directed_need (
     directed_need_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     directed_need_uuid uuid NOT NULL DEFAULT gen_random_uuid(),
     origin_cd integer NOT NULL,
@@ -259,23 +259,23 @@ CREATE TABLE stock_management.directed_need (
     updated_by varchar(100) NOT NULL,
     approved_at timestamptz,
     closed_at timestamptz,
-    CONSTRAINT uq_directed_need_uuid UNIQUE (directed_need_uuid),
-    CONSTRAINT uq_directed_need_reference UNIQUE (origin_cd, need_type, business_reference),
-    CONSTRAINT ck_directed_need_origin CHECK (origin_cd = 41),
-    CONSTRAINT ck_directed_need_validity CHECK (valid_to IS NULL OR valid_to >= valid_from),
-    CONSTRAINT ck_directed_need_approval CHECK (
+    CONSTRAINT uq_pdd_directed_need_uuid UNIQUE (directed_need_uuid),
+    CONSTRAINT uq_pdd_directed_need_reference UNIQUE (origin_cd, need_type, business_reference),
+    CONSTRAINT ck_pdd_directed_need_origin CHECK (origin_cd = 41),
+    CONSTRAINT ck_pdd_directed_need_validity CHECK (valid_to IS NULL OR valid_to >= valid_from),
+    CONSTRAINT ck_pdd_directed_need_approval CHECK (
         status <> 'ACTIVE' OR (approver_user IS NOT NULL AND approved_at IS NOT NULL)
     )
 );
 
-CREATE INDEX ix_directed_need_active
-    ON stock_management.directed_need (need_type, valid_from, valid_to, priority_score DESC)
+CREATE INDEX ix_pdd_directed_need_active
+    ON stock_management.pdd_directed_need (need_type, valid_from, valid_to, priority_score DESC)
     WHERE status = 'ACTIVE';
 
-CREATE TABLE stock_management.directed_need_line (
+CREATE TABLE stock_management.pdd_directed_need_line (
     directed_need_line_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     directed_need_id bigint NOT NULL
-        REFERENCES stock_management.directed_need(directed_need_id) ON DELETE RESTRICT,
+        REFERENCES stock_management.pdd_directed_need(directed_need_id) ON DELETE RESTRICT,
     sucursal integer NOT NULL,
     codigo_articulo integer NOT NULL,
     original_quantity numeric(18,6) NOT NULL CHECK (original_quantity > 0),
@@ -297,25 +297,25 @@ CREATE TABLE stock_management.directed_need_line (
     ),
     last_activity_at timestamptz NOT NULL DEFAULT clock_timestamp(),
     row_version integer NOT NULL DEFAULT 1 CHECK (row_version > 0),
-    CONSTRAINT uq_directed_need_line UNIQUE (directed_need_id, sucursal, codigo_articulo),
-    CONSTRAINT ck_directed_need_line_balance CHECK (
+    CONSTRAINT uq_pdd_directed_need_line UNIQUE (directed_need_id, sucursal, codigo_articulo),
+    CONSTRAINT ck_pdd_directed_need_line_balance CHECK (
         prepared_allocated_quantity + cancelled_quantity <= original_quantity
     ),
-    CONSTRAINT ck_directed_need_line_status CHECK (
+    CONSTRAINT ck_pdd_directed_need_line_status CHECK (
         (status = 'OPEN' AND open_quantity = original_quantity)
         OR (status = 'PARTIAL' AND open_quantity > 0 AND open_quantity < original_quantity)
         OR (status IN ('FULFILLED', 'CANCELLED') AND open_quantity = 0)
     )
 );
 
-CREATE INDEX ix_directed_need_line_open
-    ON stock_management.directed_need_line (sucursal, codigo_articulo, target_date)
+CREATE INDEX ix_pdd_directed_need_line_open
+    ON stock_management.pdd_directed_need_line (sucursal, codigo_articulo, target_date)
     WHERE open_quantity > 0;
 
-CREATE TABLE stock_management.directed_need_version (
+CREATE TABLE stock_management.pdd_directed_need_version (
     directed_need_version_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     directed_need_id bigint NOT NULL
-        REFERENCES stock_management.directed_need(directed_need_id) ON DELETE RESTRICT,
+        REFERENCES stock_management.pdd_directed_need(directed_need_id) ON DELETE RESTRICT,
     version_no integer NOT NULL CHECK (version_no > 0),
     valid_from_ts timestamptz NOT NULL DEFAULT clock_timestamp(),
     changed_by varchar(100) NOT NULL,
@@ -323,16 +323,16 @@ CREATE TABLE stock_management.directed_need_version (
     before_state jsonb,
     after_state jsonb NOT NULL,
     correlation_id uuid,
-    CONSTRAINT uq_directed_need_version UNIQUE (directed_need_id, version_no)
+    CONSTRAINT uq_pdd_directed_need_version UNIQUE (directed_need_id, version_no)
 );
 
-CREATE TABLE stock_management.current_backlog_line (
+CREATE TABLE stock_management.pdd_current_backlog_line (
     backlog_line_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     backlog_line_uuid uuid NOT NULL DEFAULT gen_random_uuid(),
     snapshot_version uuid NOT NULL,
     business_date date NOT NULL,
     calculation_run_id bigint NOT NULL
-        REFERENCES stock_management.calculation_run(calculation_run_id) ON DELETE RESTRICT,
+        REFERENCES stock_management.pdd_calculation_run(calculation_run_id) ON DELETE RESTRICT,
     origin_cd integer NOT NULL,
     sucursal integer NOT NULL,
     codigo_articulo integer NOT NULL,
@@ -372,27 +372,27 @@ CREATE TABLE stock_management.current_backlog_line (
     row_version integer NOT NULL DEFAULT 1 CHECK (row_version > 0),
     input_checksum varchar(128) NOT NULL,
     published_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-    CONSTRAINT uq_current_backlog_uuid UNIQUE (backlog_line_uuid),
-    CONSTRAINT ck_current_backlog_origin CHECK (origin_cd = 41),
-    CONSTRAINT ck_current_backlog_nonempty CHECK (total_open_quantity > 0)
+    CONSTRAINT uq_pdd_current_backlog_uuid UNIQUE (backlog_line_uuid),
+    CONSTRAINT ck_pdd_current_backlog_origin CHECK (origin_cd = 41),
+    CONSTRAINT ck_pdd_current_backlog_nonempty CHECK (total_open_quantity > 0)
 );
 
-CREATE UNIQUE INDEX uq_current_backlog_grain
-    ON stock_management.current_backlog_line
+CREATE UNIQUE INDEX uq_pdd_current_backlog_grain
+    ON stock_management.pdd_current_backlog_line
     (origin_cd, sucursal, codigo_articulo, coalesce(c_proveedor_primario, -1));
 
-CREATE INDEX ix_current_backlog_priority
-    ON stock_management.current_backlog_line
+CREATE INDEX ix_pdd_current_backlog_priority
+    ON stock_management.pdd_current_backlog_line
     (freshness_status, priority_score DESC, irq_score DESC, target_date, oldest_need_date);
 
-CREATE INDEX ix_current_backlog_supplier
-    ON stock_management.current_backlog_line
+CREATE INDEX ix_pdd_current_backlog_supplier
+    ON stock_management.pdd_current_backlog_line
     (c_proveedor_primario, sucursal, codigo_articulo);
 
-CREATE TABLE stock_management.backlog_source_allocation (
+CREATE TABLE stock_management.pdd_backlog_source_allocation (
     backlog_source_allocation_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     backlog_line_id bigint NOT NULL
-        REFERENCES stock_management.current_backlog_line(backlog_line_id) ON DELETE CASCADE,
+        REFERENCES stock_management.pdd_current_backlog_line(backlog_line_id) ON DELETE CASCADE,
     source_type char(1) NOT NULL CHECK (source_type IN ('D', 'E', 'C', 'A', 'S')),
     source_entity_id bigint NOT NULL,
     source_business_date date,
@@ -402,18 +402,18 @@ CREATE TABLE stock_management.backlog_source_allocation (
     attribution_order integer NOT NULL CHECK (attribution_order > 0),
     attribution_rule_version varchar(40) NOT NULL,
     created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-    CONSTRAINT uq_backlog_source_allocation UNIQUE (
+    CONSTRAINT uq_pdd_backlog_source_allocation UNIQUE (
         backlog_line_id, source_type, source_entity_id, source_business_date
     ),
-    CONSTRAINT ck_backlog_source_prepared CHECK (
+    CONSTRAINT ck_pdd_backlog_source_prepared CHECK (
         prepared_allocated_quantity <= contributed_quantity
     )
 );
 
-COMMENT ON TABLE stock_management.backlog_source_allocation IS
+COMMENT ON TABLE stock_management.pdd_backlog_source_allocation IS
 'Atribucion contable del saldo y del cumplimiento a su fuente DECAS; no asigna ni reserva stock.';
 
-CREATE TABLE stock_management.valkimia_import (
+CREATE TABLE stock_management.pdd_valkimia_import (
     valkimia_import_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     valkimia_import_uuid uuid NOT NULL DEFAULT gen_random_uuid(),
     idempotency_key varchar(160) NOT NULL,
@@ -434,21 +434,21 @@ CREATE TABLE stock_management.valkimia_import (
         CHECK (total_prepared_quantity >= 0),
     payload_checksum varchar(128) NOT NULL,
     detail jsonb NOT NULL DEFAULT '{}'::jsonb,
-    CONSTRAINT uq_valkimia_import_uuid UNIQUE (valkimia_import_uuid),
-    CONSTRAINT uq_valkimia_import_idempotency UNIQUE (adapter_code, idempotency_key),
-    CONSTRAINT ck_valkimia_import_origin CHECK (origin_cd = 41),
-    CONSTRAINT ck_valkimia_import_totals CHECK (
+    CONSTRAINT uq_pdd_valkimia_import_uuid UNIQUE (valkimia_import_uuid),
+    CONSTRAINT uq_pdd_valkimia_import_idempotency UNIQUE (adapter_code, idempotency_key),
+    CONSTRAINT ck_pdd_valkimia_import_origin CHECK (origin_cd = 41),
+    CONSTRAINT ck_pdd_valkimia_import_totals CHECK (
         total_prepared_quantity <= total_imported_quantity
     )
 );
 
-CREATE INDEX ix_valkimia_import_status_date
-    ON stock_management.valkimia_import (status, requested_at DESC);
+CREATE INDEX ix_pdd_valkimia_import_status_date
+    ON stock_management.pdd_valkimia_import (status, requested_at DESC);
 
-CREATE TABLE stock_management.valkimia_import_line (
+CREATE TABLE stock_management.pdd_valkimia_import_line (
     valkimia_import_line_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     valkimia_import_id bigint NOT NULL
-        REFERENCES stock_management.valkimia_import(valkimia_import_id) ON DELETE RESTRICT,
+        REFERENCES stock_management.pdd_valkimia_import(valkimia_import_id) ON DELETE RESTRICT,
     backlog_line_uuid uuid NOT NULL,
     backlog_line_version integer NOT NULL CHECK (backlog_line_version > 0),
     codigo_articulo integer NOT NULL,
@@ -463,22 +463,22 @@ CREATE TABLE stock_management.valkimia_import_line (
     last_external_status varchar(100),
     last_updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
     row_version integer NOT NULL DEFAULT 1 CHECK (row_version > 0),
-    CONSTRAINT uq_valkimia_import_line UNIQUE (valkimia_import_id, backlog_line_uuid),
-    CONSTRAINT ck_valkimia_import_line_prepared CHECK (
+    CONSTRAINT uq_pdd_valkimia_import_line UNIQUE (valkimia_import_id, backlog_line_uuid),
+    CONSTRAINT ck_pdd_valkimia_import_line_prepared CHECK (
         prepared_quantity <= imported_quantity
     )
 );
 
-CREATE INDEX ix_valkimia_import_line_external
-    ON stock_management.valkimia_import_line (external_reference, external_line_reference);
+CREATE INDEX ix_pdd_valkimia_import_line_external
+    ON stock_management.pdd_valkimia_import_line (external_reference, external_line_reference);
 
-CREATE TABLE stock_management.execution_event (
+CREATE TABLE stock_management.pdd_execution_event (
     execution_event_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     deduplication_key varchar(200) NOT NULL,
     valkimia_import_id bigint NOT NULL
-        REFERENCES stock_management.valkimia_import(valkimia_import_id) ON DELETE RESTRICT,
+        REFERENCES stock_management.pdd_valkimia_import(valkimia_import_id) ON DELETE RESTRICT,
     valkimia_import_line_id bigint NOT NULL
-        REFERENCES stock_management.valkimia_import_line(valkimia_import_line_id) ON DELETE RESTRICT,
+        REFERENCES stock_management.pdd_valkimia_import_line(valkimia_import_line_id) ON DELETE RESTRICT,
     event_type varchar(30) NOT NULL CHECK (event_type IN (
         'IMPORTED', 'PREPARED', 'DISPATCHED', 'CANCELLED', 'CORRECTED', 'DELIVERED', 'UNKNOWN'
     )),
@@ -503,16 +503,16 @@ CREATE TABLE stock_management.execution_event (
         processing_status IN ('RECEIVED', 'APPLIED', 'IGNORED', 'FAILED')
     ),
     error_detail text,
-    CONSTRAINT uq_execution_event_dedup UNIQUE (deduplication_key)
+    CONSTRAINT uq_pdd_execution_event_dedup UNIQUE (deduplication_key)
 );
 
-CREATE INDEX ix_execution_event_line_date
-    ON stock_management.execution_event (valkimia_import_line_id, external_occurred_at);
+CREATE INDEX ix_pdd_execution_event_line_date
+    ON stock_management.pdd_execution_event (valkimia_import_line_id, external_occurred_at);
 
-CREATE INDEX ix_execution_event_document
-    ON stock_management.execution_event (external_document, external_line_reference);
+CREATE INDEX ix_pdd_execution_event_document
+    ON stock_management.pdd_execution_event (external_document, external_line_reference);
 
-CREATE TABLE stock_management.integration_message (
+CREATE TABLE stock_management.pdd_integration_message (
     integration_message_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     correlation_id uuid NOT NULL,
     idempotency_key varchar(200) NOT NULL,
@@ -530,19 +530,19 @@ CREATE TABLE stock_management.integration_message (
     processed_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
     error_detail text,
-    CONSTRAINT uq_integration_message_idempotency UNIQUE (
+    CONSTRAINT uq_pdd_integration_message_idempotency UNIQUE (
         interface_code, direction, idempotency_key
     )
 );
 
-CREATE INDEX ix_integration_message_work
-    ON stock_management.integration_message (status, next_attempt_at, created_at)
+CREATE INDEX ix_pdd_integration_message_work
+    ON stock_management.pdd_integration_message (status, next_attempt_at, created_at)
     WHERE status IN ('PENDING', 'RETRY');
 
-CREATE INDEX ix_integration_message_correlation
-    ON stock_management.integration_message (correlation_id, created_at);
+CREATE INDEX ix_pdd_integration_message_correlation
+    ON stock_management.pdd_integration_message (correlation_id, created_at);
 
-CREATE TABLE stock_management.business_event_log (
+CREATE TABLE stock_management.pdd_business_event_log (
     business_event_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     entity_type varchar(60) NOT NULL,
     entity_id varchar(120) NOT NULL,
@@ -557,32 +557,32 @@ CREATE TABLE stock_management.business_event_log (
     metadata jsonb NOT NULL DEFAULT '{}'::jsonb
 );
 
-CREATE INDEX ix_business_event_entity_date
-    ON stock_management.business_event_log (entity_type, entity_id, occurred_at DESC);
+CREATE INDEX ix_pdd_business_event_entity_date
+    ON stock_management.pdd_business_event_log (entity_type, entity_id, occurred_at DESC);
 
-CREATE INDEX ix_business_event_correlation
-    ON stock_management.business_event_log (correlation_id, occurred_at)
+CREATE INDEX ix_pdd_business_event_correlation
+    ON stock_management.pdd_business_event_log (correlation_id, occurred_at)
     WHERE correlation_id IS NOT NULL;
 
-COMMENT ON TABLE stock_management.branch_stock_position IS
+COMMENT ON TABLE stock_management.pdd_branch_stock_position IS
 'Foto inmutable del stock neto explicable por corrida, CD, sucursal y articulo.';
 
-COMMENT ON COLUMN stock_management.branch_stock_position.net_stock IS
+COMMENT ON COLUMN stock_management.pdd_branch_stock_position.net_stock IS
 'Stock fisico + OC directa + transito CD - venta especial comprometida - transferencia confirmada pendiente.';
 
-COMMENT ON TABLE stock_management.need_snapshot IS
+COMMENT ON TABLE stock_management.pdd_need_snapshot IS
 'Foto inmutable de necesidades automaticas D/S. Las nuevas corridas reemplazan la foto vigente, no acumulan D/S.';
 
-COMMENT ON TABLE stock_management.directed_need IS
+COMMENT ON TABLE stock_management.pdd_directed_need IS
 'Cabecera persistente de necesidades dirigidas E/C/A; no se recrea en cada corrida.';
 
-COMMENT ON TABLE stock_management.current_backlog_line IS
+COMMENT ON TABLE stock_management.pdd_current_backlog_line IS
 'Proyeccion reconstruible del saldo DECAS vigente. No es una orden, reserva ni asignacion de stock.';
 
-COMMENT ON COLUMN stock_management.current_backlog_line.active_imported_quantity IS
+COMMENT ON COLUMN stock_management.pdd_current_backlog_line.active_imported_quantity IS
 'Cantidad del mismo backlog presente en importaciones activas; no se suma a la demanda.';
 
-COMMENT ON TABLE stock_management.execution_event IS
+COMMENT ON TABLE stock_management.pdd_execution_event IS
 'Evento externo append-only y deduplicado; importar por si solo no reduce el saldo.';
 
 -- Las particiones mensuales de branch_stock_position, cd_stock_position y

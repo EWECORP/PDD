@@ -50,14 +50,14 @@ Al 2026-08-02 la consulta produjo:
 
 El conjunto inicial de artículos comprables en el local 41 era de 2.915 en esa fotografía. La diferencia entre artículos comprables y artículos efectivamente ruteados es esperable.
 
-Los conteos son controles de una fotografía, no parámetros. Cada corrida utiliza una `distribution_scope_version` con fecha, filtros, conteos y checksum.
+Los conteos son controles de una fotografía, no parámetros. Cada corrida utiliza una `pdd_distribution_scope_version` con fecha, filtros, conteos y checksum.
 
 ## Consecuencias
 
 - No se calcula D/S para productos entregados directamente por proveedor.
 - El local 41 no se considera sucursal destino dentro del mismo scope.
 - Un cambio de surtido o ruta crea una nueva versión; no modifica corridas anteriores.
-- `pdvb_estimate`, `pdvb_current`, `branch_stock_position` y `need_snapshot` deben referenciar la versión de scope utilizada.
+- `pdd_pdvb_estimate`, `pdd_pdvb_current`, `pdd_branch_stock_position` y `pdd_need_snapshot` deben referenciar la versión de scope utilizada.
 - Un par que no cumpla todas las condiciones no puede publicarse como necesidad automática desde CD 41.
 
 ## Controles

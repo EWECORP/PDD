@@ -36,7 +36,7 @@ venta diaria preparada ──► corrida/versiones/frescura
 estimación PDVB inmutable ──► proyección PDVB vigente
     │
     ▼
-branch_stock_position ──► need_snapshot D/S
+pdd_branch_stock_position ──► pdd_need_snapshot D/S
 ```
 
 ## 2. Evidencia relevada
@@ -197,7 +197,7 @@ No se recomienda fallback automático por categoría en el MVP. Para demanda int
 - Toda regla se versiona.
 - Estados: `OK`, `WARN`, `BLOCKED`, `ZERO_VALID`.
 - Confianza 0–100 resume cobertura, frescura, promoción, stock y fallback; no oculta causas.
-- PDVB se guarda `numeric(18,6)`. El redondeo logístico ocurre al crear `need_snapshot`.
+- PDVB se guarda `numeric(18,6)`. El redondeo logístico ocurre al crear `pdd_need_snapshot`.
 
 ## 7. Tablas a crear
 
@@ -205,35 +205,35 @@ El DDL detallado está en `PDD - DDL Demanda Basal PostgreSQL v1.0.sql`.
 
 | Tabla | Propósito y grano |
 | --- | --- |
-| `stock_management.pdvb_model_version` | Configuración inmutable, vigencia, parámetros, checksum, commit y aprobación |
-| `stock_management.calculation_run` | Tipo + fecha operativa + ámbito + intento; cabecera común del modelo conceptual |
-| `stock_management.source_snapshot` | Una fuente consumida por corrida, con rango, frescura, filas y checksum |
+| `stock_management.pdd_pdvb_model_version` | Configuración inmutable, vigencia, parámetros, checksum, commit y aprobación |
+| `stock_management.pdd_calculation_run` | Tipo + fecha operativa + ámbito + intento; cabecera común del modelo conceptual |
+| `stock_management.pdd_source_snapshot` | Una fuente consumida por corrida, con rango, frescura, filas y checksum |
 | `datamart.dm_pdd_venta_diaria` | Feature incremental: fecha + artículo + sucursal |
-| `stock_management.pdvb_estimate` | Resultado inmutable por corrida + artículo + sucursal, con componentes explicativos |
-| `stock_management.pdvb_current` | Proyección vigente por artículo + sucursal, publicada atómicamente |
-| `stock_management.pdvb_quality_issue` | Excepciones y resolución, sin copiar líneas correctas |
+| `stock_management.pdd_pdvb_estimate` | Resultado inmutable por corrida + artículo + sucursal, con componentes explicativos |
+| `stock_management.pdd_pdvb_current` | Proyección vigente por artículo + sucursal, publicada atómicamente |
+| `stock_management.pdd_pdvb_quality_issue` | Excepciones y resolución, sin copiar líneas correctas |
 | `datamart.dm_pdd_pdvb_backtest_run` | Cabecera y estado de una evaluación rolling-origin |
 | `datamart.dm_pdd_pdvb_backtest_detail` | Fecha origen + fecha evaluación + estimador + artículo + sucursal |
 | `datamart.dm_pdd_pdvb_backtest_metric` | Métrica analítica comparativa por estimador, muestra y segmento |
-| `stock_management.pdvb_backtest_metric` | Métrica por versión, período, horizonte y segmento |
+| `stock_management.pdd_pdvb_backtest_metric` | Métrica por versión, período, horizonte y segmento |
 
-`dm_pdd_venta_diaria` se actualiza idempotentemente cuando upstream reprocesa 14 días. `pdvb_estimate` nunca se muta y guarda sumas, días, medias, pesos, PDVB raw/publicado, ADI/CV², confianza, fallback, explicación y linaje.
+`dm_pdd_venta_diaria` se actualiza idempotentemente cuando upstream reprocesa 14 días. `pdd_pdvb_estimate` nunca se muta y guarda sumas, días, medias, pesos, PDVB raw/publicado, ADI/CV², confianza, fallback, explicación y linaje.
 
 ## 8. Integración con DECAS
 
-`branch_stock_position` agregará `pdvb_business_date`, `pdvb_estimate_id`, `pdvb_value` snapshot, `pdvb_status`, confianza y versión. El snapshot mantiene explicable D/S aunque cambie la proyección.
+`pdd_branch_stock_position` agregará `pdvb_business_date`, `pdvb_estimate_id`, `pdvb_value` snapshot, `pdvb_status`, confianza y versión. El snapshot mantiene explicable D/S aunque cambie la proyección.
 
 - `OK`, `WARN` aprobado o `ZERO_VALID` pueden alimentar D/S.
 - `BLOCKED`/`INSUFFICIENT_DATA` no generan D/S automática y alertan.
-- Una corrección crea nueva corrida; no muta `need_snapshot` anterior.
-- Nunca se consume `pdvb_current` sin verificar fecha/frescura.
+- Una corrección crea nueva corrida; no muta `pdd_need_snapshot` anterior.
+- Nunca se consume `pdd_pdvb_current` sin verificar fecha/frescura.
 
 ## 9. Particionado, índices y volumen
 
 - Feature y estimación: partición mensual.
 - Índice de feature `(codigo_articulo, sucursal, sales_date desc)` y BRIN por fecha.
 - Índices de estimación por corrida/estado y par/fecha.
-- `pdvb_current`: PK `(codigo_articulo, sucursal)`.
+- `pdd_pdvb_current`: PK `(codigo_articulo, sucursal)`.
 - Crear particiones tres meses hacia adelante; evitar default que oculte fallas.
 - Retención propuesta de features: 30 meses, pendiente de política.
 - Estimaciones/snapshots siguen auditoría y no se truncan con features.
@@ -279,7 +279,7 @@ Construir muestra diaria; implementar estimadores puros; backtest; aprobar venta
 
 ### D6–D14
 
-Migraciones; carga incremental/reproceso; persistencia de corrida/snapshots/estimaciones/excepciones; publicación atómica; integración con `branch_stock_position` y pruebas D/S.
+Migraciones; carga incremental/reproceso; persistencia de corrida/snapshots/estimaciones/excepciones; publicación atómica; integración con `pdd_branch_stock_position` y pruebas D/S.
 
 ## 13. Decisiones abiertas
 
@@ -298,4 +298,4 @@ Migraciones; carga incremental/reproceso; persistencia de corrida/snapshots/esti
 
 ## 14. Resultado
 
-Si se aprueba, D/S consumirá `stock_management.pdvb_current`, conservando vínculo a `stock_management.pdvb_estimate`. `dm_bve_baseline_mensual` seguirá como insumo auxiliar del detector de promoción y no se expondrá como PDVB.
+Si se aprueba, D/S consumirá `stock_management.pdd_pdvb_current`, conservando vínculo a `stock_management.pdd_pdvb_estimate`. `dm_bve_baseline_mensual` seguirá como insumo auxiliar del detector de promoción y no se expondrá como PDVB.

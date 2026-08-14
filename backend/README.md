@@ -121,7 +121,7 @@ prefect deploy --all
 
 ## Backtest rolling-origin
 
-La versión 0.5.0 extiende el backtest reproducible que genera una estimación para
+La versión 0.6.0 extiende el backtest reproducible que genera una estimación para
 cada fecha de origen y usa solamente observaciones anteriores a esa fecha. Antes
 de instalarla se debe aplicar, con `ON_ERROR_STOP`, la migración:
 
@@ -199,6 +199,18 @@ El flow carga automáticamente la unión de las ventanas estacionales, recientes
 anteriores y los días reales a evaluar. El límite predeterminado es 120 fechas
 de origen para impedir una carga masiva accidental.
 
+Desde 0.6.0 cada conexión envía keepalives y cada sentencia tiene un límite
+predeterminado de 30 minutos. El detalle experimental materializa un único
+escaneo acotado de las ventanas históricas y otro de la ventana real, evitando
+la multiplicación de lecturas que causó la corrida huérfana anterior. Cada
+origen informa por separado la duración del cálculo PDVB y del detalle.
+
+La versión 0.6.1 agrega `--sample-percent`. El muestreo es determinístico por
+artículo: un artículo seleccionado conserva todas sus sucursales y la cohorte
+es idéntica para cada origen y estimador. Se recomienda 25% para la última
+calibración inicial; el valor predeterminado 100 conserva el comportamiento
+exhaustivo.
+
 La cabecera y el avance quedan en `dm_pdd_pdvb_backtest_run`; el detalle por
 estimador en `dm_pdd_pdvb_backtest_detail`; y las métricas en
 `dm_pdd_pdvb_backtest_metric`.
@@ -262,6 +274,52 @@ la comparación rectora: todos los estimadores se evalúan sobre exactamente los
 mismos pares y fechas. WAPE y BIAS no se emiten cuando la suma real es cero. El
 BIAS se define como `100 × sum(real - pronóstico) / sum(real)`: positivo indica
 subpronóstico y negativo, sobrepronóstico.
+
+## Publicación operativa para el frontend
+
+`stock_management` es compartido con otros módulos de CONNEXA. Todas las
+entidades propias de este proyecto usan el prefijo `pdd_`; por ejemplo,
+`stock_management.pdd_item_logistics_snapshot` y
+`stock_management.pdd_pdvb_current`.
+
+En una base operativa existente con nombres anteriores se aplica, con
+`ON_ERROR_STOP`, la migración no destructiva
+`PDD - Migracion Operativa Prefijo PDD v2.6.sql`. En una instalación nueva se
+ejecutan primero los DDL Core y DECAS vigentes, que ya crean nombres `pdd_*`.
+
+Para publicar en Test deben configurarse credenciales independientes de las de
+`diarco_data`:
+
+```text
+PDD_OPERATIONAL_PG_HOST=186.158.182.223
+PDD_OPERATIONAL_PG_PORT=5432
+PDD_OPERATIONAL_PG_DB=connexa_platform_test
+PDD_OPERATIONAL_PG_USER=...
+PDD_OPERATIONAL_PG_PASSWORD=...
+PDD_OPERATIONAL_ALLOW_PRODUCTION=false
+```
+
+Antes de publicar:
+
+```bash
+python tools/validate_operational.py
+```
+
+La primera publicación toma una corrida PDVB completa y validada. En una única
+transacción de la base destino registra modelo y scope, carga staging, verifica
+conteo y SHA-256, persiste la historia compacta, actualiza `pdd_pdvb_current` y
+genera incidencias para los pares bloqueados. Al final marca el linaje en
+`diarco_data` y puede repetirse sin duplicar datos:
+
+```bash
+pdd-etl publish-pdvb \
+  --calculation-run-uuid 34aa9ca9-8ab1-40ad-ab62-2ba1cd25ba77 \
+  --created-by eduardo.ettlin
+```
+
+El destino permitido por defecto es exclusivamente `connexa_platform_test`.
+Publicar en `connexa_platform_ms` requiere configurar además
+`PDD_OPERATIONAL_ALLOW_PRODUCTION=true`; no debe habilitarse durante el piloto.
 
 ## Idempotencia y concurrencia
 

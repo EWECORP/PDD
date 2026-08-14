@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
 import json
+from time import monotonic
 from typing import Callable
 from uuid import UUID, uuid4
 
@@ -13,6 +14,7 @@ from sqlalchemy.engine import Engine
 from ..config import Settings
 from ..db import execute_sql, transactional_connection
 from ..partitioning import ensure_monthly_partitions
+from ..windows import build_pdvb_windows
 from .common import JobResult, validate_date_range
 from .pdvb import calculate_pdvb
 
@@ -39,6 +41,7 @@ class RollingBacktestResult:
     evaluation_to: date
     forecast_horizon_days: int
     evaluation_mode: str
+    sample_percent: Decimal
     origin_count: int
     estimate_rows: int
     detail_rows: int
@@ -53,6 +56,7 @@ class RollingBacktestResult:
             "evaluation_to": self.evaluation_to,
             "forecast_horizon_days": self.forecast_horizon_days,
             "evaluation_mode": self.evaluation_mode,
+            "sample_percent": str(self.sample_percent),
             "origin_count": self.origin_count,
             "estimate_rows": self.estimate_rows,
             "detail_rows": self.detail_rows,
@@ -86,6 +90,7 @@ def _validate_backtest_parameters(
     croston_alpha: Decimal,
     adi_threshold: Decimal,
     cv2_threshold: Decimal,
+    sample_percent: Decimal = Decimal("100"),
 ) -> None:
     if evaluation_mode not in EVALUATION_MODES:
         raise ValueError(
@@ -97,6 +102,8 @@ def _validate_backtest_parameters(
         raise ValueError("croston_alpha debe estar en (0, 1]")
     if adi_threshold <= 0 or cv2_threshold < 0:
         raise ValueError("Los umbrales ADI/CV2 no pueden ser negativos")
+    if not Decimal("0") < sample_percent <= Decimal("100"):
+        raise ValueError("sample_percent debe estar en (0, 100]")
 
 
 def generate_backtest_detail(
@@ -118,6 +125,7 @@ def generate_backtest_detail(
     croston_alpha: Decimal = Decimal("0.10"),
     adi_threshold: Decimal = Decimal("1.32"),
     cv2_threshold: Decimal = Decimal("0.49"),
+    sample_percent: Decimal = Decimal("100"),
 ) -> tuple[JobResult, UUID]:
     validate_date_range(evaluation_from, evaluation_to)
     if forecast_horizon_days <= 0:
@@ -133,6 +141,7 @@ def generate_backtest_detail(
         croston_alpha,
         adi_threshold,
         cv2_threshold,
+        sample_percent,
     )
     origin_date = forecast_origin_date
     if origin_date is not None:
@@ -143,8 +152,18 @@ def generate_backtest_detail(
                 "de evaluacion coherentes con el horizonte"
             )
     run_uuid = calculation_run_uuid or uuid4()
+    history_windows = build_pdvb_windows(origin_date) if origin_date else None
+    actual_window_start = (
+        origin_date + timedelta(days=1)
+        if origin_date and evaluation_mode == "CUMULATIVE"
+        else evaluation_from
+    )
 
     with transactional_connection(engine, settings) as connection:
+        connection.execute(
+            text("SELECT set_config('application_name', :name, true)"),
+            {"name": f"pdd_backtest:{str(run_uuid)[:8]}:{origin_date}"},
+        )
         connection.execute(
             text("SELECT pg_advisory_xact_lock(hashtext(:lock_name))"),
             {"lock_name": "pdd.job.backtest"},
@@ -179,6 +198,26 @@ def generate_backtest_detail(
                 "croston_alpha": croston_alpha,
                 "adi_threshold": adi_threshold,
                 "cv2_threshold": cv2_threshold,
+                "sample_percent": sample_percent,
+                "history_recent_start": (
+                    history_windows.recent_start if history_windows else None
+                ),
+                "history_recent_end": (
+                    history_windows.recent_end if history_windows else None
+                ),
+                "history_previous_start": (
+                    history_windows.previous_start if history_windows else None
+                ),
+                "history_previous_end": (
+                    history_windows.previous_end if history_windows else None
+                ),
+                "history_seasonal_start": (
+                    history_windows.seasonal_start if history_windows else None
+                ),
+                "history_seasonal_end": (
+                    history_windows.seasonal_end if history_windows else None
+                ),
+                "actual_window_start": actual_window_start,
             },
         )
     return (
@@ -209,6 +248,7 @@ def _register_run(
     croston_alpha: Decimal,
     adi_threshold: Decimal,
     cv2_threshold: Decimal,
+    sample_percent: Decimal,
 ) -> None:
     with transactional_connection(engine, settings) as connection:
         connection.execute(
@@ -259,6 +299,7 @@ def _register_run(
                         "adi_threshold": str(adi_threshold),
                         "cv2_threshold": str(cv2_threshold),
                         "max_origins": max_origins,
+                        "sample_percent": str(sample_percent),
                     },
                     sort_keys=True,
                 ),
@@ -375,7 +416,9 @@ def run_rolling_backtest(
     croston_alpha: Decimal = Decimal("0.10"),
     adi_threshold: Decimal = Decimal("1.32"),
     cv2_threshold: Decimal = Decimal("0.49"),
-    progress_callback: Callable[[int, int, date, int], None] | None = None,
+    sample_percent: Decimal = Decimal("100"),
+    progress_callback: Callable[[int, int, date, int, float, float], None]
+    | None = None,
 ) -> RollingBacktestResult:
     validate_date_range(origin_from, origin_to)
     if forecast_horizon_days <= 0:
@@ -388,6 +431,7 @@ def run_rolling_backtest(
         croston_alpha,
         adi_threshold,
         cv2_threshold,
+        sample_percent,
     )
     origins = list(iter_dates(origin_from, origin_to))
     if len(origins) > max_origins:
@@ -414,6 +458,7 @@ def run_rolling_backtest(
         croston_alpha,
         adi_threshold,
         cv2_threshold,
+        sample_percent,
     )
 
     completed_origins = 0
@@ -422,6 +467,7 @@ def run_rolling_backtest(
     metric_rows = 0
     try:
         for origin_date in origins:
+            estimate_started = monotonic()
             estimate_result, forecast_run_uuid = calculate_pdvb(
                 engine,
                 settings,
@@ -429,7 +475,9 @@ def run_rolling_backtest(
                 scope_version_uuid,
                 model_version_uuid,
             )
+            estimate_seconds = monotonic() - estimate_started
             evaluation_date = origin_date + timedelta(days=forecast_horizon_days)
+            detail_started = monotonic()
             detail_result, _ = generate_backtest_detail(
                 engine,
                 settings,
@@ -446,7 +494,9 @@ def run_rolling_backtest(
                 croston_alpha=croston_alpha,
                 adi_threshold=adi_threshold,
                 cv2_threshold=cv2_threshold,
+                sample_percent=sample_percent,
             )
+            detail_seconds = monotonic() - detail_started
             completed_origins += 1
             estimate_rows += estimate_result.affected_rows
             detail_rows += detail_result.affected_rows
@@ -464,6 +514,8 @@ def run_rolling_backtest(
                     len(origins),
                     origin_date,
                     detail_result.affected_rows,
+                    estimate_seconds,
+                    detail_seconds,
                 )
 
         metric_rows = aggregate_backtest_metrics(
@@ -509,6 +561,7 @@ def run_rolling_backtest(
         evaluation_to=evaluation_to,
         forecast_horizon_days=forecast_horizon_days,
         evaluation_mode=evaluation_mode,
+        sample_percent=sample_percent,
         origin_count=len(origins),
         estimate_rows=estimate_rows,
         detail_rows=detail_rows,

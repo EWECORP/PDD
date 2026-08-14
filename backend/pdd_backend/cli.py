@@ -14,6 +14,7 @@ from .flows.analytical import (
     pdvb_task,
 )
 from .flows.backtest import pdd_rolling_backtest_flow
+from .flows.publisher import pdd_publish_pdvb_flow
 
 
 def parse_date(value: str) -> date:
@@ -105,8 +106,21 @@ def build_parser() -> argparse.ArgumentParser:
         type=parse_decimal,
         default=Decimal("0.49"),
     )
+    rolling.add_argument(
+        "--sample-percent",
+        type=parse_decimal,
+        default=Decimal("100"),
+        help="Muestra deterministica de articulos en (0,100]",
+    )
     rolling.add_argument("--scope-version-uuid")
     rolling.add_argument("--model-version-uuid")
+
+    publish = subparsers.add_parser(
+        "publish-pdvb",
+        help="Publica una corrida PDVB en stock_management.pdd_*",
+    )
+    publish.add_argument("--calculation-run-uuid", required=True)
+    publish.add_argument("--created-by", required=True)
     return parser
 
 
@@ -162,7 +176,14 @@ def main() -> None:
             args.croston_alpha,
             args.adi_threshold,
             args.cv2_threshold,
+            args.sample_percent,
         )
+    elif args.command == "publish-pdvb":
+        result = pdd_publish_pdvb_flow(
+            args.calculation_run_uuid,
+            args.created_by,
+        )
+        print(json.dumps(result, default=str, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

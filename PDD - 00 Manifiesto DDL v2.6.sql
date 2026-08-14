@@ -1,0 +1,36 @@
+-- PDD / Manifiesto de DDL vigentes - v2.6 - 2026-08-14
+-- Este archivo es informativo y no ejecuta sentencias.
+--
+-- UBICACION FISICA
+--   - analitica pesada: diarco_data.datamart
+--   - Test: connexa_platform_test.stock_management
+--   - Produccion: connexa_platform_ms.stock_management
+--   - todas las tablas propias del proyecto usan el prefijo pdd_
+--
+-- MIGRACIONES VIGENTES
+--
+-- Base diarco_data, en este orden:
+--   1. PDD - DDL Analitico diarco_data v2.2.sql
+--   2. PDD - Migracion Analitica Scope Congelado v2.3.sql
+--   3. PDD - Migracion Analitica Backtest Rolling v2.4.sql
+--   4. PDD - Migracion Analitica Backtest Intermitente v2.5.sql
+--
+-- Bases Connexa admitidas, esquema stock_management:
+--   1. PDD - DDL Operativo Core connexa_platform_ms v2.2.sql
+--   2. PDD - DDL Operativo DECAS connexa_platform_ms v2.2.sql
+--   3. PDD - Migracion Operativa Metricas Backtest v2.4.sql
+--   4. PDD - Migracion Operativa Backtest Intermitente v2.5.sql
+--   5. PDD - Migracion Operativa Prefijo PDD v2.6.sql
+--
+-- Para una instalacion nueva, los DDL base ya crean directamente pdd_* y la
+-- v2.6 resulta idempotente. Para una instalacion existente, v2.6 renombra las
+-- tablas, constraints e indices sin copiar ni eliminar datos.
+--
+-- v2.5 conserva siete estimadores experimentales y la evaluacion
+-- POINT_DAILY/CUMULATIVE. v2.6 no modifica formulas, datos ni UUID logicos:
+-- solamente aisla los objetos PDD dentro del esquema compartido.
+--
+-- Ningun benchmark modifica por si solo el modelo PDVB v3. Toda promocion de
+-- modelo requiere evidencia, manifiesto nuevo y aprobacion independiente.
+--
+-- Las versiones reemplazadas se conservan en Antecedentes.

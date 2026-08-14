@@ -49,6 +49,18 @@ def _optional_uuid(name: str) -> UUID | None:
     return UUID(value) if value and value.strip() else None
 
 
+def _env_bool(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise RuntimeError(f"Variable booleana invalida {name}={value!r}")
+
+
 @dataclass(frozen=True)
 class Settings:
     pg_host: str
@@ -57,8 +69,11 @@ class Settings:
     pg_user: str
     pg_password: str
     origin_cd: int = 41
-    statement_timeout_ms: int = 0
+    statement_timeout_ms: int = 1_800_000
     lock_timeout_ms: int = 30_000
+    keepalives_idle_seconds: int = 60
+    keepalives_interval_seconds: int = 30
+    keepalives_count: int = 5
     scope_version_uuid: UUID | None = None
     model_version_uuid: UUID | None = None
 
@@ -72,8 +87,17 @@ class Settings:
             pg_user=_required("PG_USER"),
             pg_password=_required("PG_PASSWORD"),
             origin_cd=int(os.getenv("PDD_ORIGIN_CD", "41")),
-            statement_timeout_ms=int(os.getenv("PDD_DB_STATEMENT_TIMEOUT_MS", "0")),
+            statement_timeout_ms=int(
+                os.getenv("PDD_DB_STATEMENT_TIMEOUT_MS", "1800000")
+            ),
             lock_timeout_ms=int(os.getenv("PDD_DB_LOCK_TIMEOUT_MS", "30000")),
+            keepalives_idle_seconds=int(
+                os.getenv("PDD_DB_KEEPALIVES_IDLE_SECONDS", "60")
+            ),
+            keepalives_interval_seconds=int(
+                os.getenv("PDD_DB_KEEPALIVES_INTERVAL_SECONDS", "30")
+            ),
+            keepalives_count=int(os.getenv("PDD_DB_KEEPALIVES_COUNT", "5")),
             scope_version_uuid=_optional_uuid("PDD_SCOPE_VERSION_UUID"),
             model_version_uuid=_optional_uuid("PDD_MODEL_VERSION_UUID"),
         )
@@ -83,6 +107,14 @@ class Settings:
             )
         if settings.origin_cd != 41:
             raise RuntimeError("La Fase 1 solo admite PDD_ORIGIN_CD=41")
+        if settings.statement_timeout_ms <= 0:
+            raise RuntimeError("PDD_DB_STATEMENT_TIMEOUT_MS debe ser positivo")
+        if min(
+            settings.keepalives_idle_seconds,
+            settings.keepalives_interval_seconds,
+            settings.keepalives_count,
+        ) <= 0:
+            raise RuntimeError("Los parametros keepalive deben ser positivos")
         return settings
 
     def sqlalchemy_url(self) -> URL:
@@ -111,3 +143,72 @@ class Settings:
             )
         return value
 
+
+@dataclass(frozen=True)
+class OperationalSettings:
+    pg_host: str
+    pg_port: int
+    pg_database: str
+    pg_user: str
+    pg_password: str
+    statement_timeout_ms: int = 1_800_000
+    lock_timeout_ms: int = 30_000
+    keepalives_idle_seconds: int = 60
+    keepalives_interval_seconds: int = 30
+    keepalives_count: int = 5
+
+    @classmethod
+    def from_env(cls) -> "OperationalSettings":
+        load_environment()
+        settings = cls(
+            pg_host=_required("PDD_OPERATIONAL_PG_HOST"),
+            pg_port=int(os.getenv("PDD_OPERATIONAL_PG_PORT", "5432")),
+            pg_database=_required("PDD_OPERATIONAL_PG_DB"),
+            pg_user=_required("PDD_OPERATIONAL_PG_USER"),
+            pg_password=_required("PDD_OPERATIONAL_PG_PASSWORD"),
+            statement_timeout_ms=int(
+                os.getenv("PDD_OPERATIONAL_DB_STATEMENT_TIMEOUT_MS", "1800000")
+            ),
+            lock_timeout_ms=int(
+                os.getenv("PDD_OPERATIONAL_DB_LOCK_TIMEOUT_MS", "30000")
+            ),
+            keepalives_idle_seconds=int(
+                os.getenv("PDD_OPERATIONAL_DB_KEEPALIVES_IDLE_SECONDS", "60")
+            ),
+            keepalives_interval_seconds=int(
+                os.getenv("PDD_OPERATIONAL_DB_KEEPALIVES_INTERVAL_SECONDS", "30")
+            ),
+            keepalives_count=int(
+                os.getenv("PDD_OPERATIONAL_DB_KEEPALIVES_COUNT", "5")
+            ),
+        )
+        allowed = {"connexa_platform_test"}
+        if _env_bool("PDD_OPERATIONAL_ALLOW_PRODUCTION"):
+            allowed.add("connexa_platform_ms")
+        if settings.pg_database not in allowed:
+            raise RuntimeError(
+                "La publicacion PDD solo admite connexa_platform_test; "
+                "para produccion configure explicitamente "
+                "PDD_OPERATIONAL_ALLOW_PRODUCTION=true"
+            )
+        if settings.statement_timeout_ms <= 0:
+            raise RuntimeError(
+                "PDD_OPERATIONAL_DB_STATEMENT_TIMEOUT_MS debe ser positivo"
+            )
+        if min(
+            settings.keepalives_idle_seconds,
+            settings.keepalives_interval_seconds,
+            settings.keepalives_count,
+        ) <= 0:
+            raise RuntimeError("Los parametros keepalive operativos deben ser positivos")
+        return settings
+
+    def sqlalchemy_url(self) -> URL:
+        return URL.create(
+            drivername="postgresql+psycopg2",
+            username=self.pg_user,
+            password=self.pg_password,
+            host=self.pg_host,
+            port=self.pg_port,
+            database=self.pg_database,
+        )

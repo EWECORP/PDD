@@ -10,7 +10,11 @@ from pdd_backend.backtest_metrics import (
     classify_demand_regime,
     standardize_cumulative_actual,
 )
-from pdd_backend.jobs.backtest import BACKTEST_ESTIMATORS, iter_dates
+from pdd_backend.jobs.backtest import (
+    BACKTEST_ESTIMATORS,
+    _validate_backtest_parameters,
+    iter_dates,
+)
 
 
 def test_iter_dates_includes_both_bounds() -> None:
@@ -19,6 +23,18 @@ def test_iter_dates_includes_both_bounds() -> None:
         date(2026, 8, 2),
         date(2026, 8, 3),
     ]
+
+
+def test_backtest_sample_percent_must_be_bounded() -> None:
+    with pytest.raises(ValueError, match="sample_percent"):
+        _validate_backtest_parameters(
+            "CUMULATIVE",
+            Decimal("0.70"),
+            Decimal("0.10"),
+            Decimal("1.32"),
+            Decimal("0.49"),
+            Decimal("0"),
+        )
 
 
 def test_backtest_declares_candidate_and_fair_benchmarks() -> None:

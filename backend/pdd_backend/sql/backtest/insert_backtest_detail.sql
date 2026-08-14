@@ -1,4 +1,27 @@
 WITH ranked_estimates AS (
+    -- Camino rolling-origin: el UUID de calculo identifica exactamente una
+    -- fila por par. Evita ordenar toda la historia de estimaciones.
+    SELECT
+        e.*,
+        1::bigint AS recency_rank
+    FROM datamart.dm_pdd_pdvb_estimate_detail AS e
+    WHERE CAST(:forecast_origin_date AS date) IS NOT NULL
+      AND e.model_version_uuid = CAST(:model_version_uuid AS uuid)
+      AND e.scope_version_uuid = CAST(:scope_version_uuid AS uuid)
+      AND e.origin_cd = :origin_cd
+      AND e.business_date = CAST(:forecast_origin_date AS date)
+      AND e.calculation_run_uuid = CAST(:forecast_calculation_run_uuid AS uuid)
+      AND (
+            CAST(:sample_percent AS numeric) >= 100
+         OR (
+                (hashtextextended(e.codigo_articulo::text, 0) % 10000 + 10000)
+                % 10000
+            ) < CAST(:sample_percent * 100 AS bigint)
+      )
+
+    UNION ALL
+
+    -- Compatibilidad con el backtest historico no rolling.
     SELECT
         e.*,
         row_number() OVER (
@@ -6,24 +29,38 @@ WITH ranked_estimates AS (
             ORDER BY e.created_at DESC, e.calculation_run_uuid DESC
         ) AS recency_rank
     FROM datamart.dm_pdd_pdvb_estimate_detail AS e
-    WHERE e.model_version_uuid = CAST(:model_version_uuid AS uuid)
+    WHERE CAST(:forecast_origin_date AS date) IS NULL
+      AND e.model_version_uuid = CAST(:model_version_uuid AS uuid)
       AND e.scope_version_uuid = CAST(:scope_version_uuid AS uuid)
       AND e.origin_cd = :origin_cd
-      AND (
-            CAST(:forecast_origin_date AS date) IS NULL
-            OR e.business_date = CAST(:forecast_origin_date AS date)
-      )
       AND e.business_date + :forecast_horizon_days
             BETWEEN CAST(:evaluation_from AS date) AND CAST(:evaluation_to AS date)
       AND (
             CAST(:forecast_calculation_run_uuid AS uuid) IS NULL
             OR e.calculation_run_uuid = CAST(:forecast_calculation_run_uuid AS uuid)
       )
+      AND (
+            CAST(:sample_percent AS numeric) >= 100
+         OR (
+                (hashtextextended(e.codigo_articulo::text, 0) % 10000 + 10000)
+                % 10000
+            ) < CAST(:sample_percent * 100 AS bigint)
+      )
 ),
 estimates AS (
     SELECT *
     FROM ranked_estimates
     WHERE recency_rank = 1
+),
+scan_bounds AS (
+    SELECT
+        min(recent_start) AS recent_start,
+        max(recent_end) AS recent_end,
+        min(previous_start) AS previous_start,
+        max(previous_end) AS previous_end,
+        min(seasonal_start) AS seasonal_start,
+        max(seasonal_end) AS seasonal_end
+    FROM estimates
 ),
 article_categories AS (
     SELECT DISTINCT ON (a.c_articulo::integer)
@@ -33,7 +70,82 @@ article_categories AS (
     FROM src.m_3_articulos AS a
     ORDER BY a.c_articulo::integer
 ),
-eligible_history AS (
+eligible_sales AS MATERIALIZED (
+    -- Las fechas rolling son parametros escalares. Esta rama permite poda de
+    -- particiones sin depender de bounds calculados desde otra CTE.
+    SELECT
+        v.codigo_articulo,
+        v.sucursal,
+        v.sales_date,
+        v.basal_units
+    FROM datamart.dm_pdd_venta_diaria AS v
+    WHERE CAST(:history_recent_start AS date) IS NOT NULL
+      AND v.scope_version_uuid = CAST(:scope_version_uuid AS uuid)
+      AND v.eligible_for_pdvb
+      AND (
+            CAST(:sample_percent AS numeric) >= 100
+         OR (
+                (hashtextextended(v.codigo_articulo::text, 0) % 10000 + 10000)
+                % 10000
+            ) < CAST(:sample_percent * 100 AS bigint)
+      )
+      AND (
+            v.sales_date BETWEEN CAST(:history_recent_start AS date)
+                                 AND CAST(:history_recent_end AS date)
+         OR v.sales_date BETWEEN CAST(:history_previous_start AS date)
+                                 AND CAST(:history_previous_end AS date)
+         OR v.sales_date BETWEEN CAST(:history_seasonal_start AS date)
+                                 AND CAST(:history_seasonal_end AS date)
+      )
+
+    UNION ALL
+
+    SELECT
+        v.codigo_articulo,
+        v.sucursal,
+        v.sales_date,
+        v.basal_units
+    FROM datamart.dm_pdd_venta_diaria AS v
+    CROSS JOIN scan_bounds AS b
+    WHERE CAST(:history_recent_start AS date) IS NULL
+      AND v.scope_version_uuid = CAST(:scope_version_uuid AS uuid)
+      AND v.eligible_for_pdvb
+      AND (
+            CAST(:sample_percent AS numeric) >= 100
+         OR (
+                (hashtextextended(v.codigo_articulo::text, 0) % 10000 + 10000)
+                % 10000
+            ) < CAST(:sample_percent * 100 AS bigint)
+      )
+      AND (
+            v.sales_date BETWEEN b.recent_start AND b.recent_end
+         OR v.sales_date BETWEEN b.previous_start AND b.previous_end
+         OR v.sales_date BETWEEN b.seasonal_start AND b.seasonal_end
+      )
+),
+eligible_history AS MATERIALIZED (
+    -- Para rolling la clasificacion surge de parametros comunes a todos los
+    -- pares; no se vuelve a unir el panel de millones de filas con estimates.
+    SELECT
+        CAST(:forecast_origin_date AS date) AS business_date,
+        v.codigo_articulo,
+        v.sucursal,
+        v.sales_date,
+        v.basal_units,
+        CASE
+            WHEN v.sales_date BETWEEN CAST(:history_recent_start AS date)
+                                      AND CAST(:history_recent_end AS date)
+                THEN 'RECENT'
+            WHEN v.sales_date BETWEEN CAST(:history_previous_start AS date)
+                                      AND CAST(:history_previous_end AS date)
+                THEN 'PREVIOUS'
+            ELSE 'SEASONAL'
+        END AS window_code
+    FROM eligible_sales AS v
+    WHERE CAST(:forecast_origin_date AS date) IS NOT NULL
+
+    UNION ALL
+
     SELECT
         e.business_date,
         e.codigo_articulo,
@@ -46,16 +158,15 @@ eligible_history AS (
             ELSE 'SEASONAL'
         END AS window_code
     FROM estimates AS e
-    INNER JOIN datamart.dm_pdd_venta_diaria AS v
+    INNER JOIN eligible_sales AS v
         ON v.codigo_articulo = e.codigo_articulo
        AND v.sucursal = e.sucursal
-       AND v.scope_version_uuid = e.scope_version_uuid
-       AND v.eligible_for_pdvb
        AND (
             v.sales_date BETWEEN e.recent_start AND e.recent_end
          OR v.sales_date BETWEEN e.previous_start AND e.previous_end
          OR v.sales_date BETWEEN e.seasonal_start AND e.seasonal_end
        )
+    WHERE CAST(:forecast_origin_date AS date) IS NULL
 ),
 history_stats AS (
     SELECT
@@ -443,6 +554,55 @@ actual_windows AS (
         END::integer AS actual_window_days
     FROM estimates AS e
 ),
+actual_scan_bounds AS (
+    SELECT
+        min(evaluation_window_start) AS evaluation_window_start,
+        max(evaluation_date) AS evaluation_date
+    FROM actual_windows
+),
+actual_sales AS MATERIALIZED (
+    SELECT
+        v.codigo_articulo,
+        v.sucursal,
+        v.sales_date,
+        v.eligible_for_pdvb,
+        v.basal_units,
+        v.source_hash
+    FROM datamart.dm_pdd_venta_diaria AS v
+    WHERE CAST(:actual_window_start AS date) IS NOT NULL
+      AND v.scope_version_uuid = CAST(:scope_version_uuid AS uuid)
+      AND (
+            CAST(:sample_percent AS numeric) >= 100
+         OR (
+                (hashtextextended(v.codigo_articulo::text, 0) % 10000 + 10000)
+                % 10000
+            ) < CAST(:sample_percent * 100 AS bigint)
+      )
+      AND v.sales_date BETWEEN CAST(:actual_window_start AS date)
+                           AND CAST(:evaluation_to AS date)
+
+    UNION ALL
+
+    SELECT
+        v.codigo_articulo,
+        v.sucursal,
+        v.sales_date,
+        v.eligible_for_pdvb,
+        v.basal_units,
+        v.source_hash
+    FROM datamart.dm_pdd_venta_diaria AS v
+    CROSS JOIN actual_scan_bounds AS b
+    WHERE CAST(:actual_window_start AS date) IS NULL
+      AND v.scope_version_uuid = CAST(:scope_version_uuid AS uuid)
+      AND (
+            CAST(:sample_percent AS numeric) >= 100
+         OR (
+                (hashtextextended(v.codigo_articulo::text, 0) % 10000 + 10000)
+                % 10000
+            ) < CAST(:sample_percent * 100 AS bigint)
+      )
+      AND v.sales_date BETWEEN b.evaluation_window_start AND b.evaluation_date
+),
 actuals AS (
     SELECT
         w.forecast_origin_date,
@@ -458,10 +618,9 @@ actuals AS (
         )::numeric(24,6) AS observed_eligible_basal_units,
         string_agg(v.source_hash::text, '' ORDER BY v.sales_date) AS actual_hashes
     FROM actual_windows AS w
-    LEFT JOIN datamart.dm_pdd_venta_diaria AS v
+    LEFT JOIN actual_sales AS v
         ON v.codigo_articulo = w.codigo_articulo
        AND v.sucursal = w.sucursal
-       AND v.scope_version_uuid = CAST(:scope_version_uuid AS uuid)
        AND v.sales_date BETWEEN w.evaluation_window_start AND w.evaluation_date
     GROUP BY
         w.forecast_origin_date,
