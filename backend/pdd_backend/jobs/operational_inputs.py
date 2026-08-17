@@ -68,6 +68,11 @@ class StockReadinessResult:
     negative_in_transit: int
     transfer_positive: int
     transfer_negative: int
+    open_po_as_of_ts: datetime | None
+    open_po_positive_lines: int
+    open_po_excluded_negative_lines: int
+    branch_pairs_with_open_po: int
+    cd_articles_with_open_po: int
     status: str
     blockers: tuple[str, ...]
     mapping: dict[str, str]
@@ -80,6 +85,9 @@ class StockReadinessResult:
             "stock_date": self.stock_date.isoformat() if self.stock_date else None,
             "source_as_of_ts": (
                 self.source_as_of_ts.isoformat() if self.source_as_of_ts else None
+            ),
+            "open_po_as_of_ts": (
+                self.open_po_as_of_ts.isoformat() if self.open_po_as_of_ts else None
             ),
             "blockers": list(self.blockers),
             "excluded_branches": list(self.excluded_branches),
@@ -536,7 +544,7 @@ def inspect_stock_readiness(
     expected_through: date,
 ) -> StockReadinessResult:
     with source_engine.connect() as connection:
-        result = connection.execute(
+        result = dict(connection.execute(
             text(
                 """
                 WITH scope_pairs AS (
@@ -612,7 +620,48 @@ def inspect_stock_readiness(
                 """
             ),
             {"scope_version_uuid": scope_version_uuid},
+        ).mappings().one())
+        open_po = connection.execute(
+            text(
+                """
+                WITH scope_pairs AS (
+                    SELECT codigo_articulo, destination_branch AS destino
+                    FROM datamart.dm_pdd_scope_pair
+                    WHERE scope_version_uuid = CAST(:scope_version_uuid AS uuid)
+                ),
+                scope_articles AS (
+                    SELECT codigo_articulo
+                    FROM datamart.dm_pdd_scope_article
+                    WHERE scope_version_uuid = CAST(:scope_version_uuid AS uuid)
+                ),
+                relevant AS (
+                    SELECT codigo_articulo, destino FROM scope_pairs
+                    UNION
+                    SELECT codigo_articulo, 41 FROM scope_articles
+                )
+                SELECT
+                    coalesce(
+                        max(o.fecha_extraccion),
+                        (SELECT max(fecha_extraccion)
+                         FROM src.mv_base_oc_pendientes)
+                    ) AS open_po_as_of_ts,
+                    count(*) FILTER (WHERE o.pendientes > 0) AS positive_lines,
+                    count(*) FILTER (WHERE o.pendientes < 0) AS negative_lines,
+                    count(DISTINCT (o.c_articulo, o.c_sucu_destino)) FILTER (
+                        WHERE o.pendientes > 0 AND o.c_sucu_destino <> 41
+                    ) AS branch_pairs_with_open_po,
+                    count(DISTINCT o.c_articulo) FILTER (
+                        WHERE o.pendientes > 0 AND o.c_sucu_destino = 41
+                    ) AS cd_articles_with_open_po
+                FROM relevant AS r
+                LEFT JOIN src.mv_base_oc_pendientes AS o
+                  ON o.c_articulo = r.codigo_articulo
+                 AND o.c_sucu_destino = r.destino
+                """
+            ),
+            {"scope_version_uuid": scope_version_uuid},
         ).mappings().one()
+        result.update(open_po)
     blockers = _stock_readiness_blockers(result, expected_through)
 
     return StockReadinessResult(
@@ -633,11 +682,24 @@ def inspect_stock_readiness(
         negative_in_transit=result["negative_in_transit"],
         transfer_positive=result["transfer_positive"],
         transfer_negative=result["transfer_negative"],
+        open_po_as_of_ts=result["open_po_as_of_ts"],
+        open_po_positive_lines=result["positive_lines"],
+        open_po_excluded_negative_lines=result["negative_lines"],
+        branch_pairs_with_open_po=result["branch_pairs_with_open_po"],
+        cd_articles_with_open_po=result["cd_articles_with_open_po"],
         status="READY" if not blockers else "BLOCKED",
         blockers=tuple(blockers),
         mapping={
             "physical_stock": "stock",
-            "direct_po_inbound": "GREATEST(pedido_pendiente, 0)",
+            "direct_po_inbound": (
+                "SUM(src.mv_base_oc_pendientes.pendientes) BY article/branch "
+                "WHERE pendientes > 0"
+            ),
+            "cd_open_po": (
+                "SUM(src.mv_base_oc_pendientes.pendientes) BY article/CD41 "
+                "WHERE pendientes > 0"
+            ),
+            "pedido_pendiente": "LEGACY_RECONCILIATION_ONLY_NOT_CALCULATED",
             "cd_in_transit": "GREATEST(transito_pendiente, 0)",
             "transfer_pendiente": "UNMAPPED_PENDING_SEMANTIC_CONFIRMATION",
         },
@@ -661,8 +723,11 @@ def _stock_readiness_blockers(
         blockers.append("DUPLICATE_STOCK_PAIRS")
     if result["null_physical_stock"]:
         blockers.append("NULL_PHYSICAL_STOCK")
-    if result["negative_purchase_orders"]:
-        blockers.append("NEGATIVE_PURCHASE_ORDERS")
+    open_po_as_of_ts = result.get("open_po_as_of_ts")
+    if open_po_as_of_ts is None:
+        blockers.append("OPEN_PURCHASE_ORDERS_MISSING")
+    elif open_po_as_of_ts.date() < expected_through:
+        blockers.append("OPEN_PURCHASE_ORDERS_STALE")
     if result["negative_in_transit"]:
         blockers.append("NEGATIVE_IN_TRANSIT")
     return blockers

@@ -21,6 +21,12 @@ SOURCE_COLUMNS = {
         "pedido_pendiente_fecha", "dias_preparacion", "q_dias_stock",
         "q_dias_sobre_stock", "fecha_extraccion",
     },
+    ("src", "mv_base_oc_pendientes"): {
+        "c_articulo", "c_sucu_destino", "pendientes", "q_peso_unit_art",
+        "m_vende_por_peso", "q_factor_compra", "u_prefijo_oc",
+        "u_sufijo_oc", "f_emision", "c_proveedor", "fuente_origen",
+        "fecha_extraccion", "cdc_lsn", "estado_sincronizacion",
+    },
     ("src", "sucursales_excluidas"): {"c_sucu_empr"},
     ("datamart", "dm_pdd_scope_article"): {
         "scope_version_uuid", "codigo_articulo",
@@ -44,14 +50,18 @@ def main() -> None:
                 for row in source.execute(
                     text(
                         """
-                        SELECT table_schema, table_name, column_name
-                        FROM information_schema.columns
-                        WHERE (table_schema = 'src' AND table_name IN (
+                        SELECT n.nspname, c.relname, a.attname
+                        FROM pg_catalog.pg_attribute AS a
+                        JOIN pg_catalog.pg_class AS c ON c.oid = a.attrelid
+                        JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+                        WHERE a.attnum > 0 AND NOT a.attisdropped
+                          AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+                          AND ((n.nspname = 'src' AND c.relname IN (
                             'base_productos_vigentes', 'base_stock_sucursal',
-                            'sucursales_excluidas'
-                        )) OR (table_schema = 'datamart' AND table_name IN (
+                            'sucursales_excluidas', 'mv_base_oc_pendientes'
+                        )) OR (n.nspname = 'datamart' AND c.relname IN (
                             'dm_pdd_scope_article', 'dm_pdd_scope_pair'
-                        ))
+                        )))
                         """
                     )
                 )

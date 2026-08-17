@@ -29,6 +29,7 @@ def _source(**overrides) -> dict:
     row = {
         "stock": 3,
         "pedido_pendiente": 1,
+        "direct_po_inbound": 1,
         "transito_pendiente": 2,
         "transfer_pendiente": 0,
         "dias_preparacion": 5,
@@ -60,6 +61,18 @@ def test_branch_position_applies_documented_formulas() -> None:
     assert row["calculation_status"] == "OK"
 
 
+def test_branch_position_uses_canonical_po_instead_of_legacy_stock_field() -> None:
+    row = build_branch_position(
+        _source(pedido_pendiente=999, direct_po_inbound=1),
+        _estimate(),
+        Decimal("15"),
+    )
+    assert row["direct_po_inbound"] == Decimal("1.000000")
+    assert row["coverage_days"] == Decimal("3.000000")
+    assert row["explanation"]["direct_po_source"] == "src.mv_base_oc_pendientes"
+    assert row["explanation"]["legacy_pedido_pendiente_observed"] == 999
+
+
 def test_missing_lead_time_uses_visible_fallback_and_warns() -> None:
     row = build_branch_position(
         _source(dias_preparacion=0), _estimate(), Decimal("15")
@@ -81,7 +94,12 @@ def test_zero_pdvb_has_position_but_zero_automatic_needs() -> None:
 
 def test_need_formulas_and_package_rounding_do_not_overlap_d_and_s() -> None:
     branch = build_branch_position(
-        _source(stock=1, pedido_pendiente=0, transito_pendiente=0),
+        _source(
+            stock=1,
+            pedido_pendiente=0,
+            direct_po_inbound=0,
+            transito_pendiente=0,
+        ),
         _estimate("2"),
         Decimal("15"),
     )

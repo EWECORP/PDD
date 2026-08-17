@@ -50,6 +50,17 @@ class DailyDecasResult:
         }
 
 
+@dataclass(frozen=True)
+class OpenPurchaseOrderSnapshot:
+    branch_by_pair: dict[tuple[int, int], Decimal]
+    cd_by_article: dict[int, Decimal]
+    as_of_ts: datetime
+    positive_line_count: int
+    excluded_negative_line_count: int
+    positive_quantity: Decimal
+    checksum: str
+
+
 def _decimal(value: Any, default: Decimal | None = None) -> Decimal | None:
     if value is None:
         return default
@@ -156,7 +167,9 @@ def build_branch_position(
     physical = _decimal(source.get("stock"))
     if physical is None:
         raise RuntimeError("Stock fisico nulo")
-    direct_po = _nonnegative(source.get("pedido_pendiente"))
+    # src.mv_base_oc_pendientes is the canonical source.  The legacy
+    # pedido_pendiente value remains in the stock row only for reconciliation.
+    direct_po = _nonnegative(source.get("direct_po_inbound"))
     transit = _nonnegative(source.get("transito_pendiente"))
     transfer_observed = _decimal(source.get("transfer_pendiente"), Decimal("0"))
     assert transfer_observed is not None
@@ -204,6 +217,8 @@ def build_branch_position(
             "pdvb_status": estimate["status"],
             "lead_time_source_value": source_lead,
             "lead_time_fallback_used": used_fallback,
+            "direct_po_source": "src.mv_base_oc_pendientes",
+            "legacy_pedido_pendiente_observed": source.get("pedido_pendiente"),
             "transfer_pendiente_observed": transfer_observed,
             "special_sale_committed": "SOURCE_PENDING_ASSUMED_ZERO",
             "confirmed_transfer_pending": "SEMANTIC_PENDING_ASSUMED_ZERO",
@@ -471,6 +486,155 @@ def _read_source_stock(
     return branch_rows, cd_rows, max(timestamps)
 
 
+def _read_open_purchase_orders(
+    engine: Engine,
+    scope_version_uuid: UUID,
+    origin_cd: int,
+) -> OpenPurchaseOrderSnapshot:
+    """Read and aggregate the canonical open-PO view for the frozen scope.
+
+    ``pendientes`` is already expressed in the operational base unit by the
+    materialized-view definition.  Positive rows are summed by destination;
+    negative rows represent over-fulfilled/anomalous order lines and are
+    excluded instead of offsetting valid pending quantities.
+    """
+    with engine.connect() as connection:
+        branch_rows = [
+            dict(row)
+            for row in connection.execute(
+                text(
+                    """
+                    WITH scope_pairs AS (
+                        SELECT codigo_articulo, destination_branch AS sucursal
+                        FROM datamart.dm_pdd_scope_pair
+                        WHERE scope_version_uuid = CAST(:scope_uuid AS uuid)
+                    )
+                    SELECT p.codigo_articulo::integer AS codigo_articulo,
+                           p.sucursal::integer AS sucursal,
+                           sum(o.pendientes)::numeric AS pending_quantity
+                    FROM scope_pairs AS p
+                    JOIN src.mv_base_oc_pendientes AS o
+                      ON o.c_articulo = p.codigo_articulo
+                     AND o.c_sucu_destino = p.sucursal
+                     AND o.pendientes > 0
+                    GROUP BY p.codigo_articulo, p.sucursal
+                    ORDER BY p.sucursal, p.codigo_articulo
+                    """
+                ),
+                {"scope_uuid": scope_version_uuid},
+            ).mappings()
+        ]
+        cd_rows = [
+            dict(row)
+            for row in connection.execute(
+                text(
+                    """
+                    WITH scope_articles AS (
+                        SELECT codigo_articulo
+                        FROM datamart.dm_pdd_scope_article
+                        WHERE scope_version_uuid = CAST(:scope_uuid AS uuid)
+                    )
+                    SELECT a.codigo_articulo::integer AS codigo_articulo,
+                           sum(o.pendientes)::numeric AS pending_quantity
+                    FROM scope_articles AS a
+                    JOIN src.mv_base_oc_pendientes AS o
+                      ON o.c_articulo = a.codigo_articulo
+                     AND o.c_sucu_destino = :origin_cd
+                     AND o.pendientes > 0
+                    GROUP BY a.codigo_articulo
+                    ORDER BY a.codigo_articulo
+                    """
+                ),
+                {"scope_uuid": scope_version_uuid, "origin_cd": origin_cd},
+            ).mappings()
+        ]
+        metadata = connection.execute(
+            text(
+                """
+                WITH relevant_destinations AS (
+                    SELECT codigo_articulo, destination_branch AS destino
+                    FROM datamart.dm_pdd_scope_pair
+                    WHERE scope_version_uuid = CAST(:scope_uuid AS uuid)
+                    UNION
+                    SELECT codigo_articulo, :origin_cd
+                    FROM datamart.dm_pdd_scope_article
+                    WHERE scope_version_uuid = CAST(:scope_uuid AS uuid)
+                )
+                SELECT
+                    count(*) FILTER (WHERE o.pendientes > 0) AS positive_lines,
+                    count(*) FILTER (WHERE o.pendientes < 0) AS negative_lines,
+                    coalesce(sum(o.pendientes) FILTER (WHERE o.pendientes > 0), 0)
+                        ::numeric AS positive_quantity,
+                    coalesce(
+                        max(o.fecha_extraccion),
+                        (SELECT max(fecha_extraccion)
+                         FROM src.mv_base_oc_pendientes)
+                    ) AS as_of_ts
+                FROM relevant_destinations AS r
+                LEFT JOIN src.mv_base_oc_pendientes AS o
+                  ON o.c_articulo = r.codigo_articulo
+                 AND o.c_sucu_destino = r.destino
+                """
+            ),
+            {"scope_uuid": scope_version_uuid, "origin_cd": origin_cd},
+        ).mappings().one()
+
+    as_of_ts = metadata["as_of_ts"]
+    if as_of_ts is None:
+        raise RuntimeError("La fuente canonica de OC pendientes esta vacia")
+    canonical_rows: list[dict[str, Any]] = []
+    for row in branch_rows:
+        quantity = _q6(_decimal(row["pending_quantity"], Decimal("0")))
+        canonical_rows.append(
+            {
+                "destination_type": "BRANCH",
+                "destination": int(row["sucursal"]),
+                "codigo_articulo": int(row["codigo_articulo"]),
+                "pending_quantity": quantity,
+                "input_checksum": _row_checksum(
+                    {**row, "pending_quantity": quantity},
+                    ("sucursal", "codigo_articulo", "pending_quantity"),
+                ),
+            }
+        )
+    for row in cd_rows:
+        quantity = _q6(_decimal(row["pending_quantity"], Decimal("0")))
+        canonical_rows.append(
+            {
+                "destination_type": "CD",
+                "destination": origin_cd,
+                "codigo_articulo": int(row["codigo_articulo"]),
+                "pending_quantity": quantity,
+                "input_checksum": _row_checksum(
+                    {"origin_cd": origin_cd, **row, "pending_quantity": quantity},
+                    ("origin_cd", "codigo_articulo", "pending_quantity"),
+                ),
+            }
+        )
+    return OpenPurchaseOrderSnapshot(
+        branch_by_pair={
+            (int(row["codigo_articulo"]), int(row["sucursal"])):
+                _q6(_decimal(row["pending_quantity"], Decimal("0")))
+            for row in branch_rows
+        },
+        cd_by_article={
+            int(row["codigo_articulo"]):
+                _q6(_decimal(row["pending_quantity"], Decimal("0")))
+            for row in cd_rows
+        },
+        as_of_ts=as_of_ts,
+        positive_line_count=int(metadata["positive_lines"] or 0),
+        excluded_negative_line_count=int(metadata["negative_lines"] or 0),
+        positive_quantity=_q6(
+            _decimal(metadata["positive_quantity"], Decimal("0"))
+        ),
+        checksum=_rows_checksum(
+            canonical_rows,
+            ("destination_type", "destination", "codigo_articulo"),
+        ),
+    )
+
+
 def run_daily_decas(
     source_engine: Engine,
     source_settings: Settings,
@@ -497,6 +661,25 @@ def run_daily_decas(
         business_date,
         source_settings.origin_cd,
     )
+    open_purchase_orders = _read_open_purchase_orders(
+        source_engine,
+        scope_version_uuid,
+        source_settings.origin_cd,
+    )
+    if open_purchase_orders.as_of_ts.date() < business_date:
+        raise RuntimeError(
+            "La fuente canonica de OC pendientes esta desactualizada: "
+            f"{open_purchase_orders.as_of_ts.isoformat()} < {business_date.isoformat()}"
+        )
+    for row in source_branches:
+        row["direct_po_inbound"] = open_purchase_orders.branch_by_pair.get(
+            (int(row["codigo_articulo"]), int(row["sucursal"])),
+            Decimal("0.000000"),
+        )
+    for row in source_cd:
+        row["open_po_inbound"] = open_purchase_orders.cd_by_article.get(
+            int(row["codigo_articulo"]), Decimal("0.000000")
+        )
     source_by_pair = {
         (row["codigo_articulo"], row["sucursal"]): row for row in source_branches
     }
@@ -668,7 +851,7 @@ def run_daily_decas(
             article = source["codigo_articulo"]
             physical = _decimal(source["stock"])
             assert physical is not None
-            po = _nonnegative(source.get("pedido_pendiente"))
+            po = _nonnegative(source.get("open_po_inbound"))
             required_quantity = mandatory[article]
             available = physical + po
             coverage_index = (
@@ -733,6 +916,19 @@ def run_daily_decas(
                 "CONFIRMED_TRANSFER_PENDING_ASSUMED_ZERO",
                 "ALL_OPEN_PO_TEMPORARILY_CLASSIFIED_ON_TIME",
             ],
+            "open_purchase_orders": {
+                "canonical_source": "src.mv_base_oc_pendientes",
+                "positive_line_count": open_purchase_orders.positive_line_count,
+                "excluded_negative_line_count": (
+                    open_purchase_orders.excluded_negative_line_count
+                ),
+                "positive_quantity": str(open_purchase_orders.positive_quantity),
+                "branch_pairs_with_open_po": len(
+                    open_purchase_orders.branch_by_pair
+                ),
+                "cd_articles_with_open_po": len(open_purchase_orders.cd_by_article),
+                "quantity_semantics": "BASE_UNIT_ALREADY_NORMALIZED_BY_VIEW",
+            },
         }
         calculation_run_id = target.execute(
             text(
@@ -746,7 +942,7 @@ def run_daily_decas(
                 ) VALUES (
                     CAST(:uuid AS uuid),'DAILY_DECAS',:business_date,:cutoff_date,
                     'CD',:scope_id,:attempt_no,:scope_version_id,
-                    :configuration_version_id,'DAILY_DECAS_V1_TEST_PILOT','RUNNING',
+                    :configuration_version_id,'DAILY_DECAS_V2_TEST_PILOT','RUNNING',
                     clock_timestamp(),:created_by,:input_rows,:output_rows,
                     :warning_count,0,:checksum,CAST(:summary AS jsonb)
                 ) RETURNING calculation_run_id
@@ -761,9 +957,16 @@ def run_daily_decas(
                 "scope_version_id": pdvb_header["scope_version_id"],
                 "configuration_version_id": configuration_id,
                 "created_by": created_by.strip(),
-                "input_rows": len(source_branches) + len(source_cd),
+                "input_rows": (
+                    len(source_branches)
+                    + len(source_cd)
+                    + open_purchase_orders.positive_line_count
+                ),
                 "output_rows": len(branches) + len(needs) + len(cd_positions),
-                "warning_count": branch_counts.get("WARN", 0),
+                "warning_count": (
+                    branch_counts.get("WARN", 0)
+                    + open_purchase_orders.excluded_negative_line_count
+                ),
                 "checksum": source_checksum,
                 "summary": _json(summary),
             },
@@ -792,6 +995,29 @@ def run_daily_decas(
                 "detail": _json({"scope_version_uuid": str(scope_version_uuid)}),
             },
         ).scalar_one()
+        po_snapshot_id = target.execute(
+            text(
+                """
+                INSERT INTO stock_management.pdd_source_snapshot (
+                    calculation_run_id,source_code,source_database,physical_relation,
+                    is_required,min_business_date,max_business_date,as_of_ts,
+                    row_count,checksum,status,detail
+                ) VALUES (
+                    :run_id,'OPEN_PURCHASE_ORDERS',:source_database,
+                    'src.mv_base_oc_pendientes',true,NULL,NULL,
+                    :as_of_ts,:row_count,:checksum,'VALID',CAST(:detail AS jsonb)
+                ) RETURNING source_snapshot_id
+                """
+            ),
+            {
+                "run_id": calculation_run_id,
+                "source_database": source_settings.pg_database,
+                "as_of_ts": open_purchase_orders.as_of_ts,
+                "row_count": open_purchase_orders.positive_line_count,
+                "checksum": open_purchase_orders.checksum,
+                "detail": _json(summary["open_purchase_orders"]),
+            },
+        ).scalar_one()
 
         for parent in (
             "pdd_branch_stock_position", "pdd_cd_stock_position", "pdd_need_snapshot"
@@ -816,7 +1042,7 @@ def run_daily_decas(
                 :pdvb_business_date,:pdvb_estimate_id,:pdvb_value,:lead_time_days,
                 :target_stock_days,:overstock_days,:critical_stock,:minimum_stock,
                 :maximum_stock,:overstock_quantity,:coverage_days,
-                :stock_snapshot_id,:stock_snapshot_id,:stock_snapshot_id,
+                :stock_snapshot_id,:po_snapshot_id,:stock_snapshot_id,
                 :configuration_version_id,:calculation_status,CAST(:explanation AS jsonb),
                 :alert_codes,:input_checksum
             )
@@ -832,6 +1058,7 @@ def run_daily_decas(
                         "calculation_run_id": calculation_run_id,
                         "scope_version_id": pdvb_header["scope_version_id"],
                         "stock_snapshot_id": stock_snapshot_id,
+                        "po_snapshot_id": po_snapshot_id,
                         "configuration_version_id": configuration_id,
                         "explanation": _json(row["explanation"]),
                     }
@@ -902,7 +1129,7 @@ def run_daily_decas(
                 :business_date,:calculation_run_id,:origin_cd,:codigo_articulo,
                 :c_proveedor_primario,:physical_stock,:open_po_on_time,:open_po_overdue,
                 :mandatory_backlog,:optional_backlog,:coverage_index,
-                :stock_snapshot_id,:stock_snapshot_id,:status,:alert_codes,:input_checksum
+                :stock_snapshot_id,:po_snapshot_id,:status,:alert_codes,:input_checksum
             )
             """
         )
@@ -915,6 +1142,7 @@ def run_daily_decas(
                         "business_date": business_date,
                         "calculation_run_id": calculation_run_id,
                         "stock_snapshot_id": stock_snapshot_id,
+                        "po_snapshot_id": po_snapshot_id,
                     }
                     for row in chunk
                 ],

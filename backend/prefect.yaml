@@ -7,6 +7,22 @@ work_pool:
   job_variables: {}
 
 deployments:
+  - name: PDD_OPERATIONAL_DAILY_MASTER
+    entrypoint: pdd_backend/flows/daily_pipeline.py:pdd_operational_daily_flow
+    parameters:
+      configuration_version_uuid: 2f916828-c59d-4190-a795-29ac5cfc1a66
+      created_by: pdd.daily.orchestrator
+      pipeline_revision: DAILY_PIPELINE_V1
+      force: false
+    schedules:
+      - cron: "30 20 * * *"
+        timezone: America/Argentina/Buenos_Aires
+        slug: pdd-operational-daily-2030-art
+        active: true
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd
+
   - name: PDD_SCOPE_SNAPSHOT_MANUAL
     entrypoint: pdd_backend/flows/analytical.py:pdd_scope_snapshot_flow
     parameters: {}

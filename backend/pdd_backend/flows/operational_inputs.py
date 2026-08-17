@@ -100,7 +100,8 @@ def pdd_stock_readiness_flow(
     logger.info(
         "Diagnostico stock: estado=%s, fecha=%s, cobertura=%s/%s, "
         "pares_sucursal_excluida=%s, faltantes_no_explicados=%s, "
-        "sucursales_excluidas=%s, bloqueos=%s",
+        "sucursales_excluidas=%s, oc_as_of=%s, oc_positivas=%s, "
+        "oc_negativas_excluidas=%s, bloqueos=%s",
         result["status"],
         result["stock_date"],
         result["covered_pairs"],
@@ -108,6 +109,9 @@ def pdd_stock_readiness_flow(
         result["excluded_branch_pairs"],
         result["unexplained_missing_pairs"],
         result["excluded_branches"],
+        result["open_po_as_of_ts"],
+        result["open_po_positive_lines"],
+        result["open_po_excluded_negative_lines"],
         result["blockers"],
     )
     return {"stock_readiness": result}

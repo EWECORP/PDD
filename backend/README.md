@@ -138,6 +138,75 @@ La misma exportación debe ejecutarse en cada terminal antes de cualquier
 `prefect deployment inspect`, `prefect deployment run`, `prefect flow-run` o
 comando equivalente contra el orquestador de CONNEXA.
 
+### Orquestador diario completo
+
+Desde la versión 0.13.0 el deployment `PDD_OPERATIONAL_DAILY_MASTER` ejecuta
+la cadena diaria completa:
+
+1. refresca `src.mv_base_oc_pendientes` bajo un advisory lock;
+2. determina el último cierre común de ventas crudas, ventas enriquecidas y
+   stock LEGACY;
+3. valida stock operativo, scope y frescura de OC;
+4. recupera los días de features no materializados;
+5. calcula y publica PDVB;
+6. publica los atributos logísticos;
+7. calcula posiciones y necesidades D/S;
+8. consolida y publica el backlog vigente.
+
+La vista se refresca con `REFRESH MATERIALIZED VIEW` no concurrente porque no
+se ha certificado un índice único compatible con `CONCURRENTLY`. El worker PDD
+tiene límite uno y el job agrega un lock transaccional, por lo que dos corridas
+no pueden refrescarla simultáneamente.
+
+Sin `business_date`, el flujo usa como fecha operativa el día posterior al
+cierre común. Si esa fecha ya tiene backlog vigente para el mismo scope,
+termina correctamente como `SKIPPED/NO_NEW_CLOSED_DATE`. `force=true` permite
+reanudar o repetir de forma controlada la misma fecha.
+
+Los UUID de PDVB, logística, DAILY_DECAS y backlog se derivan de fecha, scope,
+modelo, configuración y `pipeline_revision`. Una repetición de la misma
+revisión reutiliza resultados compatibles sin duplicarlos. Cuando cambie la
+lógica de una etapa y se necesite recalcular una fecha ya procesada, se debe
+incrementar la revisión, por ejemplo a `DAILY_PIPELINE_V2`.
+
+Primera prueba completa del piloto existente:
+
+```bash
+export PREFECT_API_URL=https://orquestador.connexa-cloud.com/api
+prefect deploy --all
+
+export PREFECT_API_URL=https://orquestador.connexa-cloud.com/api
+prefect deployment run \
+  "PDD - Orquestador diario completo/PDD_OPERATIONAL_DAILY_MASTER" \
+  --params '{
+    "business_date": "2026-08-16",
+    "scope_version_uuid": "f157e436-1094-431b-ae2a-8f477d780c3e",
+    "model_version_uuid": "a0a35b25-628d-43f1-b651-82c97207fc60",
+    "configuration_version_uuid": "2f916828-c59d-4190-a795-29ac5cfc1a66",
+    "created_by": "eduardo.ettlin",
+    "pipeline_revision": "DAILY_PIPELINE_V1",
+    "force": true
+  }' \
+  --watch
+```
+
+Después de validar esa corrida, la operación normal no informa fecha ni usa
+`force`; el flujo la resuelve a partir de las fuentes:
+
+```bash
+export PREFECT_API_URL=https://orquestador.connexa-cloud.com/api
+prefect deployment run \
+  "PDD - Orquestador diario completo/PDD_OPERATIONAL_DAILY_MASTER" \
+  --watch
+```
+
+Desde la versión 0.13.1 el deployment tiene activo el schedule
+`pdd-operational-daily-2030-art`: todos los días a las 20:30 de
+`America/Argentina/Buenos_Aires`, con `business_date=null` y `force=false`.
+Si todavía no existe un nuevo cierre común, termina de forma idempotente como
+`SKIPPED/NO_NEW_CLOSED_DATE`; si una fuente necesaria está atrasada o es
+inconsistente, falla antes de desplazar las publicaciones vigentes.
+
 ## Backtest rolling-origin
 
 La versión 0.6.0 extiende el backtest reproducible que genera una estimación para
@@ -374,16 +443,30 @@ pdd-etl stock-readiness \
   --scope-version-uuid f157e436-1094-431b-ae2a-8f477d780c3e
 ```
 
-El resultado solo será `READY` si la fuente de stock alcanza esa fecha y cubre
-el scope sin duplicados, stock físico nulo ni entradas negativas. El mapeo
-validado es `pedido_pendiente` a órdenes directas entrantes y
-`transito_pendiente` a tránsito desde CD. `transfer_pendiente` queda
-deliberadamente sin mapear: el proceso LEGACY lo trata como entrada futura y el
-campo operativo `confirmed_transfer_pending` es sustractivo.
+El resultado solo será `READY` si la fuente de stock alcanza esa fecha, cubre
+el scope sin duplicados, stock físico nulo ni entradas negativas y la vista
+materializada canónica de OC también está actualizada. Desde la versión
+`0.12.0`, `src.mv_base_oc_pendientes` reemplaza —no se suma— al campo LEGACY
+`base_stock_sucursal.pedido_pendiente`.
+
+La vista ya expresa `pendientes` en la unidad operativa: unidades base para
+artículos comunes y peso para los vendidos por peso. El proceso conserva solo
+filas con `pendientes > 0` y las agrega por artículo–destino. Los valores
+negativos se excluyen como anomalías de sobrecumplimiento y quedan contados en
+el diagnóstico y en `pdd_source_snapshot.detail`. Las OC con destino sucursal
+alimentan `pdd_branch_stock_position.direct_po_inbound`; las destinadas al CD
+41 alimentan `pdd_cd_stock_position.open_po_on_time`. Como la vista no contiene
+fecha comprometida, todavía no es posible separar `open_po_on_time` de
+`open_po_overdue`.
+
+`transito_pendiente` continúa mapeando el tránsito desde CD.
+`transfer_pendiente` queda deliberadamente sin mapear: el proceso LEGACY lo
+trata como entrada futura y el campo operativo
+`confirmed_transfer_pending` es sustractivo.
 
 ### Corrida DAILY_DECAS piloto
 
-La versión `0.9.2` construye en una única transacción las posiciones de stock
+La versión `0.12.0` construye en una única transacción las posiciones de stock
 de sucursal, las necesidades automáticas D/S y la posición informativa del CD:
 
 ```bash

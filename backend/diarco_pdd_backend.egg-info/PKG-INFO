@@ -1,0 +1,16 @@
+Metadata-Version: 2.4
+Name: diarco-pdd-backend
+Version: 0.12.0
+Summary: Procesos analiticos PDD sobre diarco_data orquestados con Prefect
+Requires-Python: >=3.10
+Requires-Dist: SQLAlchemy<3,>=2.0
+Requires-Dist: psycopg2-binary<3,>=2.9
+Requires-Dist: python-dotenv<2,>=1.0
+Requires-Dist: prefect<4,>=3.4
+Requires-Dist: fastapi<0.120,>=0.115
+Requires-Dist: pydantic<3,>=2.11
+Requires-Dist: uvicorn[standard]<1,>=0.34
+Requires-Dist: PyYAML<7,>=6
+Provides-Extra: dev
+Requires-Dist: pytest<9,>=8; extra == "dev"
+Requires-Dist: httpx<1,>=0.28; extra == "dev"
