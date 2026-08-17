@@ -15,6 +15,23 @@ WITH exclusion_policy AS (
     ) AS policy_json
     FROM pdd_scope_excluded_categories
 ),
+branch_exclusion_policy AS (
+    SELECT jsonb_build_object(
+        'policy_code', 'PDD_OPERATIONAL_BRANCH_EXCLUSIONS',
+        'version', 1,
+        'source_relation', 'src.sucursales_excluidas',
+        'excluded_branch_count', count(*)::integer,
+        'excluded_pair_count', (
+            SELECT count(*)::integer
+            FROM pdd_scope_excluded_branch_pairs
+        ),
+        'excluded_branches', coalesce(
+            jsonb_agg(destination_branch ORDER BY destination_branch),
+            '[]'::jsonb
+        )
+    ) AS policy_json
+    FROM pdd_scope_excluded_branches
+),
 article_manifest AS (
     SELECT
         count(*)::integer AS article_count,
@@ -82,6 +99,7 @@ manifest AS (
         a.article_checksum,
         p.pair_checksum,
         e.policy_json,
+        b.policy_json AS branch_policy_json,
         encode(
             sha256(
                 convert_to(
@@ -94,6 +112,7 @@ manifest AS (
     FROM article_manifest AS a
     CROSS JOIN pair_manifest AS p
     CROSS JOIN exclusion_policy AS e
+    CROSS JOIN branch_exclusion_policy AS b
 )
 INSERT INTO datamart.dm_pdd_scope_version (
     scope_version_uuid,
@@ -136,7 +155,18 @@ SELECT
         'habilitado', 1,
         'active_for_sale', 1,
         'active_on_mix', 1,
-        'excludes_origin', true
+        'excludes_origin', true,
+        'routing_semantics', jsonb_build_object(
+            'selection_level', 'ARTICLE_BRANCH',
+            'branch_number_is_filter', false,
+            'supply_modes', jsonb_build_object(
+                '0', 'DELIVERY_FROM_CD',
+                '1', 'DIRECT_FROM_SUPPLIER',
+                '2', 'CROSS_DOCKING',
+                '3', 'DELIVERY_FROM_QX_82'
+            )
+        ),
+        'operational_branch_exclusion_policy', branch_policy_json
     ),
     article_count,
     routed_article_count,
@@ -148,7 +178,8 @@ SELECT
     :captured_by,
     jsonb_build_object(
         'capture_isolation', 'REPEATABLE READ',
-        'category_exclusion_policy', policy_json
+        'category_exclusion_policy', policy_json,
+        'operational_branch_exclusion_policy', branch_policy_json
     )
 FROM manifest
 RETURNING

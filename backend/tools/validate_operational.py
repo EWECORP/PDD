@@ -6,20 +6,29 @@ from sqlalchemy import text
 
 from pdd_backend.config import OperationalSettings, Settings
 from pdd_backend.db import build_engine, build_operational_engine
+from pdd_backend.operational_contract import OPERATIONAL_TABLES
 
 
-PUBLISHER_TABLES = (
-    "pdd_pdvb_model_version",
-    "pdd_distribution_scope_version",
-    "pdd_distribution_scope_article",
-    "pdd_distribution_scope_pair",
-    "pdd_calculation_run",
-    "pdd_pdvb_publication_batch",
-    "pdd_pdvb_publication_stage",
-    "pdd_pdvb_estimate",
-    "pdd_pdvb_current",
-    "pdd_pdvb_quality_issue",
-)
+SOURCE_COLUMNS = {
+    ("src", "base_productos_vigentes"): {
+        "c_sucu_empr", "c_articulo", "m_vende_por_peso",
+        "q_factor_compra", "full_capacity_pallet", "q_peso_unit_art",
+        "fecha_extraccion",
+    },
+    ("src", "base_stock_sucursal"): {
+        "codigo_articulo", "codigo_sucursal", "fecha_stock", "stock",
+        "pedido_pendiente", "transito_pendiente", "transfer_pendiente",
+        "pedido_pendiente_fecha", "dias_preparacion", "q_dias_stock",
+        "q_dias_sobre_stock", "fecha_extraccion",
+    },
+    ("src", "sucursales_excluidas"): {"c_sucu_empr"},
+    ("datamart", "dm_pdd_scope_article"): {
+        "scope_version_uuid", "codigo_articulo",
+    },
+    ("datamart", "dm_pdd_scope_pair"): {
+        "scope_version_uuid", "codigo_articulo", "destination_branch",
+    },
+}
 
 
 def main() -> None:
@@ -30,6 +39,23 @@ def main() -> None:
     try:
         with source_engine.connect() as source:
             source_database = source.execute(text("SELECT current_database()" )).scalar_one()
+            source_columns = {
+                (row[0], row[1], row[2])
+                for row in source.execute(
+                    text(
+                        """
+                        SELECT table_schema, table_name, column_name
+                        FROM information_schema.columns
+                        WHERE (table_schema = 'src' AND table_name IN (
+                            'base_productos_vigentes', 'base_stock_sucursal',
+                            'sucursales_excluidas'
+                        )) OR (table_schema = 'datamart' AND table_name IN (
+                            'dm_pdd_scope_article', 'dm_pdd_scope_pair'
+                        ))
+                        """
+                    )
+                )
+            }
         with target_engine.connect() as target:
             target_database = target.execute(text("SELECT current_database()" )).scalar_one()
             existing = {
@@ -44,20 +70,27 @@ def main() -> None:
                     )
                 )
             }
-        missing = sorted(set(PUBLISHER_TABLES) - existing)
+        missing = sorted(set(OPERATIONAL_TABLES) - existing)
         legacy = sorted(
             table for table in existing
-            if table in {name.removeprefix("pdd_") for name in PUBLISHER_TABLES}
+            if table in {name.removeprefix("pdd_") for name in OPERATIONAL_TABLES}
+        )
+        missing_source_columns = sorted(
+            f"{schema}.{table}.{column}"
+            for (schema, table), columns in SOURCE_COLUMNS.items()
+            for column in columns
+            if (schema, table, column) not in source_columns
         )
         result = {
             "source_database": source_database,
             "target_database": target_database,
             "publisher_contract": "OK" if not missing else "INCOMPLETE",
             "missing_tables": missing,
+            "missing_source_columns": missing_source_columns,
             "legacy_unprefixed_tables": legacy,
         }
         print(json.dumps(result, indent=2, sort_keys=True))
-        if missing:
+        if missing or missing_source_columns:
             raise SystemExit(2)
     finally:
         target_engine.dispose()

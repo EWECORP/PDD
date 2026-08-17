@@ -26,6 +26,11 @@ WITH excluded_categories AS (
         CAST(:exclusion_policy_json AS jsonb) -> 'rules'
     ) AS rules(rule)
 ),
+source_excluded_branches AS (
+    SELECT DISTINCT c_sucu_empr::integer AS destination_branch
+    FROM src.sucursales_excluidas
+    WHERE c_sucu_empr IS NOT NULL
+),
 cd_articles AS (
     SELECT DISTINCT ON (c_articulo)
         bpv.c_articulo,
@@ -48,7 +53,7 @@ cd_articles AS (
       )
     ORDER BY bpv.c_articulo, bpv.fecha_extraccion DESC NULLS LAST
 ),
-pairs AS (
+candidate_pairs AS (
     SELECT DISTINCT ON (b.c_sucu_empr, b.c_articulo)
         b.c_sucu_empr AS destination_branch,
         b.c_articulo AS codigo_articulo,
@@ -69,6 +74,21 @@ pairs AS (
       AND b.active_on_mix = 1
       AND b.c_sucu_empr <> 41
     ORDER BY b.c_sucu_empr, b.c_articulo, b.fecha_extraccion DESC NULLS LAST
+),
+excluded_branches AS (
+    SELECT DISTINCT candidate.destination_branch::integer AS destination_branch
+    FROM candidate_pairs AS candidate
+    INNER JOIN source_excluded_branches AS excluded
+      ON excluded.destination_branch = candidate.destination_branch::integer
+),
+pairs AS (
+    SELECT candidate.*
+    FROM candidate_pairs AS candidate
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM excluded_branches AS excluded
+        WHERE excluded.destination_branch = candidate.destination_branch::integer
+    )
 ),
 article_manifest AS (
     SELECT
@@ -123,6 +143,21 @@ pair_manifest AS (
             'hex'
         ) AS pair_checksum
     FROM pairs
+),
+branch_exclusion_manifest AS (
+    SELECT
+        count(*)::integer AS excluded_branch_count,
+        (
+            SELECT count(*)::integer
+            FROM candidate_pairs AS candidate
+            INNER JOIN excluded_branches AS excluded
+              ON excluded.destination_branch = candidate.destination_branch::integer
+        ) AS excluded_pair_count,
+        coalesce(
+            jsonb_agg(destination_branch ORDER BY destination_branch),
+            '[]'::jsonb
+        ) AS excluded_branches
+    FROM excluded_branches
 )
 SELECT
     a.article_count,
@@ -132,6 +167,9 @@ SELECT
     greatest(a.source_as_of_ts, p.source_as_of_ts) AS source_as_of_ts,
     a.article_checksum,
     p.pair_checksum,
+    b.excluded_branch_count,
+    b.excluded_pair_count,
+    b.excluded_branches,
     encode(
         sha256(
             convert_to(
@@ -143,6 +181,7 @@ SELECT
     ) AS scope_checksum
 FROM article_manifest AS a
 CROSS JOIN pair_manifest AS p
+CROSS JOIN branch_exclusion_manifest AS b
 """
 
 
@@ -153,10 +192,14 @@ IMPLEMENTATION_FILES = (
     "pdd_backend/config.py",
     "pdd_backend/db.py",
     "pdd_backend/model_registry.py",
+    "pdd_backend/operational_registry.py",
+    "pdd_backend/operational_contract.py",
     "pdd_backend/manifests/model_versions.json",
+    "pdd_backend/manifests/operational_configurations.json",
     "pdd_backend/flows/analytical.py",
     "pdd_backend/flows/backtest.py",
     "pdd_backend/flows/publisher.py",
+    "pdd_backend/flows/operational_inputs.py",
     "pdd_backend/backtest_metrics.py",
     "pdd_backend/jobs/common.py",
     "pdd_backend/jobs/stock_daily.py",
@@ -167,6 +210,18 @@ IMPLEMENTATION_FILES = (
     "pdd_backend/jobs/pdvb.py",
     "pdd_backend/jobs/backtest.py",
     "pdd_backend/jobs/publisher.py",
+    "pdd_backend/jobs/operational_inputs.py",
+    "pdd_backend/jobs/daily_decas.py",
+    "pdd_backend/jobs/backlog.py",
+    "pdd_backend/api/__init__.py",
+    "pdd_backend/api/app.py",
+    "pdd_backend/api/cursor.py",
+    "pdd_backend/api/errors.py",
+    "pdd_backend/api/main.py",
+    "pdd_backend/api/models.py",
+    "pdd_backend/api/repository.py",
+    "pdd_backend/api/security.py",
+    "contracts/pdd-frontend-openapi-v1.yaml",
     "pdd_backend/windows.py",
     "pdd_backend/sql/scope/prepare_scope_snapshot.sql",
     "pdd_backend/sql/scope/insert_scope_version.sql",
@@ -216,7 +271,9 @@ SELECT
     destination_count,
     article_checksum,
     pair_checksum,
-    scope_checksum
+    scope_checksum,
+    pair_filter -> 'operational_branch_exclusion_policy'
+        AS operational_branch_exclusion_policy
 FROM datamart.dm_pdd_scope_version
 WHERE scope_version_uuid = CAST(:scope_version_uuid AS uuid)
 """

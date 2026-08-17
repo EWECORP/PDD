@@ -48,3 +48,31 @@ deployments:
     work_pool:
       name: diarco-pdd
       work_queue_name: pdd
+
+  - name: PDD_PUBLISH_ITEM_LOGISTICS_TEST_MANUAL
+    entrypoint: pdd_backend/flows/operational_inputs.py:pdd_publish_item_logistics_flow
+    parameters: {}
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd
+
+  - name: PDD_STOCK_READINESS_MANUAL
+    entrypoint: pdd_backend/flows/operational_inputs.py:pdd_stock_readiness_flow
+    parameters: {}
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd
+
+  - name: PDD_DAILY_DECAS_TEST_MANUAL
+    entrypoint: pdd_backend/flows/operational_inputs.py:pdd_daily_decas_flow
+    parameters: {}
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd
+
+  - name: PDD_PUBLISH_BACKLOG_TEST_MANUAL
+    entrypoint: pdd_backend/flows/operational_inputs.py:pdd_publish_backlog_flow
+    parameters: {}
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd

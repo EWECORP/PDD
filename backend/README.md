@@ -67,6 +67,20 @@ en `src.m_3_articulos`. Para incorporar otra categoría se agrega una regla al
 JSON y se emite una nueva versión de scope; nunca se modifica una versión ya
 capturada.
 
+La ruta se determina a nivel artículo–sucursal, sin inferirla por el número de
+sucursal. El scope selecciona exclusivamente `cod_cd = '41CD'` y
+`abastecimiento = 0`. Los modos 1 (proveedor), 2 (cross docking) y 3 (QX/CD82)
+quedan fuera, incluyendo las DIARCO BARRIO y las DIARCO PUEBLO abastecidas por
+el 82 aunque alguna tenga número menor a 300.
+
+Las excepciones operativas adicionales se toman de
+`src.sucursales_excluidas`. Esta fuente puede contener sucursales que ya estaban
+fuera por su ruta al CD82; por eso la captura guarda en `pair_filter` solamente
+las exclusiones que efectivamente intersectan el universo candidato de CD41 y
+cuántos pares removieron. La exclusión queda congelada en esa versión: cuando
+una sucursal cerrada reabre y deja de figurar en la fuente, vuelve a incorporarse
+al capturar un scope nuevo; nunca se modifica retroactivamente uno anterior.
+
 La captura debe programarse después de confirmar la finalización de la
 sincronización diaria de `src.base_productos_vigentes`. En el ambiente actual
 esa fuente se actualiza al mediodía; el horario definitivo de captura deberá
@@ -76,10 +90,10 @@ no solamente de una hora fija.
 ```bash
 pdd-etl scope-snapshot \
   --scope-version-uuid UUID_NUEVO \
-  --version-no 4 \
-  --business-date 2026-08-12 \
+  --version-no 5 \
+  --business-date 2026-08-16 \
   --captured-by identificador_corporativo \
-  --supersedes-scope-version-uuid b710f4d6-1bd8-4c32-8b1d-a3425c252cb9
+  --supersedes-scope-version-uuid 90dcd987-2ad6-4e4e-8d19-2ead45775d1f
 ```
 
 Stock, venta diaria y PDVB rechazan un UUID que no exista o cuya membresía no
@@ -111,13 +125,18 @@ pdd-etl features --start 2026-07-01 --end 2026-07-31
 
 ## Prefect
 
-`prefect.yaml` declara cinco deployments manuales en el pool `diarco-pdd` y la
-cola `pdd`. No se definió todavía un cron de producción: primero deben medirse
+`prefect.yaml` declara deployments manuales en el pool `diarco-pdd` y la cola
+`pdd`. No se definió todavía un cron de producción: primero deben medirse
 duración, bloqueos, fecha real de cierre y horario de disponibilidad.
 
 ```bash
+export PREFECT_API_URL=https://orquestador.connexa-cloud.com/api
 prefect deploy --all
 ```
+
+La misma exportación debe ejecutarse en cada terminal antes de cualquier
+`prefect deployment inspect`, `prefect deployment run`, `prefect flow-run` o
+comando equivalente contra el orquestador de CONNEXA.
 
 ## Backtest rolling-origin
 
@@ -317,6 +336,183 @@ pdd-etl publish-pdvb \
   --created-by eduardo.ettlin
 ```
 
+### Primer bloque de insumos operativos
+
+Antes de calcular necesidades se publican los atributos logísticos congelados
+del artículo. La carga toma todos los artículos de la versión de scope (también
+los que todavía no tienen un par ruteado), usa la fila del CD 41 de
+`src.base_productos_vigentes` y registra una corrida `DATA_PREP`, su
+`pdd_source_snapshot` y el detalle en `pdd_item_logistics_snapshot`.
+
+Mapeo inicial:
+
+- `base_unit`: `KG` cuando `m_vende_por_peso = 1`; en otro caso `UNIT`;
+- `units_per_package`: `q_factor_compra` positivo;
+- `packages_per_pallet`: `full_capacity_pallet` positivo;
+- `unit_weight_kg`: `q_peso_unit_art` positivo;
+- `unit_volume_m3`: nulo porque la fuente actual no lo provee.
+
+La fecha `2026-08-16` es la primera fecha operativa posterior al cierre de
+ventas confirmado hasta `2026-08-15`:
+
+```bash
+pdd-etl publish-item-logistics \
+  --business-date 2026-08-16 \
+  --scope-version-uuid f157e436-1094-431b-ae2a-8f477d780c3e \
+  --created-by eduardo.ettlin
+```
+
+`--calculation-run-uuid` es opcional. Si se informa, una repetición idéntica es
+idempotente; si se omite, el proceso genera y devuelve el UUID.
+
+Antes de materializar `pdd_branch_stock_position` y
+`pdd_cd_stock_position`, ejecutar el diagnóstico contra la misma fecha cerrada:
+
+```bash
+pdd-etl stock-readiness \
+  --expected-through 2026-08-15 \
+  --scope-version-uuid f157e436-1094-431b-ae2a-8f477d780c3e
+```
+
+El resultado solo será `READY` si la fuente de stock alcanza esa fecha y cubre
+el scope sin duplicados, stock físico nulo ni entradas negativas. El mapeo
+validado es `pedido_pendiente` a órdenes directas entrantes y
+`transito_pendiente` a tránsito desde CD. `transfer_pendiente` queda
+deliberadamente sin mapear: el proceso LEGACY lo trata como entrada futura y el
+campo operativo `confirmed_transfer_pending` es sustractivo.
+
+### Corrida DAILY_DECAS piloto
+
+La versión `0.9.2` construye en una única transacción las posiciones de stock
+de sucursal, las necesidades automáticas D/S y la posición informativa del CD:
+
+```bash
+pdd-etl daily-decas \
+  --business-date 2026-08-16 \
+  --scope-version-uuid f157e436-1094-431b-ae2a-8f477d780c3e \
+  --pdvb-calculation-run-uuid 8ee3dcae-eca6-4eb7-8440-c477e2e9aa1a \
+  --logistics-calculation-run-uuid UUID_CORRIDA_LOGISTICA \
+  --configuration-version-uuid 2f916828-c59d-4190-a795-29ac5cfc1a66 \
+  --calculation-run-uuid UUID_NUEVA_CORRIDA_DIARIA \
+  --created-by eduardo.ettlin
+```
+
+La configuración `PDD_DAILY_DECAS_TEST_PILOT` se persiste como `DRAFT`. Usa
+`dias_preparacion`, `q_dias_stock` y `q_dias_sobre_stock` de
+`src.base_stock_sucursal`. Cuando `dias_preparacion` falta o no es positivo,
+aplica un fallback explícito de 15 días y marca la posición `WARN`.
+
+Las ventas especiales comprometidas y las transferencias confirmadas se
+mantienen transitoriamente en cero hasta ratificar su fuente y semántica. Las
+órdenes de compra pendientes se informan provisionalmente como on-time; las
+filas afectadas conservan la alerta `PO_DUE_CLASSIFICATION_PENDING`.
+
+Las fórmulas piloto son:
+
+```text
+D = max(Stock Máximo - Stock Neto, 0)
+S = max((Stock Máximo + Sobre Stock) - max(Stock Neto, 0), 0) - D
+```
+
+Ambas cantidades se redondean hacia arriba al factor de compra. Este contrato
+es apto para Test y para habilitar el desarrollo frontend; requiere
+ratificación funcional antes de promoverse a Producción.
+
+### Publicación del backlog DECAS vigente
+
+La versión `0.10.0` consolida los saldos positivos D/E/C/A/S en
+`stock_management.pdd_current_backlog_line` y conserva su trazabilidad en
+`stock_management.pdd_backlog_source_allocation`. D/S provienen de una corrida
+`DAILY_DECAS` vigente; E/C/A se incorporan solamente cuando existen necesidades
+dirigidas `ACTIVE` y líneas con saldo abierto. El publicador no crea E/C/A ni
+transforma decisiones comerciales en demanda automática.
+
+```bash
+pdd-etl publish-backlog \
+  --daily-calculation-run-uuid UUID_CORRIDA_DAILY_DECAS \
+  --calculation-run-uuid UUID_NUEVA_PUBLICACION \
+  --created-by eduardo.ettlin
+```
+
+La tabla es una proyección vigente, no un segundo maestro: conserva el
+`backlog_line_uuid` del mismo grano CD–sucursal–artículo–proveedor e incrementa
+`row_version` en cada nueva foto. Las líneas que dejan de tener saldo se retiran
+de la proyección. La publicación completa ocurre en una sola transacción; una
+falla no desplaza la foto anterior.
+
+La atribución inicial se versiona como `DECAS_ATTRIBUTION_V1` y ordena E vencida,
+E vigente, C, D, A y S; dentro de cada nivel usa fecha objetivo, antigüedad e ID.
+Los factores logísticos incompletos no ocultan el backlog: publican la línea con
+`freshness_status = 'INCOMPLETE'` y una alerta explícita.
+
+Hasta implementar la conciliación de eventos Valkimia, el proceso exige que no
+existan importaciones `PENDING`, `ACCEPTED` o `PARTIAL`. Esta barrera evita
+publicar un saldo que ignore pipeline activo.
+
+Controles posteriores:
+
+```sql
+SELECT r.calculation_run_uuid,r.business_date,r.status,r.is_current,
+       r.input_row_count,r.output_row_count,r.warning_count,r.summary
+FROM stock_management.pdd_calculation_run r
+WHERE r.run_type='PUBLISH' AND r.scope_id='41:BACKLOG'
+ORDER BY r.created_at DESC
+LIMIT 5;
+
+SELECT snapshot_version,business_date,freshness_status,count(*) AS lineas,
+       sum(d_open_quantity) AS d,sum(e_open_quantity) AS e,
+       sum(c_open_quantity) AS c,sum(a_open_quantity) AS a,
+       sum(s_open_quantity) AS s,sum(total_open_quantity) AS total
+FROM stock_management.pdd_current_backlog_line
+GROUP BY snapshot_version,business_date,freshness_status
+ORDER BY freshness_status;
+
+SELECT a.source_type,count(*) AS fuentes,
+       sum(a.contributed_quantity-a.prepared_allocated_quantity) AS saldo_atribuido
+FROM stock_management.pdd_backlog_source_allocation a
+GROUP BY a.source_type
+ORDER BY a.source_type;
+```
+
+El deployment manual es `PDD_PUBLISH_BACKLOG_TEST_MANUAL`.
+
+Desde 0.8.0 el diagnóstico cruza además `src.sucursales_excluidas`. Si un scope
+anterior todavía contiene una sucursal hoy excluida, informa
+`SCOPE_CONTAINS_EXCLUDED_BRANCHES`, `excluded_branch_pairs` y la lista de
+sucursales; los faltantes restantes se informan por separado en
+`unexplained_missing_pairs`. La corrección es capturar una versión nueva del
+scope, no imputar stock cero ni alterar la versión histórica.
+
+Controles posteriores a la publicación logística:
+
+```sql
+SELECT r.calculation_run_uuid, r.business_date, r.status, r.is_current,
+       r.input_row_count, r.output_row_count, r.warning_count,
+       r.input_checksum, r.output_checksum
+FROM stock_management.pdd_calculation_run AS r
+WHERE r.run_type = 'DATA_PREP'
+ORDER BY r.created_at DESC
+LIMIT 5;
+
+SELECT l.quality_status, count(*) AS registros
+FROM stock_management.pdd_item_logistics_snapshot AS l
+JOIN stock_management.pdd_calculation_run AS r
+  ON r.calculation_run_id = l.calculation_run_id
+WHERE r.calculation_run_uuid = 'UUID_CORRIDA'
+GROUP BY l.quality_status
+ORDER BY l.quality_status;
+
+SELECT s.source_code, s.physical_relation, s.as_of_ts, s.row_count,
+       s.status, s.checksum
+FROM stock_management.pdd_source_snapshot AS s
+JOIN stock_management.pdd_calculation_run AS r
+  ON r.calculation_run_id = s.calculation_run_id
+WHERE r.calculation_run_uuid = 'UUID_CORRIDA';
+```
+
+Los despliegues manuales equivalentes son
+`PDD_PUBLISH_ITEM_LOGISTICS_TEST_MANUAL` y `PDD_STOCK_READINESS_MANUAL`.
+
 El destino permitido por defecto es exclusivamente `connexa_platform_test`.
 Publicar en `connexa_platform_ms` requiere configurar además
 `PDD_OPERATIONAL_ALLOW_PRODUCTION=true`; no debe habilitarse durante el piloto.
@@ -331,6 +527,28 @@ Publicar en `connexa_platform_ms` requiere configurar además
   la corrida anterior.
 - Cada job tiene un advisory lock para impedir dos escrituras simultáneas del
   mismo tipo.
+
+## API HTTP para frontend
+
+Desde la versión 0.11.0 el paquete expone las 15 operaciones del contrato
+`contracts/pdd-frontend-openapi-v1.yaml` bajo `/api/v1/pdd`.
+
+```bash
+python tools/validate_frontend_contract.py
+python tools/validate_api.py
+python tools/validate_api_write_rollback.py
+pdd-api
+```
+
+La API consulta exclusivamente `connexa_platform_test.stock_management`. Las
+altas y transiciones E/C/A usan `Idempotency-Key`, `If-Match`, historial
+append-only y `pdd_business_event_log`. El proceso no reemplaza ni se ejecuta
+mediante Prefect: se instala como `pdd-api.service` y queda detrás del proxy
+corporativo.
+
+El archivo `.env.api` debe ser independiente del `.env` analítico y utilizar un
+rol PostgreSQL de mínimo privilegio. Ver `../PDD - Despliegue y Prueba API
+Backend v1.0.md`.
 
 ## Validación sin carga
 

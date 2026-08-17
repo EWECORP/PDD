@@ -1,0 +1,1004 @@
+openapi: 3.1.0
+info:
+  title: Connexa PDD Frontend API
+  version: 1.0.0
+  description: >-
+    Contrato para consulta del backlog DECAS, explicación de cálculo y
+    mantenimiento de necesidades dirigidas E/C/A. No asigna ni reserva stock.
+servers:
+  - url: /api/v1/pdd
+    description: Base path relativo en Connexa
+tags:
+  - name: Status
+  - name: Dashboard
+  - name: Backlog
+  - name: DirectedNeeds
+  - name: Runs
+  - name: Catalogs
+security:
+  - bearerAuth: []
+paths:
+  /status:
+    get:
+      tags: [Status]
+      operationId: getPddStatus
+      summary: Estado funcional y frescura de PDD
+      responses:
+        '200':
+          description: Estado disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PddStatus'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /dashboard/summary:
+    get:
+      tags: [Dashboard]
+      operationId: getDashboardSummary
+      summary: Resumen de la foto de backlog vigente
+      responses:
+        '200':
+          description: Totales de la foto vigente
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardSummary'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NoCurrentSnapshot' }
+
+  /backlog:
+    get:
+      tags: [Backlog]
+      operationId: listBacklog
+      summary: Consulta paginada del backlog vigente
+      parameters:
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/PageCursor'
+        - name: branchId
+          in: query
+          schema: { type: array, items: { type: integer } }
+          style: form
+          explode: false
+        - name: articleId
+          in: query
+          schema: { type: array, items: { type: integer } }
+          style: form
+          explode: false
+        - name: supplierId
+          in: query
+          schema: { type: array, items: { type: integer } }
+          style: form
+          explode: false
+        - name: needType
+          in: query
+          description: Devuelve líneas con saldo positivo en al menos uno de los tipos.
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/DecasType' }
+          style: form
+          explode: false
+        - name: mandatory
+          in: query
+          schema: { type: boolean }
+        - name: minimumIrq
+          in: query
+          schema: { type: number, minimum: 0, maximum: 100 }
+        - name: targetDateTo
+          in: query
+          schema: { type: string, format: date }
+        - name: freshnessStatus
+          in: query
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/FreshnessStatus' }
+          style: form
+          explode: false
+        - name: withAlerts
+          in: query
+          schema: { type: boolean }
+        - name: search
+          in: query
+          description: Código o nombre de sucursal, artículo o proveedor.
+          schema: { type: string, minLength: 2, maxLength: 100 }
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum:
+              - priority_desc
+              - irq_desc
+              - target_date_asc
+              - quantity_desc
+              - article_asc
+            default: priority_desc
+      responses:
+        '200':
+          description: Página del snapshot indicado en meta
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BacklogPage'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /backlog/{backlogLineUuid}:
+    get:
+      tags: [Backlog]
+      operationId: getBacklogLine
+      summary: Detalle funcional de una línea vigente
+      parameters:
+        - $ref: '#/components/parameters/BacklogLineUuid'
+      responses:
+        '200':
+          description: Detalle de la línea
+          headers:
+            ETag:
+              description: Versión de línea para selecciones futuras.
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BacklogDetail'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /backlog/{backlogLineUuid}/explanation:
+    get:
+      tags: [Backlog]
+      operationId: getBacklogExplanation
+      summary: Fórmula, posición y fuentes que explican la línea
+      parameters:
+        - $ref: '#/components/parameters/BacklogLineUuid'
+      responses:
+        '200':
+          description: Explicación reproducible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BacklogExplanation'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /directed-needs:
+    get:
+      tags: [DirectedNeeds]
+      operationId: listDirectedNeeds
+      summary: Lista necesidades dirigidas E/C/A
+      parameters:
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/PageCursor'
+        - name: needType
+          in: query
+          schema:
+            type: array
+            items: { type: string, enum: [E, C, A] }
+          style: form
+          explode: false
+        - name: status
+          in: query
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/DirectedNeedStatus' }
+          style: form
+          explode: false
+        - name: validOn
+          in: query
+          schema: { type: string, format: date }
+        - name: ownerUser
+          in: query
+          schema: { type: string }
+        - name: search
+          in: query
+          schema: { type: string, minLength: 2, maxLength: 120 }
+      responses:
+        '200':
+          description: Página de necesidades dirigidas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DirectedNeedPage'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [DirectedNeeds]
+      operationId: createDirectedNeed
+      summary: Crea una necesidad dirigida en DRAFT
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DirectedNeedCreate'
+      responses:
+        '201':
+          description: Necesidad creada
+          headers:
+            ETag:
+              schema: { type: string }
+            Location:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DirectedNeed'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /directed-needs/{directedNeedUuid}:
+    get:
+      tags: [DirectedNeeds]
+      operationId: getDirectedNeed
+      summary: Obtiene cabecera, líneas y última versión
+      parameters:
+        - $ref: '#/components/parameters/DirectedNeedUuid'
+      responses:
+        '200':
+          description: Necesidad dirigida
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DirectedNeed'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [DirectedNeeds]
+      operationId: replaceDirectedNeed
+      summary: Versiona la definición editable y sus líneas
+      parameters:
+        - $ref: '#/components/parameters/DirectedNeedUuid'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DirectedNeedReplace'
+      responses:
+        '200':
+          description: Nueva versión persistida
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DirectedNeed'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /directed-needs/{directedNeedUuid}/activate:
+    post:
+      tags: [DirectedNeeds]
+      operationId: activateDirectedNeed
+      summary: Aprueba y activa una necesidad DRAFT
+      parameters:
+        - $ref: '#/components/parameters/DirectedNeedUuid'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StateAction' }
+      responses:
+        '200':
+          description: Necesidad activa
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DirectedNeed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /directed-needs/{directedNeedUuid}/cancel:
+    post:
+      tags: [DirectedNeeds]
+      operationId: cancelDirectedNeed
+      summary: Cancela el saldo abierto con motivo auditable
+      parameters:
+        - $ref: '#/components/parameters/DirectedNeedUuid'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StateAction' }
+      responses:
+        '200':
+          description: Necesidad cancelada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DirectedNeed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /directed-needs/{directedNeedUuid}/close:
+    post:
+      tags: [DirectedNeeds]
+      operationId: closeDirectedNeed
+      summary: Cierra una necesidad sin saldo o con autorización explícita
+      parameters:
+        - $ref: '#/components/parameters/DirectedNeedUuid'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StateAction' }
+      responses:
+        '200':
+          description: Necesidad cerrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DirectedNeed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /directed-needs/{directedNeedUuid}/versions:
+    get:
+      tags: [DirectedNeeds]
+      operationId: listDirectedNeedVersions
+      summary: Historial append-only de cambios
+      parameters:
+        - $ref: '#/components/parameters/DirectedNeedUuid'
+      responses:
+        '200':
+          description: Versiones ordenadas de más reciente a más antigua
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/DirectedNeedVersion' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /calculation-runs/{calculationRunUuid}:
+    get:
+      tags: [Runs]
+      operationId: getCalculationRun
+      summary: Corrida y evidencia de fuentes
+      parameters:
+        - name: calculationRunUuid
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Corrida
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CalculationRun' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /catalogs/filters:
+    get:
+      tags: [Catalogs]
+      operationId: getPddFilterCatalogs
+      summary: Valores presentes en la foto vigente
+      responses:
+        '200':
+          description: Catálogos reducidos para filtros
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FilterCatalogs' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    PageSize:
+      name: pageSize
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+    PageCursor:
+      name: pageCursor
+      in: query
+      schema: { type: string, maxLength: 1000 }
+    BacklogLineUuid:
+      name: backlogLineUuid
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    DirectedNeedUuid:
+      name: directedNeedUuid
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 8, maxLength: 160 }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: ETag recibido en el último GET, por ejemplo W/"uuid:3".
+      schema: { type: string }
+
+  responses:
+    BadRequest:
+      description: Parámetros o sintaxis inválidos
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Unauthorized:
+      description: Identidad ausente o inválida
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Forbidden:
+      description: El rol no permite la operación
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    NotFound:
+      description: Recurso inexistente o no visible
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    NoCurrentSnapshot:
+      description: No existe una foto vigente publicable
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Conflict:
+      description: Snapshot, versión o clave idempotente en conflicto
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    ValidationError:
+      description: Regla funcional incumplida
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Unavailable:
+      description: Datos no disponibles o dependencia temporalmente inaccesible
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+
+  schemas:
+    DecasType:
+      type: string
+      enum: [D, E, C, A, S]
+    FreshnessStatus:
+      type: string
+      enum: [CURRENT, STALE, INCOMPLETE]
+    DirectedNeedStatus:
+      type: string
+      enum: [DRAFT, ACTIVE, CLOSED, CANCELLED, EXPIRED]
+    DirectedNeedLineStatus:
+      type: string
+      enum: [OPEN, PARTIAL, FULFILLED, CANCELLED]
+    RunStatus:
+      type: string
+      enum: [PENDING, RUNNING, SUCCEEDED, FAILED, BLOCKED, SUPERSEDED]
+
+    ProblemDetails:
+      type: object
+      required: [type, title, status, code, message, traceId]
+      properties:
+        type: { type: string, format: uri-reference }
+        title: { type: string }
+        status: { type: integer }
+        code:
+          type: string
+          examples: [VERSION_CONFLICT]
+        message: { type: string }
+        traceId: { type: string }
+        correlationId: { type: [string, 'null'], format: uuid }
+        fieldErrors:
+          type: array
+          items:
+            type: object
+            required: [field, code, message]
+            properties:
+              field: { type: string }
+              code: { type: string }
+              message: { type: string }
+
+    SnapshotMeta:
+      type: object
+      required:
+        - snapshotVersion
+        - businessDate
+        - calculationRunUuid
+        - publishedAt
+        - freshnessStatus
+      properties:
+        snapshotVersion: { type: string, format: uuid }
+        businessDate: { type: string, format: date }
+        calculationRunUuid: { type: string, format: uuid }
+        publishedAt: { type: string, format: date-time }
+        freshnessStatus: { $ref: '#/components/schemas/FreshnessStatus' }
+
+    PageMeta:
+      type: object
+      required: [pageSize, hasNextPage, totalItems, snapshot]
+      properties:
+        pageSize: { type: integer }
+        hasNextPage: { type: boolean }
+        nextCursor: { type: [string, 'null'] }
+        totalItems: { type: integer, minimum: 0 }
+        snapshot: { $ref: '#/components/schemas/SnapshotMeta' }
+
+    DecasQuantities:
+      type: object
+      required:
+        - d
+        - e
+        - c
+        - a
+        - s
+        - mandatory
+        - optional
+        - total
+      properties:
+        d: { type: number, minimum: 0 }
+        e: { type: number, minimum: 0 }
+        c: { type: number, minimum: 0 }
+        a: { type: number, minimum: 0 }
+        s: { type: number, minimum: 0 }
+        mandatory: { type: number, minimum: 0 }
+        optional: { type: number, minimum: 0 }
+        total: { type: number, exclusiveMinimum: 0 }
+
+    EntityLabel:
+      type: object
+      required: [id]
+      properties:
+        id: { type: integer }
+        name: { type: [string, 'null'] }
+
+    LogisticsEstimate:
+      type: object
+      required: [packages, pallets, weightKg, volumeM3]
+      properties:
+        packages: { type: [number, 'null'], minimum: 0 }
+        pallets: { type: [number, 'null'], minimum: 0 }
+        weightKg: { type: [number, 'null'], minimum: 0 }
+        volumeM3: { type: [number, 'null'], minimum: 0 }
+
+    BacklogLine:
+      type: object
+      required:
+        - backlogLineUuid
+        - rowVersion
+        - snapshotVersion
+        - businessDate
+        - originCd
+        - branch
+        - article
+        - quantities
+        - priorityScore
+        - logistics
+        - freshnessStatus
+        - alertCodes
+        - publishedAt
+      properties:
+        backlogLineUuid: { type: string, format: uuid }
+        rowVersion: { type: integer, minimum: 1 }
+        snapshotVersion: { type: string, format: uuid }
+        businessDate: { type: string, format: date }
+        originCd: { type: integer, const: 41 }
+        branch: { $ref: '#/components/schemas/EntityLabel' }
+        article: { $ref: '#/components/schemas/EntityLabel' }
+        supplier:
+          oneOf:
+            - $ref: '#/components/schemas/EntityLabel'
+            - type: 'null'
+        quantities: { $ref: '#/components/schemas/DecasQuantities' }
+        irqScore: { type: [number, 'null'], minimum: 0, maximum: 100 }
+        priorityScore: { type: number }
+        oldestNeedDate: { type: [string, 'null'], format: date }
+        targetDate: { type: [string, 'null'], format: date }
+        activeImportedQuantity: { type: number, minimum: 0 }
+        preparedQuantity: { type: number, minimum: 0 }
+        inTransitQuantity: { type: number, minimum: 0 }
+        cdReferenceStock: { type: [number, 'null'] }
+        logistics: { $ref: '#/components/schemas/LogisticsEstimate' }
+        freshnessStatus: { $ref: '#/components/schemas/FreshnessStatus' }
+        alertCodes:
+          type: array
+          items: { type: string }
+        publishedAt: { type: string, format: date-time }
+
+    BacklogPage:
+      type: object
+      required: [data, meta, totals]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/BacklogLine' }
+        meta: { $ref: '#/components/schemas/PageMeta' }
+        totals: { $ref: '#/components/schemas/DecasQuantities' }
+
+    BacklogSource:
+      type: object
+      required:
+        - sourceType
+        - sourceId
+        - contributedQuantity
+        - preparedAllocatedQuantity
+        - openQuantity
+        - attributionOrder
+        - attributionRuleVersion
+      properties:
+        sourceType: { $ref: '#/components/schemas/DecasType' }
+        sourceId: { type: string }
+        sourceBusinessDate: { type: [string, 'null'], format: date }
+        contributedQuantity: { type: number, exclusiveMinimum: 0 }
+        preparedAllocatedQuantity: { type: number, minimum: 0 }
+        openQuantity: { type: number, minimum: 0 }
+        targetDate: { type: [string, 'null'], format: date }
+        attributionOrder: { type: integer, minimum: 1 }
+        attributionRuleVersion: { type: string }
+
+    BacklogDetail:
+      allOf:
+        - $ref: '#/components/schemas/BacklogLine'
+        - type: object
+          required: [sources]
+          properties:
+            sources:
+              type: array
+              items: { $ref: '#/components/schemas/BacklogSource' }
+
+    StockExplanation:
+      type: object
+      required:
+        - physicalStock
+        - directPoInbound
+        - cdInTransit
+        - specialSaleCommitted
+        - confirmedTransferPending
+        - netStock
+        - pdvbValue
+        - leadTimeDays
+        - targetStockDays
+        - overstockDays
+        - criticalStock
+        - minimumStock
+        - maximumStock
+        - overstockQuantity
+      properties:
+        physicalStock: { type: number }
+        directPoInbound: { type: number, minimum: 0 }
+        cdInTransit: { type: number, minimum: 0 }
+        specialSaleCommitted: { type: number, minimum: 0 }
+        confirmedTransferPending: { type: number, minimum: 0 }
+        netStock: { type: number }
+        coverageDays: { type: [number, 'null'] }
+        pdvbBusinessDate: { type: string, format: date }
+        pdvbValue: { type: number, minimum: 0 }
+        leadTimeDays: { type: number, exclusiveMinimum: 0 }
+        targetStockDays: { type: number, minimum: 0 }
+        overstockDays: { type: number, minimum: 0 }
+        criticalStock: { type: number, minimum: 0 }
+        minimumStock: { type: number, minimum: 0 }
+        maximumStock: { type: number, minimum: 0 }
+        overstockQuantity: { type: number, minimum: 0 }
+
+    BacklogExplanation:
+      type: object
+      required:
+        - backlogLineUuid
+        - snapshotVersion
+        - formulaVersion
+        - calculationRunUuid
+        - stock
+        - sources
+        - alertCodes
+      properties:
+        backlogLineUuid: { type: string, format: uuid }
+        snapshotVersion: { type: string, format: uuid }
+        formulaVersion: { type: string }
+        calculationRunUuid: { type: string, format: uuid }
+        configurationVersionUuid: { type: [string, 'null'], format: uuid }
+        stock: { $ref: '#/components/schemas/StockExplanation' }
+        formula:
+          type: object
+          additionalProperties: true
+        sources:
+          type: array
+          items: { $ref: '#/components/schemas/BacklogSource' }
+        alertCodes:
+          type: array
+          items: { type: string }
+
+    DashboardSummary:
+      type: object
+      required:
+        - snapshot
+        - lineCount
+        - articleCount
+        - branchCount
+        - supplierCount
+        - quantities
+        - freshnessCounts
+        - criticalIrqLineCount
+        - alertCounts
+      properties:
+        snapshot: { $ref: '#/components/schemas/SnapshotMeta' }
+        lineCount: { type: integer, minimum: 0 }
+        articleCount: { type: integer, minimum: 0 }
+        branchCount: { type: integer, minimum: 0 }
+        supplierCount: { type: integer, minimum: 0 }
+        quantities: { $ref: '#/components/schemas/DecasQuantities' }
+        freshnessCounts:
+          type: object
+          additionalProperties: { type: integer, minimum: 0 }
+        criticalIrqLineCount: { type: integer, minimum: 0 }
+        alertCounts:
+          type: object
+          additionalProperties: { type: integer, minimum: 0 }
+
+    PddStatus:
+      type: object
+      required: [status, environment, apiVersion, currentSnapshot]
+      properties:
+        status: { type: string, enum: [READY, DEGRADED, UNAVAILABLE] }
+        environment: { type: string }
+        apiVersion: { type: string }
+        currentSnapshot:
+          oneOf:
+            - $ref: '#/components/schemas/SnapshotMeta'
+            - type: 'null'
+        blockers:
+          type: array
+          items: { type: string }
+
+    DirectedNeedLineBase:
+      type: object
+      required: [branchId, articleId, originalQuantity]
+      properties:
+        branchId: { type: integer }
+        articleId: { type: integer }
+        originalQuantity: { type: number, exclusiveMinimum: 0 }
+        targetDate: { type: [string, 'null'], format: date }
+        slaAt: { type: [string, 'null'], format: date-time }
+        unitCode: { type: string, maxLength: 20, default: UN }
+
+    DirectedNeedLineWrite:
+      allOf:
+        - $ref: '#/components/schemas/DirectedNeedLineBase'
+      unevaluatedProperties: false
+
+    DirectedNeedWriteBase:
+      type: object
+      required:
+        - needType
+        - businessReference
+        - validFrom
+        - priorityScore
+        - ownerUser
+        - reason
+        - lines
+      properties:
+        needType: { type: string, enum: [E, C, A] }
+        businessReference: { type: string, minLength: 1, maxLength: 120 }
+        supplierId: { type: [integer, 'null'] }
+        validFrom: { type: string, format: date }
+        validTo: { type: [string, 'null'], format: date }
+        priorityScore: { type: number, default: 0 }
+        ownerUser: { type: string, minLength: 1, maxLength: 100 }
+        reason: { type: string, minLength: 3 }
+        notes: { type: [string, 'null'] }
+        lines:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/DirectedNeedLineWrite' }
+
+    DirectedNeedCreate:
+      allOf:
+        - $ref: '#/components/schemas/DirectedNeedWriteBase'
+      unevaluatedProperties: false
+
+    DirectedNeedReplace:
+      allOf:
+        - $ref: '#/components/schemas/DirectedNeedWriteBase'
+        - type: object
+          required: [changeReason]
+          properties:
+            changeReason: { type: string, minLength: 3, maxLength: 500 }
+      unevaluatedProperties: false
+
+    DirectedNeedLine:
+      allOf:
+        - $ref: '#/components/schemas/DirectedNeedLineBase'
+        - type: object
+          required:
+            - directedNeedLineId
+            - preparedAllocatedQuantity
+            - cancelledQuantity
+            - openQuantity
+            - status
+            - rowVersion
+            - lastActivityAt
+          properties:
+            directedNeedLineId: { type: string }
+            preparedAllocatedQuantity: { type: number, minimum: 0 }
+            cancelledQuantity: { type: number, minimum: 0 }
+            openQuantity: { type: number, minimum: 0 }
+            status: { $ref: '#/components/schemas/DirectedNeedLineStatus' }
+            rowVersion: { type: integer, minimum: 1 }
+            lastActivityAt: { type: string, format: date-time }
+            logistics: { $ref: '#/components/schemas/LogisticsEstimate' }
+      unevaluatedProperties: false
+
+    DirectedNeed:
+      type: object
+      required:
+        - directedNeedUuid
+        - originCd
+        - needType
+        - businessReference
+        - validFrom
+        - priorityScore
+        - ownerUser
+        - status
+        - versionNo
+        - reason
+        - lines
+        - createdAt
+        - createdBy
+        - updatedAt
+        - updatedBy
+      properties:
+        directedNeedUuid: { type: string, format: uuid }
+        originCd: { type: integer, const: 41 }
+        needType: { type: string, enum: [E, C, A] }
+        businessReference: { type: string }
+        supplierId: { type: [integer, 'null'] }
+        validFrom: { type: string, format: date }
+        validTo: { type: [string, 'null'], format: date }
+        priorityScore: { type: number }
+        ownerUser: { type: string }
+        approverUser: { type: [string, 'null'] }
+        status: { $ref: '#/components/schemas/DirectedNeedStatus' }
+        versionNo: { type: integer, minimum: 1 }
+        reason: { type: string }
+        notes: { type: [string, 'null'] }
+        lines:
+          type: array
+          items: { $ref: '#/components/schemas/DirectedNeedLine' }
+        createdAt: { type: string, format: date-time }
+        createdBy: { type: string }
+        updatedAt: { type: string, format: date-time }
+        updatedBy: { type: string }
+        approvedAt: { type: [string, 'null'], format: date-time }
+        closedAt: { type: [string, 'null'], format: date-time }
+
+    DirectedNeedPage:
+      type: object
+      required: [data, pageSize, hasNextPage, totalItems]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/DirectedNeed' }
+        pageSize: { type: integer }
+        hasNextPage: { type: boolean }
+        nextCursor: { type: [string, 'null'] }
+        totalItems: { type: integer, minimum: 0 }
+
+    DirectedNeedVersion:
+      type: object
+      required:
+        - versionNo
+        - validFromTs
+        - changedBy
+        - changeReason
+        - afterState
+      properties:
+        versionNo: { type: integer, minimum: 1 }
+        validFromTs: { type: string, format: date-time }
+        changedBy: { type: string }
+        changeReason: { type: string }
+        beforeState: { type: [object, 'null'], additionalProperties: true }
+        afterState: { type: object, additionalProperties: true }
+        correlationId: { type: [string, 'null'], format: uuid }
+
+    StateAction:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 3, maxLength: 500 }
+
+    SourceSnapshot:
+      type: object
+      required: [sourceCode, physicalRelation, required, asOfTs, rowCount, status]
+      properties:
+        sourceCode: { type: string }
+        physicalRelation: { type: string }
+        required: { type: boolean }
+        asOfTs: { type: string, format: date-time }
+        rowCount: { type: integer, minimum: 0 }
+        checksum: { type: [string, 'null'] }
+        status: { type: string }
+        detail: { type: object, additionalProperties: true }
+
+    CalculationRun:
+      type: object
+      required:
+        - calculationRunUuid
+        - runType
+        - businessDate
+        - cutoffDate
+        - formulaVersion
+        - status
+        - current
+        - createdBy
+        - sourceSnapshots
+      properties:
+        calculationRunUuid: { type: string, format: uuid }
+        runType: { type: string }
+        businessDate: { type: string, format: date }
+        cutoffDate: { type: string, format: date }
+        formulaVersion: { type: [string, 'null'] }
+        status: { $ref: '#/components/schemas/RunStatus' }
+        current: { type: boolean }
+        startedAt: { type: [string, 'null'], format: date-time }
+        finishedAt: { type: [string, 'null'], format: date-time }
+        createdBy: { type: string }
+        inputRowCount: { type: [integer, 'null'], minimum: 0 }
+        outputRowCount: { type: [integer, 'null'], minimum: 0 }
+        warningCount: { type: integer, minimum: 0 }
+        errorCount: { type: integer, minimum: 0 }
+        summary: { type: object, additionalProperties: true }
+        sourceSnapshots:
+          type: array
+          items: { $ref: '#/components/schemas/SourceSnapshot' }
+
+    FilterCatalogs:
+      type: object
+      required: [snapshotVersion, branches, articles, suppliers]
+      properties:
+        snapshotVersion: { type: string, format: uuid }
+        branches:
+          type: array
+          items: { $ref: '#/components/schemas/EntityLabel' }
+        articles:
+          type: array
+          items: { $ref: '#/components/schemas/EntityLabel' }
+        suppliers:
+          type: array
+          items: { $ref: '#/components/schemas/EntityLabel' }

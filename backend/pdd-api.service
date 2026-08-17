@@ -1,0 +1,33 @@
+# /etc/systemd/system/pdd-api.service
+
+[Unit]
+Description=Connexa PDD HTTP API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/srv/PDD/backend
+
+Environment="PATH=/srv/FORECAST/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PYTHONPATH=/srv/PDD/backend"
+Environment="PDD_ENV_PATH=/srv/PDD/backend/.env.api"
+
+ExecStart=/srv/FORECAST/venv/bin/pdd-api
+
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGTERM
+StandardOutput=journal
+StandardError=journal
+
+# Endurecimiento compatible con el proyecto editable y psycopg2.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

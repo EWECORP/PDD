@@ -14,6 +14,12 @@ from .flows.analytical import (
     pdvb_task,
 )
 from .flows.backtest import pdd_rolling_backtest_flow
+from .flows.operational_inputs import (
+    pdd_daily_decas_flow,
+    pdd_publish_backlog_flow,
+    pdd_publish_item_logistics_flow,
+    pdd_stock_readiness_flow,
+)
 from .flows.publisher import pdd_publish_pdvb_flow
 
 
@@ -121,6 +127,42 @@ def build_parser() -> argparse.ArgumentParser:
     )
     publish.add_argument("--calculation-run-uuid", required=True)
     publish.add_argument("--created-by", required=True)
+
+    logistics = subparsers.add_parser(
+        "publish-item-logistics",
+        help="Publica datos logisticos del scope en stock_management.pdd_*",
+    )
+    logistics.add_argument("--business-date", required=True, type=parse_date)
+    logistics.add_argument("--created-by", required=True)
+    logistics.add_argument("--scope-version-uuid")
+    logistics.add_argument("--calculation-run-uuid")
+
+    readiness = subparsers.add_parser(
+        "stock-readiness",
+        help="Valida fecha, cobertura y calidad de src.base_stock_sucursal",
+    )
+    readiness.add_argument("--expected-through", required=True, type=parse_date)
+    readiness.add_argument("--scope-version-uuid")
+
+    decas = subparsers.add_parser(
+        "daily-decas",
+        help="Construye posiciones de stock y necesidades automaticas D/S",
+    )
+    decas.add_argument("--business-date", required=True, type=parse_date)
+    decas.add_argument("--pdvb-calculation-run-uuid", required=True)
+    decas.add_argument("--logistics-calculation-run-uuid", required=True)
+    decas.add_argument("--configuration-version-uuid", required=True)
+    decas.add_argument("--created-by", required=True)
+    decas.add_argument("--scope-version-uuid")
+    decas.add_argument("--calculation-run-uuid")
+
+    backlog = subparsers.add_parser(
+        "publish-backlog",
+        help="Consolida D/E/C/A/S y publica el backlog operativo vigente",
+    )
+    backlog.add_argument("--daily-calculation-run-uuid", required=True)
+    backlog.add_argument("--created-by", required=True)
+    backlog.add_argument("--calculation-run-uuid")
     return parser
 
 
@@ -182,6 +224,38 @@ def main() -> None:
         result = pdd_publish_pdvb_flow(
             args.calculation_run_uuid,
             args.created_by,
+        )
+        print(json.dumps(result, default=str, indent=2, sort_keys=True))
+    elif args.command == "publish-item-logistics":
+        result = pdd_publish_item_logistics_flow(
+            args.business_date,
+            args.created_by,
+            args.scope_version_uuid,
+            args.calculation_run_uuid,
+        )
+        print(json.dumps(result, default=str, indent=2, sort_keys=True))
+    elif args.command == "stock-readiness":
+        result = pdd_stock_readiness_flow(
+            args.expected_through,
+            args.scope_version_uuid,
+        )
+        print(json.dumps(result, default=str, indent=2, sort_keys=True))
+    elif args.command == "daily-decas":
+        result = pdd_daily_decas_flow(
+            args.business_date,
+            args.pdvb_calculation_run_uuid,
+            args.logistics_calculation_run_uuid,
+            args.configuration_version_uuid,
+            args.created_by,
+            args.scope_version_uuid,
+            args.calculation_run_uuid,
+        )
+        print(json.dumps(result, default=str, indent=2, sort_keys=True))
+    elif args.command == "publish-backlog":
+        result = pdd_publish_backlog_flow(
+            args.daily_calculation_run_uuid,
+            args.created_by,
+            args.calculation_run_uuid,
         )
         print(json.dumps(result, default=str, indent=2, sort_keys=True))
 

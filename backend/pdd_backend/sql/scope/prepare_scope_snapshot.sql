@@ -33,6 +33,15 @@ LEFT JOIN LATERAL (
 ALTER TABLE pdd_scope_excluded_categories
     ADD PRIMARY KEY (c_rubro, c_subrubro_1);
 
+CREATE TEMP TABLE pdd_scope_source_excluded_branches ON COMMIT DROP AS
+SELECT DISTINCT
+    excluded.c_sucu_empr::integer AS destination_branch
+FROM src.sucursales_excluidas AS excluded
+WHERE excluded.c_sucu_empr IS NOT NULL;
+
+ALTER TABLE pdd_scope_source_excluded_branches
+    ADD PRIMARY KEY (destination_branch);
+
 DO $validate_categories$
 BEGIN
     IF EXISTS (
@@ -88,6 +97,33 @@ ORDER BY bpv.c_articulo, bpv.fecha_extraccion DESC NULLS LAST;
 ALTER TABLE pdd_scope_articles_snapshot
     ADD PRIMARY KEY (codigo_articulo);
 
+CREATE TEMP TABLE pdd_scope_excluded_branch_pairs ON COMMIT DROP AS
+SELECT DISTINCT ON (bpv.c_sucu_empr, bpv.c_articulo)
+    bpv.c_sucu_empr::integer AS destination_branch,
+    bpv.c_articulo::integer AS codigo_articulo
+FROM src.base_productos_vigentes AS bpv
+INNER JOIN pdd_scope_articles_snapshot AS article
+    ON article.codigo_articulo = bpv.c_articulo::integer
+INNER JOIN pdd_scope_source_excluded_branches AS excluded
+    ON excluded.destination_branch = bpv.c_sucu_empr::integer
+WHERE bpv.cod_cd = '41CD'
+  AND bpv.abastecimiento = 0
+  AND bpv.habilitado = 1
+  AND bpv.active_for_sale = 1
+  AND bpv.active_on_mix = 1
+  AND bpv.c_sucu_empr <> :origin_cd
+ORDER BY bpv.c_sucu_empr, bpv.c_articulo, bpv.fecha_extraccion DESC NULLS LAST;
+
+ALTER TABLE pdd_scope_excluded_branch_pairs
+    ADD PRIMARY KEY (destination_branch, codigo_articulo);
+
+CREATE TEMP TABLE pdd_scope_excluded_branches ON COMMIT DROP AS
+SELECT DISTINCT destination_branch
+FROM pdd_scope_excluded_branch_pairs;
+
+ALTER TABLE pdd_scope_excluded_branches
+    ADD PRIMARY KEY (destination_branch);
+
 CREATE TEMP TABLE pdd_scope_pairs_snapshot ON COMMIT DROP AS
 SELECT DISTINCT ON (bpv.c_sucu_empr, bpv.c_articulo)
     CAST(:origin_cd AS integer) AS origin_cd,
@@ -128,6 +164,11 @@ WHERE bpv.cod_cd = '41CD'
   AND bpv.active_for_sale = 1
   AND bpv.active_on_mix = 1
   AND bpv.c_sucu_empr <> :origin_cd
+  AND NOT EXISTS (
+      SELECT 1
+      FROM pdd_scope_excluded_branches AS excluded
+      WHERE excluded.destination_branch = bpv.c_sucu_empr::integer
+  )
 ORDER BY bpv.c_sucu_empr, bpv.c_articulo, bpv.fecha_extraccion DESC NULLS LAST;
 
 ALTER TABLE pdd_scope_pairs_snapshot

@@ -1,0 +1,101 @@
+{
+  "data": [
+    {
+      "backlogLineUuid": "e870017f-b865-4f07-a919-e2c166a4aef1",
+      "rowVersion": 1,
+      "snapshotVersion": "4868597e-f491-48ee-98f3-0f6e248f6431",
+      "businessDate": "2026-08-16",
+      "originCd": 41,
+      "branch": { "id": 1, "name": "Sucursal ejemplo 1" },
+      "article": { "id": 10001, "name": "Artículo ejemplo A" },
+      "supplier": { "id": 500, "name": "Proveedor ejemplo" },
+      "quantities": {
+        "d": 120,
+        "e": 0,
+        "c": 0,
+        "a": 0,
+        "s": 24,
+        "mandatory": 120,
+        "optional": 24,
+        "total": 144
+      },
+      "irqScore": 100,
+      "priorityScore": 100,
+      "oldestNeedDate": "2026-08-16",
+      "targetDate": "2026-08-21",
+      "activeImportedQuantity": 0,
+      "preparedQuantity": 0,
+      "inTransitQuantity": 0,
+      "cdReferenceStock": 800,
+      "logistics": {
+        "packages": 24,
+        "pallets": 1.2,
+        "weightKg": 72,
+        "volumeM3": null
+      },
+      "freshnessStatus": "CURRENT",
+      "alertCodes": [],
+      "publishedAt": "2026-08-17T16:46:08Z"
+    },
+    {
+      "backlogLineUuid": "4a3a370f-9655-45a3-b7aa-0ee10775a5e4",
+      "rowVersion": 1,
+      "snapshotVersion": "4868597e-f491-48ee-98f3-0f6e248f6431",
+      "businessDate": "2026-08-16",
+      "originCd": 41,
+      "branch": { "id": 2, "name": "Sucursal ejemplo 2" },
+      "article": { "id": 10002, "name": null },
+      "supplier": { "id": 501, "name": "Proveedor B" },
+      "quantities": {
+        "d": 48,
+        "e": 0,
+        "c": 0,
+        "a": 0,
+        "s": 0,
+        "mandatory": 48,
+        "optional": 0,
+        "total": 48
+      },
+      "irqScore": 90,
+      "priorityScore": 90,
+      "oldestNeedDate": "2026-08-16",
+      "targetDate": "2026-08-25",
+      "activeImportedQuantity": 0,
+      "preparedQuantity": 0,
+      "inTransitQuantity": 0,
+      "cdReferenceStock": 250,
+      "logistics": {
+        "packages": 8,
+        "pallets": null,
+        "weightKg": 24,
+        "volumeM3": null
+      },
+      "freshnessStatus": "INCOMPLETE",
+      "alertCodes": ["PACKAGES_PER_PALLET_MISSING"],
+      "publishedAt": "2026-08-17T16:46:08Z"
+    }
+  ],
+  "meta": {
+    "pageSize": 50,
+    "hasNextPage": true,
+    "nextCursor": "mock-cursor-snapshot-4868597e-page-2",
+    "totalItems": 15032,
+    "snapshot": {
+      "snapshotVersion": "4868597e-f491-48ee-98f3-0f6e248f6431",
+      "businessDate": "2026-08-16",
+      "calculationRunUuid": "a258f84f-a965-4777-aafc-350a9cf05e3b",
+      "publishedAt": "2026-08-17T16:46:09.236152Z",
+      "freshnessStatus": "INCOMPLETE"
+    }
+  },
+  "totals": {
+    "d": 1325851,
+    "e": 0,
+    "c": 0,
+    "a": 0,
+    "s": 80493,
+    "mandatory": 1325851,
+    "optional": 80493,
+    "total": 1406344
+  }
+}

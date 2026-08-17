@@ -181,7 +181,38 @@ def main() -> None:
                     text("SELECT count(*) FROM pdd_scope_excluded_categories")
                 ).scalar_one()
                 assert excluded_count == 2
-                print("OK politica de exclusiones del scope (rollback)")
+                source_excluded_branch_count = connection.execute(
+                    text("SELECT count(*) FROM pdd_scope_source_excluded_branches")
+                ).scalar_one()
+                excluded_branch_count = connection.execute(
+                    text("SELECT count(*) FROM pdd_scope_excluded_branches")
+                ).scalar_one()
+                excluded_branch_pair_count = connection.execute(
+                    text("SELECT count(*) FROM pdd_scope_excluded_branch_pairs")
+                ).scalar_one()
+                connection.execute(
+                    text(
+                        "EXPLAIN (COSTS FALSE) "
+                        + load_sql("scope/insert_scope_version.sql")
+                    ),
+                    {
+                        "scope_version_uuid": uuid4(),
+                        "scope_code": "VALIDATION_ONLY",
+                        "version_no": 1,
+                        "supersedes_scope_version_uuid": None,
+                        "origin_cd": settings.origin_cd,
+                        "business_date": business_date,
+                        "captured_by": "validate_sql",
+                        "exclusion_policy_json": scope_exclusion_policy_json(),
+                    },
+                )
+                print(
+                    "OK politicas de exclusiones del scope "
+                    f"(categorias={excluded_count}, "
+                    f"sucursales_fuente={source_excluded_branch_count}, "
+                    f"sucursales_aplicadas={excluded_branch_count}, "
+                    f"pares_excluidos={excluded_branch_pair_count}; rollback)"
+                )
             finally:
                 transaction.rollback()
 

@@ -1,0 +1,45 @@
+{
+  "directedNeedUuid": "66de5fbf-9890-4110-aafa-797838c8fe04",
+  "originCd": 41,
+  "needType": "E",
+  "businessReference": "VENTA-ESPECIAL-MOCK-2026-001",
+  "supplierId": 500,
+  "validFrom": "2026-08-18",
+  "validTo": "2026-08-25",
+  "priorityScore": 500,
+  "ownerUser": "comprador.mock",
+  "approverUser": "supervisor.mock",
+  "status": "ACTIVE",
+  "versionNo": 2,
+  "reason": "Compromiso comercial de prueba para desarrollo frontend",
+  "notes": "Ejemplo sintético; no persistir en Test",
+  "lines": [
+    {
+      "branchId": 1,
+      "articleId": 10001,
+      "originalQuantity": 60,
+      "targetDate": "2026-08-20",
+      "slaAt": "2026-08-20T15:00:00Z",
+      "unitCode": "UN",
+      "directedNeedLineId": "directed-line:1",
+      "preparedAllocatedQuantity": 12,
+      "cancelledQuantity": 0,
+      "openQuantity": 48,
+      "status": "PARTIAL",
+      "rowVersion": 2,
+      "lastActivityAt": "2026-08-18T13:10:00Z",
+      "logistics": {
+        "packages": 8,
+        "pallets": 0.4,
+        "weightKg": 24,
+        "volumeM3": null
+      }
+    }
+  ],
+  "createdAt": "2026-08-18T12:00:00Z",
+  "createdBy": "comprador.mock",
+  "updatedAt": "2026-08-18T13:10:00Z",
+  "updatedBy": "supervisor.mock",
+  "approvedAt": "2026-08-18T12:30:00Z",
+  "closedAt": null
+}

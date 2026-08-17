@@ -1,0 +1,61 @@
+{
+  "backlogLineUuid": "e870017f-b865-4f07-a919-e2c166a4aef1",
+  "rowVersion": 1,
+  "snapshotVersion": "4868597e-f491-48ee-98f3-0f6e248f6431",
+  "businessDate": "2026-08-16",
+  "originCd": 41,
+  "branch": { "id": 1, "name": "Sucursal ejemplo 1" },
+  "article": { "id": 10001, "name": "Artículo ejemplo A" },
+  "supplier": { "id": 500, "name": "Proveedor ejemplo" },
+  "quantities": {
+    "d": 120,
+    "e": 0,
+    "c": 0,
+    "a": 0,
+    "s": 24,
+    "mandatory": 120,
+    "optional": 24,
+    "total": 144
+  },
+  "irqScore": 100,
+  "priorityScore": 100,
+  "oldestNeedDate": "2026-08-16",
+  "targetDate": "2026-08-21",
+  "activeImportedQuantity": 0,
+  "preparedQuantity": 0,
+  "inTransitQuantity": 0,
+  "cdReferenceStock": 800,
+  "logistics": {
+    "packages": 24,
+    "pallets": 1.2,
+    "weightKg": 72,
+    "volumeM3": null
+  },
+  "freshnessStatus": "CURRENT",
+  "alertCodes": [],
+  "publishedAt": "2026-08-17T16:46:08Z",
+  "sources": [
+    {
+      "sourceType": "D",
+      "sourceId": "need-snapshot:900001",
+      "sourceBusinessDate": "2026-08-16",
+      "contributedQuantity": 120,
+      "preparedAllocatedQuantity": 0,
+      "openQuantity": 120,
+      "targetDate": "2026-08-21",
+      "attributionOrder": 1,
+      "attributionRuleVersion": "DECAS_ATTRIBUTION_V1"
+    },
+    {
+      "sourceType": "S",
+      "sourceId": "need-snapshot:900002",
+      "sourceBusinessDate": "2026-08-16",
+      "contributedQuantity": 24,
+      "preparedAllocatedQuantity": 0,
+      "openQuantity": 24,
+      "targetDate": "2026-08-21",
+      "attributionOrder": 2,
+      "attributionRuleVersion": "DECAS_ATTRIBUTION_V1"
+    }
+  ]
+}

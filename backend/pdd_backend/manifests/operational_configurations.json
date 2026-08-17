@@ -1,0 +1,45 @@
+{
+  "2f916828-c59d-4190-a795-29ac5cfc1a66": {
+    "configuration_code": "PDD_DAILY_DECAS_TEST_PILOT",
+    "version_no": 1,
+    "status": "DRAFT",
+    "valid_from": "2026-08-16",
+    "parameters": {
+      "environment": "TEST_PILOT",
+      "stock_source": "src.base_stock_sucursal",
+      "physical_stock": "stock",
+      "direct_po_inbound": "GREATEST(pedido_pendiente, 0)",
+      "cd_in_transit": "GREATEST(transito_pendiente, 0)",
+      "lead_time_days": {
+        "source": "dias_preparacion",
+        "fallback": 15,
+        "fallback_reason": "MOST_FREQUENT_POSITIVE_VALUE_IN_SCOPE_V5"
+      },
+      "target_stock_days": {
+        "source": "q_dias_stock"
+      },
+      "overstock_days": {
+        "source": "q_dias_sobre_stock"
+      },
+      "special_sale_committed": {
+        "value": 0,
+        "status": "SOURCE_PENDING"
+      },
+      "confirmed_transfer_pending": {
+        "value": 0,
+        "status": "SEMANTIC_CONFIRMATION_PENDING"
+      },
+      "rounding": {
+        "method": "CEIL_TO_PURCHASE_FACTOR",
+        "fallback_unit": 1
+      },
+      "irq": {
+        "net_stock_non_positive": 100,
+        "coverage_below_lead_time": 90,
+        "coverage_below_two_lead_times": 50,
+        "coverage_below_target_days": 25,
+        "otherwise": 0
+      }
+    }
+  }
+}
