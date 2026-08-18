@@ -1,0 +1,11 @@
+{
+    "schema_version": 2,
+    "commit": "91791e07551eec444d5350f7322fab60a02eb7cc",
+    "indexed_at": "2026-08-18T13:39:35Z",
+    "project": "C-ETL-PDD",
+    "nodes": 2268,
+    "edges": 5078,
+    "original_size": 4128768,
+    "compressed_size": 791927,
+    "compression_level": 9
+}

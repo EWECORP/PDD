@@ -37,6 +37,7 @@ El signo normativo de NDD-D es resta de Stock Neto Sucursal. Su ratificación fu
 | `PDD - Especificacion de Requerimiento de Software Connexa v2.0.md` | Requerimientos, aceptación, pruebas y arranque |
 | `PDD - Circuito Operativo de Necesidades de Distribucion Connexa v2.0.md` | Procedimiento diario y responsabilidades |
 | `PDD - Modelo de Datos Conceptual Connexa v2.0.md` | Entidades, saldos y restricciones |
+| `PDD - Diccionario de Datos e Identidades v1.0.md` | Contrato físico-funcional de tablas, claves y generación de IDs/UUIDs |
 | `PDD - Integracion Valkimia por Adaptadores v2.0.md` | Contrato lógico oportunista e idempotencia |
 | `PDD - Diseno de Pantallas Operativas Connexa v2.0.md` | MVP de pantallas y UX |
 | `PDD - Vision Requerimiento y Plan Connexa v2.0.md` | Síntesis, arquitectura, plan y riesgos |
