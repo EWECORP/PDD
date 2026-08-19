@@ -20,7 +20,8 @@ Responsabilidades:
 - **Python/Prefect:** carga, calidad, cálculo PDVB/DECAS y publicación de tablas
   `stock_management.pdd_*`;
 - **backend Java Stock Management:** API REST, casos de uso E/C/A, seguridad,
-  auditoría e integración con la librería `PDD_BACK`;
+  auditoría e integración con la librería
+  `connexa-platform-lib-model-stockmanagement`;
 - **frontend Connexa:** consume únicamente la API;
 - **mock local:** simula el contrato y no es un backend productivo.
 
@@ -282,4 +283,3 @@ Authorities: `PDD_VIEWER`, `PDD_BUYER`, `PDD_SUPERVISOR`, `PDD_AUDITOR`,
 - especificación Java `PDD - Especificación Implementación API Java Stock Management v1.0.md`;
 - consultas de referencia para repositorios Java;
 - DDL y diccionario físico vigentes.
-

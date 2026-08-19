@@ -21,6 +21,7 @@ from .flows.operational_inputs import (
     pdd_stock_readiness_flow,
 )
 from .flows.publisher import pdd_publish_pdvb_flow
+from .flows.simulation import pdd_simulate_directed_needs_flow
 
 
 def parse_date(value: str) -> date:
@@ -149,6 +150,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Construye posiciones de stock y necesidades automaticas D/S",
     )
     decas.add_argument("--business-date", required=True, type=parse_date)
+    decas.add_argument("--stock-date", required=True, type=parse_date)
     decas.add_argument("--pdvb-calculation-run-uuid", required=True)
     decas.add_argument("--logistics-calculation-run-uuid", required=True)
     decas.add_argument("--configuration-version-uuid", required=True)
@@ -163,6 +165,16 @@ def build_parser() -> argparse.ArgumentParser:
     backlog.add_argument("--daily-calculation-run-uuid", required=True)
     backlog.add_argument("--created-by", required=True)
     backlog.add_argument("--calculation-run-uuid")
+
+    simulation = subparsers.add_parser(
+        "simulate-directed-needs",
+        help="Carga E/C/A simuladas en DESA, valida y publica el backlog",
+    )
+    simulation.add_argument("--batch-code", required=True)
+    simulation.add_argument("--created-by", required=True)
+    simulation.add_argument("--lines-per-type", type=int, default=6)
+    simulation.add_argument("--shared-pairs", type=int, default=2)
+    simulation.add_argument("--daily-calculation-run-uuid")
     return parser
 
 
@@ -173,6 +185,7 @@ def main() -> None:
             args.scope_version_uuid,
             args.version_no,
             args.business_date,
+            args.stock_date,
             args.captured_by,
             args.supersedes_scope_version_uuid,
         )
@@ -256,6 +269,15 @@ def main() -> None:
             args.daily_calculation_run_uuid,
             args.created_by,
             args.calculation_run_uuid,
+        )
+        print(json.dumps(result, default=str, indent=2, sort_keys=True))
+    elif args.command == "simulate-directed-needs":
+        result = pdd_simulate_directed_needs_flow(
+            args.batch_code,
+            args.created_by,
+            args.lines_per_type,
+            args.shared_pairs,
+            args.daily_calculation_run_uuid,
         )
         print(json.dumps(result, default=str, indent=2, sort_keys=True))
 

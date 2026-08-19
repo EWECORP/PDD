@@ -125,9 +125,10 @@ pdd-etl features --start 2026-07-01 --end 2026-07-31
 
 ## Prefect
 
-`prefect.yaml` declara deployments manuales en el pool `diarco-pdd` y la cola
-`pdd`. No se definió todavía un cron de producción: primero deben medirse
-duración, bloqueos, fecha real de cierre y horario de disponibilidad.
+`prefect.yaml` declara deployments en el pool `diarco-pdd`. TEST usa la cola
+`pdd`; DESA usa la cola aislada `pdd-desa`. El único schedule activo es el
+orquestador TEST de las 20:30. El deployment DESA se mantiene manual hasta
+validar su primera publicación y su convivencia operativa con TEST.
 
 ```bash
 export PREFECT_API_URL=https://orquestador.connexa-cloud.com/api
@@ -163,11 +164,14 @@ cierre común. Si esa fecha ya tiene backlog vigente para el mismo scope,
 termina correctamente como `SKIPPED/NO_NEW_CLOSED_DATE`. `force=true` permite
 reanudar o repetir de forma controlada la misma fecha.
 
-Los UUID de PDVB, logística, DAILY_DECAS y backlog se derivan de fecha, scope,
-modelo, configuración y `pipeline_revision`. Una repetición de la misma
-revisión reutiliza resultados compatibles sin duplicarlos. Cuando cambie la
-lógica de una etapa y se necesite recalcular una fecha ya procesada, se debe
-incrementar la revisión, por ejemplo a `DAILY_PIPELINE_V2`.
+Los UUID de PDVB y logística se derivan de fecha comercial, scope, modelo,
+configuración y `pipeline_revision`. Los de DAILY_DECAS y backlog incorporan
+además la fecha efectiva del snapshot de stock. Una repetición de la misma
+revisión y el mismo snapshot reutiliza resultados compatibles sin duplicarlos;
+un snapshot más nuevo genera nuevas corridas operativas sin recalcular PDVB.
+Cuando cambie la lógica de una etapa y se necesite recalcular una fecha ya
+procesada, se debe incrementar la revisión, por ejemplo a
+`DAILY_PIPELINE_V2`.
 
 Primera prueba completa del piloto existente:
 
@@ -206,6 +210,114 @@ Desde la versión 0.13.1 el deployment tiene activo el schedule
 Si todavía no existe un nuevo cierre común, termina de forma idempotente como
 `SKIPPED/NO_NEW_CLOSED_DATE`; si una fuente necesaria está atrasada o es
 inconsistente, falla antes de desplazar las publicaciones vigentes.
+
+### Publicación paralela en DESA
+
+Desde la versión 0.15.0 el destino operativo se selecciona con una pareja
+ambiente/base validada estrictamente:
+
+| `PDD_OPERATIONAL_TARGET_ENV` | `PDD_OPERATIONAL_PG_DB` |
+| --- | --- |
+| `TEST` | `connexa_platform_test` |
+| `DESA` | `connexa_platform_diarco` |
+| `PROD` | `connexa_platform_ms` |
+
+PROD requiere además `PDD_OPERATIONAL_ALLOW_PRODUCTION=true`. La combinación
+DESA + `connexa_platform_ms` se rechaza antes de abrir la conexión.
+
+El archivo `.env.desa.example` se copia en el servidor como
+`/srv/PDD/backend/.env.desa`, se completan únicamente allí las contraseñas y no
+se versiona el archivo real. El worker DESA debe ser independiente:
+
+```text
+Environment="PDD_ENV_PATH=/srv/PDD/backend/.env.desa"
+ExecStart=/srv/FORECAST/venv/bin/prefect worker start \
+  --name "pdd-diarco-desa" \
+  --pool "diarco-pdd" \
+  --work-queue "pdd-desa" \
+  --limit 1
+```
+
+Antes de la primera publicación:
+
+```bash
+export PDD_ENV_PATH=/srv/PDD/backend/.env.desa
+python tools/validate_operational.py
+
+export PREFECT_API_URL=https://orquestador.connexa-cloud.com/api
+prefect deployment run \
+  "PDD - Orquestador diario completo/PDD_OPERATIONAL_DAILY_MASTER_DESA" \
+  --params '{"force": true}' \
+  --watch
+```
+
+El deployment DESA no tiene schedule inicial. Si luego se automatiza, debe
+ejecutarse después de TEST o compartir un límite global para no duplicar al
+mismo tiempo el cálculo y las lecturas sobre `diarco_data`.
+
+Desde la versión 0.15.1 una misma corrida analítica puede publicarse en más de
+un ambiente. `diarco_data` conserva como marcador el primer lote que publicó la
+corrida; el lote y el linaje autoritativos de cada destino permanecen en sus
+tablas `stock_management.pdd_pdvb_publication_batch` y
+`stock_management.pdd_calculation_run`. Una reejecución reutiliza una
+publicación destino completa y no vuelve a insertar el detalle.
+
+### Datos E/C/A simulados para el frontend
+
+La versión 0.16.0 incorpora un generador transitorio de necesidades dirigidas
+para probar el circuito completo antes de que el backend Java implemente sus
+comandos. Está bloqueado por código fuera de `DESA`; no puede ejecutarse en TEST
+ni PROD. Inserta tres cabeceras `ACTIVE` auditadas en
+`pdd_directed_need`, sus líneas en `pdd_directed_need_line` y la versión inicial
+en `pdd_directed_need_version`.
+
+El lote predeterminado crea seis líneas por tipo y dos pares compartidos por
+E/C/A. La primera línea de cada tipo queda `PARTIAL`; las restantes, `OPEN`.
+Después valida vigencia, aprobación, balances y pertenencia al scope de la
+corrida `DAILY_DECAS` vigente. Finalmente ejecuta el consolidador real, que:
+
+1. combina D/S calculadas con E/C/A simuladas;
+2. estima bultos, pallets, peso y volumen con el snapshot logístico;
+3. registra la atribución de cada fuente;
+4. reemplaza de forma transaccional la foto de
+   `stock_management.pdd_current_backlog_line`.
+
+La cantidad E/C/A no se pronostica: es una entrada dirigida. Las estimaciones
+estadísticas siguen correspondiendo a D/S; en esta etapa se estiman sus
+magnitudes logísticas para la consolidación.
+
+Ejecución directa en el servidor:
+
+```bash
+export PDD_ENV_PATH=/srv/PDD/backend/.env.desa
+pdd-etl simulate-directed-needs \
+  --batch-code FRONTEND_20260819_01 \
+  --created-by eduardo.ettlin \
+  --lines-per-type 6 \
+  --shared-pairs 2
+```
+
+Ejecución mediante Prefect, siempre sin schedule:
+
+```bash
+export PREFECT_API_URL=https://orquestador.connexa-cloud.com/api
+prefect deployment run \
+  "PDD - Simular ECA y publicar backlog DESA/PDD_SIMULATE_ECA_DESA_MANUAL" \
+  --params '{
+    "batch_code": "FRONTEND_20260819_01",
+    "created_by": "eduardo.ettlin",
+    "lines_per_type": 6,
+    "shared_pairs": 2
+  }' \
+  --watch
+```
+
+`batch_code` es una clave idempotente. Repetir el mismo código y parámetros no
+duplica cabeceras, líneas ni la publicación; cambiar los parámetros con el mismo
+código se rechaza. Para generar otro escenario se usa un código nuevo. Los
+controles posteriores están en
+`contracts/sql/simulated_eca_validation.sql` y deben ejecutarse sobre
+`connexa_platform_diarco`.
 
 ## Backtest rolling-origin
 
@@ -375,7 +487,7 @@ En una base operativa existente con nombres anteriores se aplica, con
 `PDD - Migracion Operativa Prefijo PDD v2.6.sql`. En una instalación nueva se
 ejecutan primero los DDL Core y DECAS vigentes, que ya crean nombres `pdd_*`.
 
-Para publicar en Test deben configurarse credenciales independientes de las de
+Para publicar en TEST deben configurarse credenciales independientes de las de
 `diarco_data`:
 
 ```text
@@ -384,8 +496,14 @@ PDD_OPERATIONAL_PG_PORT=5432
 PDD_OPERATIONAL_PG_DB=connexa_platform_test
 PDD_OPERATIONAL_PG_USER=...
 PDD_OPERATIONAL_PG_PASSWORD=...
+PDD_OPERATIONAL_TARGET_ENV=TEST
 PDD_OPERATIONAL_ALLOW_PRODUCTION=false
 ```
+
+Para DESA se usa la plantilla `.env.desa.example`: host `186.158.182.122`, base
+`connexa_platform_diarco`, usuario `connexa_platform_user` y
+`PDD_OPERATIONAL_TARGET_ENV=DESA`. La contraseña se configura sólo en el
+servidor.
 
 Antes de publicar:
 
@@ -443,9 +561,12 @@ pdd-etl stock-readiness \
   --scope-version-uuid f157e436-1094-431b-ae2a-8f477d780c3e
 ```
 
-El resultado solo será `READY` si la fuente de stock alcanza esa fecha, cubre
-el scope sin duplicados, stock físico nulo ni entradas negativas y la vista
-materializada canónica de OC también está actualizada. Desde la versión
+El resultado solo será `READY` si la fuente de stock alcanza esa fecha y el
+último snapshot cubre todos los pares artículo–sucursal y todos los artículos
+del CD 41, sin duplicados, stock físico nulo ni entradas negativas. La fecha
+comercial puede ser anterior al snapshot: ambas quedan registradas por
+separado. La vista materializada canónica de OC también debe estar actualizada.
+Desde la versión
 `0.12.0`, `src.mv_base_oc_pendientes` reemplaza —no se suma— al campo LEGACY
 `base_stock_sucursal.pedido_pendiente`.
 
@@ -472,6 +593,7 @@ de sucursal, las necesidades automáticas D/S y la posición informativa del CD:
 ```bash
 pdd-etl daily-decas \
   --business-date 2026-08-16 \
+  --stock-date 2026-08-18 \
   --scope-version-uuid f157e436-1094-431b-ae2a-8f477d780c3e \
   --pdvb-calculation-run-uuid 8ee3dcae-eca6-4eb7-8440-c477e2e9aa1a \
   --logistics-calculation-run-uuid UUID_CORRIDA_LOGISTICA \
@@ -479,6 +601,11 @@ pdd-etl daily-decas \
   --calculation-run-uuid UUID_NUEVA_CORRIDA_DIARIA \
   --created-by eduardo.ettlin
 ```
+
+`business-date` identifica la fecha comercial de PDVB y de las necesidades.
+`stock-date` identifica la fotografía física efectivamente utilizada. El flujo
+maestro selecciona esta última a partir del diagnóstico `READY`; una ejecución
+manual debe informarla expresamente para conservar reproducibilidad.
 
 La configuración `PDD_DAILY_DECAS_TEST_PILOT` se persiste como `DRAFT`. Usa
 `dias_preparacion`, `q_dias_stock` y `q_dias_sobre_stock` de
@@ -596,8 +723,9 @@ WHERE r.calculation_run_uuid = 'UUID_CORRIDA';
 Los despliegues manuales equivalentes son
 `PDD_PUBLISH_ITEM_LOGISTICS_TEST_MANUAL` y `PDD_STOCK_READINESS_MANUAL`.
 
-El destino permitido por defecto es exclusivamente `connexa_platform_test`.
-Publicar en `connexa_platform_ms` requiere configurar además
+El destino predeterminado continúa siendo TEST. DESA debe declararse
+explícitamente y coincidir con `connexa_platform_diarco`. Publicar en
+`connexa_platform_ms` requiere ambiente `PROD` y además
 `PDD_OPERATIONAL_ALLOW_PRODUCTION=true`; no debe habilitarse durante el piloto.
 
 ## Idempotencia y concurrencia

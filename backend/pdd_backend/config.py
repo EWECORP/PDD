@@ -9,6 +9,13 @@ from dotenv import load_dotenv
 from sqlalchemy import URL
 
 
+OPERATIONAL_DATABASE_BY_ENVIRONMENT = {
+    "TEST": "connexa_platform_test",
+    "DESA": "connexa_platform_diarco",
+    "PROD": "connexa_platform_ms",
+}
+
+
 def _candidate_env_files() -> list[Path]:
     candidates: list[Path] = []
     for variable in ("PDD_ENV_PATH", "FORECAST_ENV_PATH"):
@@ -151,6 +158,7 @@ class OperationalSettings:
     pg_database: str
     pg_user: str
     pg_password: str
+    target_environment: str = "TEST"
     statement_timeout_ms: int = 1_800_000
     lock_timeout_ms: int = 30_000
     keepalives_idle_seconds: int = 60
@@ -160,12 +168,16 @@ class OperationalSettings:
     @classmethod
     def from_env(cls) -> "OperationalSettings":
         load_environment()
+        target_environment = os.getenv(
+            "PDD_OPERATIONAL_TARGET_ENV", "TEST"
+        ).strip().upper()
         settings = cls(
             pg_host=_required("PDD_OPERATIONAL_PG_HOST"),
             pg_port=int(os.getenv("PDD_OPERATIONAL_PG_PORT", "5432")),
             pg_database=_required("PDD_OPERATIONAL_PG_DB"),
             pg_user=_required("PDD_OPERATIONAL_PG_USER"),
             pg_password=_required("PDD_OPERATIONAL_PG_PASSWORD"),
+            target_environment=target_environment,
             statement_timeout_ms=int(
                 os.getenv("PDD_OPERATIONAL_DB_STATEMENT_TIMEOUT_MS", "1800000")
             ),
@@ -182,13 +194,26 @@ class OperationalSettings:
                 os.getenv("PDD_OPERATIONAL_DB_KEEPALIVES_COUNT", "5")
             ),
         )
-        allowed = {"connexa_platform_test"}
-        if _env_bool("PDD_OPERATIONAL_ALLOW_PRODUCTION"):
-            allowed.add("connexa_platform_ms")
-        if settings.pg_database not in allowed:
+        expected_database = OPERATIONAL_DATABASE_BY_ENVIRONMENT.get(
+            settings.target_environment
+        )
+        if expected_database is None:
             raise RuntimeError(
-                "La publicacion PDD solo admite connexa_platform_test; "
-                "para produccion configure explicitamente "
+                "PDD_OPERATIONAL_TARGET_ENV debe ser TEST, DESA o PROD; "
+                f"recibido {settings.target_environment!r}"
+            )
+        if settings.pg_database != expected_database:
+            raise RuntimeError(
+                "Destino operativo inconsistente: "
+                f"PDD_OPERATIONAL_TARGET_ENV={settings.target_environment} "
+                f"requiere PDD_OPERATIONAL_PG_DB={expected_database}; "
+                f"recibido {settings.pg_database!r}"
+            )
+        if settings.target_environment == "PROD" and not _env_bool(
+            "PDD_OPERATIONAL_ALLOW_PRODUCTION"
+        ):
+            raise RuntimeError(
+                "Produccion requiere configurar explicitamente "
                 "PDD_OPERATIONAL_ALLOW_PRODUCTION=true"
             )
         if settings.statement_timeout_ms <= 0:

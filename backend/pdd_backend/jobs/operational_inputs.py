@@ -64,6 +64,11 @@ class StockReadinessResult:
     excluded_branches: tuple[int, ...]
     duplicate_pairs: int
     null_physical_stock: int
+    scope_articles: int
+    covered_cd_articles: int
+    missing_cd_articles: int
+    duplicate_cd_articles: int
+    null_cd_physical_stock: int
     negative_purchase_orders: int
     negative_in_transit: int
     transfer_positive: int
@@ -542,6 +547,7 @@ def inspect_stock_readiness(
     source_engine: Engine,
     scope_version_uuid: UUID,
     expected_through: date,
+    origin_cd: int = 41,
 ) -> StockReadinessResult:
     with source_engine.connect() as connection:
         result = dict(connection.execute(
@@ -550,6 +556,11 @@ def inspect_stock_readiness(
                 WITH scope_pairs AS (
                     SELECT codigo_articulo, destination_branch AS sucursal
                     FROM datamart.dm_pdd_scope_pair
+                    WHERE scope_version_uuid = CAST(:scope_version_uuid AS uuid)
+                ),
+                scope_articles AS (
+                    SELECT codigo_articulo
+                    FROM datamart.dm_pdd_scope_article
                     WHERE scope_version_uuid = CAST(:scope_version_uuid AS uuid)
                 ),
                 excluded_branches AS (
@@ -605,6 +616,34 @@ def inspect_stock_readiness(
                     count(*) FILTER (
                         WHERE s.codigo_articulo IS NOT NULL AND s.stock IS NULL
                     ) AS null_physical_stock,
+                    (SELECT count(*) FROM scope_articles) AS scope_articles,
+                    (SELECT count(*)
+                     FROM scope_articles AS a
+                     JOIN stock_rows AS cd
+                       ON cd.codigo_articulo = a.codigo_articulo
+                      AND cd.codigo_sucursal = :origin_cd
+                    ) AS covered_cd_articles,
+                    (SELECT count(*)
+                     FROM scope_articles AS a
+                     LEFT JOIN stock_rows AS cd
+                       ON cd.codigo_articulo = a.codigo_articulo
+                      AND cd.codigo_sucursal = :origin_cd
+                     WHERE cd.codigo_articulo IS NULL
+                    ) AS missing_cd_articles,
+                    (SELECT count(*)
+                     FROM scope_articles AS a
+                     JOIN stock_rows AS cd
+                       ON cd.codigo_articulo = a.codigo_articulo
+                      AND cd.codigo_sucursal = :origin_cd
+                     WHERE cd.pair_rows > 1
+                    ) AS duplicate_cd_articles,
+                    (SELECT count(*)
+                     FROM scope_articles AS a
+                     JOIN stock_rows AS cd
+                       ON cd.codigo_articulo = a.codigo_articulo
+                      AND cd.codigo_sucursal = :origin_cd
+                     WHERE cd.stock IS NULL
+                    ) AS null_cd_physical_stock,
                     count(*) FILTER (WHERE s.pedido_pendiente < 0) AS negative_purchase_orders,
                     count(*) FILTER (WHERE s.transito_pendiente < 0) AS negative_in_transit,
                     count(*) FILTER (WHERE s.transfer_pendiente > 0) AS transfer_positive,
@@ -619,7 +658,10 @@ def inspect_stock_readiness(
                 GROUP BY l.stock_date, l.source_as_of_ts
                 """
             ),
-            {"scope_version_uuid": scope_version_uuid},
+            {
+                "scope_version_uuid": scope_version_uuid,
+                "origin_cd": origin_cd,
+            },
         ).mappings().one())
         open_po = connection.execute(
             text(
@@ -637,7 +679,7 @@ def inspect_stock_readiness(
                 relevant AS (
                     SELECT codigo_articulo, destino FROM scope_pairs
                     UNION
-                    SELECT codigo_articulo, 41 FROM scope_articles
+                    SELECT codigo_articulo, :origin_cd FROM scope_articles
                 )
                 SELECT
                     coalesce(
@@ -659,7 +701,10 @@ def inspect_stock_readiness(
                  AND o.c_sucu_destino = r.destino
                 """
             ),
-            {"scope_version_uuid": scope_version_uuid},
+            {
+                "scope_version_uuid": scope_version_uuid,
+                "origin_cd": origin_cd,
+            },
         ).mappings().one()
         result.update(open_po)
     blockers = _stock_readiness_blockers(result, expected_through)
@@ -678,6 +723,11 @@ def inspect_stock_readiness(
         excluded_branches=tuple(result["excluded_branches"]),
         duplicate_pairs=result["duplicate_pairs"],
         null_physical_stock=result["null_physical_stock"],
+        scope_articles=result["scope_articles"],
+        covered_cd_articles=result["covered_cd_articles"],
+        missing_cd_articles=result["missing_cd_articles"],
+        duplicate_cd_articles=result["duplicate_cd_articles"],
+        null_cd_physical_stock=result["null_cd_physical_stock"],
         negative_purchase_orders=result["negative_purchase_orders"],
         negative_in_transit=result["negative_in_transit"],
         transfer_positive=result["transfer_positive"],
@@ -723,6 +773,12 @@ def _stock_readiness_blockers(
         blockers.append("DUPLICATE_STOCK_PAIRS")
     if result["null_physical_stock"]:
         blockers.append("NULL_PHYSICAL_STOCK")
+    if result.get("missing_cd_articles", 0):
+        blockers.append("SCOPE_CD_ARTICLES_WITHOUT_STOCK")
+    if result.get("duplicate_cd_articles", 0):
+        blockers.append("DUPLICATE_CD_STOCK_ARTICLES")
+    if result.get("null_cd_physical_stock", 0):
+        blockers.append("NULL_CD_PHYSICAL_STOCK")
     open_po_as_of_ts = result.get("open_po_as_of_ts")
     if open_po_as_of_ts is None:
         blockers.append("OPEN_PURCHASE_ORDERS_MISSING")

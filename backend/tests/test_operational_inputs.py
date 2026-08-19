@@ -94,6 +94,8 @@ def test_stock_readiness_uses_frozen_scope_physical_contract() -> None:
     assert "SELECT codigo_articulo, sucursal" not in source
     assert "src.sucursales_excluidas" in source
     assert "unexplained_missing_pairs" in source
+    assert "covered_cd_articles" in source
+    assert "missing_cd_articles" in source
     assert "src.mv_base_oc_pendientes" in source
     assert "o.pendientes > 0" in source
 
@@ -134,6 +136,25 @@ def test_stock_readiness_blocks_stale_canonical_purchase_orders() -> None:
     }
     assert _stock_readiness_blockers(result, date(2026, 8, 15)) == [
         "OPEN_PURCHASE_ORDERS_STALE"
+    ]
+
+
+def test_stock_readiness_requires_complete_cd_snapshot() -> None:
+    result = {
+        "scope_pairs": 100,
+        "stock_date": date(2026, 8, 18),
+        "excluded_branch_pairs": 0,
+        "unexplained_missing_pairs": 0,
+        "duplicate_pairs": 0,
+        "null_physical_stock": 0,
+        "missing_cd_articles": 1,
+        "duplicate_cd_articles": 0,
+        "null_cd_physical_stock": 0,
+        "negative_in_transit": 0,
+        "open_po_as_of_ts": datetime(2026, 8, 18),
+    }
+    assert _stock_readiness_blockers(result, date(2026, 8, 16)) == [
+        "SCOPE_CD_ARTICLES_WITHOUT_STOCK"
     ]
 
 

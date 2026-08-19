@@ -85,6 +85,7 @@ def inspect_stock_readiness_task(
             engine,
             scope_uuid,
             expected_through,
+            settings.origin_cd,
         ).serializable()
     finally:
         engine.dispose()
@@ -98,7 +99,7 @@ def pdd_stock_readiness_flow(
     logger = get_run_logger()
     result = inspect_stock_readiness_task(expected_through, scope_version_uuid)
     logger.info(
-        "Diagnostico stock: estado=%s, fecha=%s, cobertura=%s/%s, "
+        "Diagnostico stock: estado=%s, fecha=%s, sucursales=%s/%s, CD=%s/%s, "
         "pares_sucursal_excluida=%s, faltantes_no_explicados=%s, "
         "sucursales_excluidas=%s, oc_as_of=%s, oc_positivas=%s, "
         "oc_negativas_excluidas=%s, bloqueos=%s",
@@ -106,6 +107,8 @@ def pdd_stock_readiness_flow(
         result["stock_date"],
         result["covered_pairs"],
         result["scope_pairs"],
+        result["covered_cd_articles"],
+        result["scope_articles"],
         result["excluded_branch_pairs"],
         result["unexplained_missing_pairs"],
         result["excluded_branches"],
@@ -120,6 +123,7 @@ def pdd_stock_readiness_flow(
 @task(name="PDD - Construir posiciones y necesidades D y S")
 def daily_decas_task(
     business_date: date,
+    stock_date: date,
     pdvb_calculation_run_uuid: str,
     logistics_calculation_run_uuid: str,
     configuration_version_uuid: str,
@@ -141,6 +145,7 @@ def daily_decas_task(
             target_engine=target_engine,
             target_settings=target_settings,
             business_date=business_date,
+            stock_date=stock_date,
             scope_version_uuid=scope_uuid,
             pdvb_calculation_run_uuid=UUID(pdvb_calculation_run_uuid),
             logistics_calculation_run_uuid=UUID(logistics_calculation_run_uuid),
@@ -158,6 +163,7 @@ def daily_decas_task(
 @flow(name="PDD - Calcular posiciones y necesidades D y S", log_prints=True)
 def pdd_daily_decas_flow(
     business_date: date,
+    stock_date: date,
     pdvb_calculation_run_uuid: str,
     logistics_calculation_run_uuid: str,
     configuration_version_uuid: str,
@@ -168,6 +174,7 @@ def pdd_daily_decas_flow(
     logger = get_run_logger()
     result = daily_decas_task(
         business_date,
+        stock_date,
         pdvb_calculation_run_uuid,
         logistics_calculation_run_uuid,
         configuration_version_uuid,
@@ -176,9 +183,10 @@ def pdd_daily_decas_flow(
         calculation_run_uuid,
     )
     logger.info(
-        "DAILY_DECAS completado: corrida=%s, posiciones=%s, necesidades=%s, "
+        "DAILY_DECAS completado: corrida=%s, fecha_stock=%s, posiciones=%s, necesidades=%s, "
         "stock_cd=%s, pdvb_bloqueados_excluidos=%s",
         result["calculation_run_uuid"],
+        result["stock_date"],
         result["branch_positions"],
         result["need_rows"],
         result["cd_positions"],

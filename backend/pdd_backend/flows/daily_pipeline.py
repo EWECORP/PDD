@@ -17,6 +17,7 @@ from pdd_backend.flows.operational_inputs import (
 )
 from pdd_backend.flows.publisher import publish_pdvb_task
 from pdd_backend.jobs.daily_pipeline import (
+    pipeline_stage_revision,
     pipeline_stage_uuid,
     read_daily_source_state,
     refresh_open_purchase_orders,
@@ -146,20 +147,6 @@ def pdd_operational_daily_flow(
     scope_uuid = UUID(context["scope_version_uuid"])
     model_uuid = UUID(context["model_version_uuid"])
 
-    run_ids = {
-        stage: str(
-            pipeline_stage_uuid(
-                stage,
-                target_date,
-                scope_uuid,
-                model_uuid,
-                configuration_uuid,
-                pipeline_revision,
-            )
-        )
-        for stage in ("PDVB", "ITEM_LOGISTICS", "DAILY_DECAS", "BACKLOG")
-    }
-
     readiness = inspect_stock_readiness_task(
         target_date,
         str(scope_uuid),
@@ -170,6 +157,21 @@ def pdd_operational_daily_flow(
             "Fuentes operativas no preparadas: "
             + ", ".join(readiness["blockers"])
         )
+    stock_date = date.fromisoformat(readiness["stock_date"])
+
+    run_ids = {
+        stage: str(
+            pipeline_stage_uuid(
+                stage,
+                target_date,
+                scope_uuid,
+                model_uuid,
+                configuration_uuid,
+                pipeline_stage_revision(stage, pipeline_revision, stock_date),
+            )
+        )
+        for stage in ("PDVB", "ITEM_LOGISTICS", "DAILY_DECAS", "BACKLOG")
+    }
 
     features = pdd_features_flow(
         feature_start,
@@ -198,6 +200,7 @@ def pdd_operational_daily_flow(
     )
     daily_decas = daily_decas_task(
         target_date,
+        stock_date,
         pdvb["calculation_run_uuid"],
         logistics["calculation_run_uuid"],
         str(configuration_uuid),
@@ -214,9 +217,10 @@ def pdd_operational_daily_flow(
     )
 
     logger.info(
-        "Pipeline diario completado: fecha=%s, PDVB=%s, DAILY_DECAS=%s, "
+        "Pipeline diario completado: fecha=%s, fecha_stock=%s, PDVB=%s, DAILY_DECAS=%s, "
         "backlog=%s, lineas=%s",
         target_date,
+        stock_date,
         pdvb["calculation_run_uuid"],
         daily_decas["calculation_run_uuid"],
         backlog["calculation_run_uuid"],

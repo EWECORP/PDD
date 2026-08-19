@@ -5,7 +5,10 @@ from uuid import UUID
 import pytest
 
 from pdd_backend.config import OperationalSettings, Settings
-from pdd_backend.jobs.publisher import estimate_checksum
+from pdd_backend.jobs.publisher import (
+    estimate_checksum,
+    resolve_publication_batch_uuid,
+)
 from pdd_backend.model_registry import load_model_version
 
 
@@ -27,17 +30,63 @@ def test_operational_safety_defaults() -> None:
 
 
 def test_operational_target_defaults_to_test_only(monkeypatch) -> None:
+    # Unit-test the class default without reloading the worker's TEST/DESA
+    # dotenv file through PDD_ENV_PATH.
+    monkeypatch.setattr("pdd_backend.config.load_environment", lambda: None)
     monkeypatch.setenv("PDD_OPERATIONAL_PG_HOST", "postgres")
     monkeypatch.setenv("PDD_OPERATIONAL_PG_DB", "connexa_platform_test")
     monkeypatch.setenv("PDD_OPERATIONAL_PG_USER", "pdd")
     monkeypatch.setenv("PDD_OPERATIONAL_PG_PASSWORD", "secret")
+    monkeypatch.delenv("PDD_OPERATIONAL_TARGET_ENV", raising=False)
     monkeypatch.delenv("PDD_OPERATIONAL_ALLOW_PRODUCTION", raising=False)
     settings = OperationalSettings.from_env()
     assert settings.pg_database == "connexa_platform_test"
+    assert settings.target_environment == "TEST"
 
     monkeypatch.setenv("PDD_OPERATIONAL_PG_DB", "connexa_platform_ms")
-    with pytest.raises(RuntimeError, match="solo admite connexa_platform_test"):
+    with pytest.raises(RuntimeError, match="Destino operativo inconsistente"):
         OperationalSettings.from_env()
+
+
+def test_operational_target_accepts_explicit_desa(monkeypatch) -> None:
+    monkeypatch.setenv("PDD_OPERATIONAL_PG_HOST", "186.158.182.122")
+    monkeypatch.setenv("PDD_OPERATIONAL_PG_DB", "connexa_platform_diarco")
+    monkeypatch.setenv("PDD_OPERATIONAL_PG_USER", "connexa_platform_user")
+    monkeypatch.setenv("PDD_OPERATIONAL_PG_PASSWORD", "secret")
+    monkeypatch.setenv("PDD_OPERATIONAL_TARGET_ENV", "DESA")
+    monkeypatch.delenv("PDD_OPERATIONAL_ALLOW_PRODUCTION", raising=False)
+
+    settings = OperationalSettings.from_env()
+
+    assert settings.target_environment == "DESA"
+    assert settings.pg_database == "connexa_platform_diarco"
+
+
+def test_operational_target_rejects_desa_with_production_database(monkeypatch) -> None:
+    monkeypatch.setenv("PDD_OPERATIONAL_PG_HOST", "186.158.182.122")
+    monkeypatch.setenv("PDD_OPERATIONAL_PG_DB", "connexa_platform_ms")
+    monkeypatch.setenv("PDD_OPERATIONAL_PG_USER", "connexa_platform_user")
+    monkeypatch.setenv("PDD_OPERATIONAL_PG_PASSWORD", "secret")
+    monkeypatch.setenv("PDD_OPERATIONAL_TARGET_ENV", "DESA")
+
+    with pytest.raises(RuntimeError, match="requiere PDD_OPERATIONAL_PG_DB"):
+        OperationalSettings.from_env()
+
+
+def test_operational_target_requires_explicit_production_opt_in(monkeypatch) -> None:
+    monkeypatch.setenv("PDD_OPERATIONAL_PG_HOST", "postgres")
+    monkeypatch.setenv("PDD_OPERATIONAL_PG_DB", "connexa_platform_ms")
+    monkeypatch.setenv("PDD_OPERATIONAL_PG_USER", "pdd")
+    monkeypatch.setenv("PDD_OPERATIONAL_PG_PASSWORD", "secret")
+    monkeypatch.setenv("PDD_OPERATIONAL_TARGET_ENV", "PROD")
+    monkeypatch.delenv("PDD_OPERATIONAL_ALLOW_PRODUCTION", raising=False)
+
+    with pytest.raises(RuntimeError, match="Produccion requiere"):
+        OperationalSettings.from_env()
+
+    monkeypatch.setenv("PDD_OPERATIONAL_ALLOW_PRODUCTION", "true")
+    settings = OperationalSettings.from_env()
+    assert settings.target_environment == "PROD"
 
 
 def test_model_registry_and_checksum_are_reproducible() -> None:
@@ -63,3 +112,16 @@ def test_model_registry_and_checksum_are_reproducible() -> None:
         }
     ]
     assert estimate_checksum(rows) == estimate_checksum(rows)
+
+
+def test_publication_batch_uuid_is_stable_and_reuses_source_lineage() -> None:
+    calculation_run_uuid = UUID("34aa9ca9-8ab1-40ad-ab62-2ba1cd25ba77")
+    existing_batch_uuid = UUID("42183719-db6f-4aaa-9750-bdfa97b3f2b4")
+
+    generated = resolve_publication_batch_uuid(calculation_run_uuid, None)
+
+    assert generated == resolve_publication_batch_uuid(calculation_run_uuid, None)
+    assert (
+        resolve_publication_batch_uuid(calculation_run_uuid, existing_batch_uuid)
+        == existing_batch_uuid
+    )

@@ -292,3 +292,15 @@ def pipeline_stage_uuid(
         )
     )
     return uuid5(PIPELINE_UUID_NAMESPACE, identity)
+
+
+def pipeline_stage_revision(
+    stage: str,
+    pipeline_revision: str,
+    stock_date: date,
+) -> str:
+    """Version operational stages by the effective stock snapshot date."""
+    normalized_stage = stage.strip().upper()
+    if normalized_stage in {"DAILY_DECAS", "BACKLOG"}:
+        return f"{pipeline_revision}:STOCK:{stock_date.isoformat()}"
+    return pipeline_revision

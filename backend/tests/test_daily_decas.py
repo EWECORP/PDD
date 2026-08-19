@@ -1,7 +1,9 @@
 from datetime import date
 from decimal import Decimal
+from inspect import getsource
 
 from pdd_backend.jobs.daily_decas import (
+    _read_source_stock,
     build_branch_position,
     build_need_rows,
     calculation_cutoff_date,
@@ -127,6 +129,12 @@ def test_daily_decas_cutoff_is_the_previous_closed_day() -> None:
 
     assert cutoff_date == date(2026, 8, 15)
     assert cutoff_date < business_date
+
+
+def test_source_stock_uses_explicit_effective_stock_date() -> None:
+    source = getsource(_read_source_stock)
+    assert source.count("fecha_stock::date = :stock_date") == 2
+    assert "fecha_stock::date = :business_date" not in source
 
 
 def test_pilot_configuration_is_versioned_and_explicit() -> None:

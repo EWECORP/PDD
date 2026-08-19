@@ -23,6 +23,17 @@ deployments:
       name: diarco-pdd
       work_queue_name: pdd
 
+  - name: PDD_OPERATIONAL_DAILY_MASTER_DESA
+    entrypoint: pdd_backend/flows/daily_pipeline.py:pdd_operational_daily_flow
+    parameters:
+      configuration_version_uuid: 2f916828-c59d-4190-a795-29ac5cfc1a66
+      created_by: pdd.daily.orchestrator.desa
+      pipeline_revision: DAILY_PIPELINE_V1
+      force: false
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd-desa
+
   - name: PDD_SCOPE_SNAPSHOT_MANUAL
     entrypoint: pdd_backend/flows/analytical.py:pdd_scope_snapshot_flow
     parameters: {}
@@ -92,3 +103,13 @@ deployments:
     work_pool:
       name: diarco-pdd
       work_queue_name: pdd
+
+  - name: PDD_SIMULATE_ECA_DESA_MANUAL
+    entrypoint: pdd_backend/flows/simulation.py:pdd_simulate_directed_needs_flow
+    parameters:
+      created_by: pdd.frontend.simulator
+      lines_per_type: 6
+      shared_pairs: 2
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd-desa

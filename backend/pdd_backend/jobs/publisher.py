@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any, Iterable, Mapping, Sequence
-from uuid import UUID, uuid4
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from sqlalchemy import Engine, text
 from sqlalchemy.engine import Connection
@@ -151,7 +151,17 @@ def _read_source_estimates(
             SELECT business_date, model_version_uuid, scope_version_uuid, origin_cd,
                    count(*)::bigint AS row_count,
                    min(created_at) AS started_at,
-                   max(created_at) AS finished_at
+                   max(created_at) AS finished_at,
+                   count(DISTINCT publication_batch_uuid)::integer
+                       AS publication_batch_count,
+                   min(publication_batch_uuid::text)::uuid
+                       AS publication_batch_uuid,
+                   count(*) FILTER (
+                       WHERE publication_batch_uuid IS NOT NULL
+                   )::bigint AS published_row_count,
+                   count(*) FILTER (
+                       WHERE published_at IS NOT NULL
+                   )::bigint AS published_at_row_count
             FROM datamart.dm_pdd_pdvb_estimate_detail
             WHERE calculation_run_uuid = :calculation_run_uuid
             GROUP BY business_date, model_version_uuid, scope_version_uuid, origin_cd
@@ -164,6 +174,16 @@ def _read_source_estimates(
             f"La corrida {calculation_run_uuid} debe identificar un unico snapshot; "
             f"grupos encontrados={len(header)}"
         )
+    source_header = dict(header[0])
+    published_rows = source_header["published_row_count"]
+    published_at_rows = source_header["published_at_row_count"]
+    if source_header["publication_batch_count"] > 1 or published_rows not in (
+        0,
+        source_header["row_count"],
+    ):
+        raise RuntimeError("El linaje de publicacion de la corrida esta fragmentado")
+    if published_rows != published_at_rows:
+        raise RuntimeError("El linaje de publicacion de la corrida esta incompleto")
     rows = [
         dict(row)
         for row in connection.execute(
@@ -184,7 +204,17 @@ def _read_source_estimates(
             {"calculation_run_uuid": calculation_run_uuid},
         ).mappings()
     ]
-    return dict(header[0]), rows
+    return source_header, rows
+
+
+def resolve_publication_batch_uuid(
+    calculation_run_uuid: UUID,
+    source_publication_batch_uuid: UUID | None,
+) -> UUID:
+    """Devuelve un identificador estable y compartible entre ambientes destino."""
+    if source_publication_batch_uuid is not None:
+        return UUID(str(source_publication_batch_uuid))
+    return uuid5(NAMESPACE_URL, f"connexa:pdd:pdvb:{calculation_run_uuid}")
 
 
 def _ensure_target_contract(connection: Connection) -> None:
@@ -445,23 +475,42 @@ def _mark_source_published(
     expected_rows: int,
 ) -> None:
     with transactional_connection(source_engine, source_settings) as connection:
-        conflict = connection.execute(
+        lineage = connection.execute(
             text(
                 """
-                SELECT count(*)
+                SELECT count(*)::bigint AS total_rows,
+                       count(*) FILTER (
+                           WHERE publication_batch_uuid IS NOT NULL
+                       )::bigint AS marked_rows,
+                       count(DISTINCT publication_batch_uuid)::integer
+                           AS marked_batches,
+                       count(*) FILTER (
+                           WHERE publication_batch_uuid IS NOT NULL
+                             AND published_at IS NULL
+                       )::bigint AS missing_published_at
                 FROM datamart.dm_pdd_pdvb_estimate_detail
                 WHERE calculation_run_uuid = :calculation_run_uuid
-                  AND publication_batch_uuid IS NOT NULL
-                  AND publication_batch_uuid <> :publication_batch_uuid
                 """
             ),
-            {
-                "calculation_run_uuid": calculation_run_uuid,
-                "publication_batch_uuid": publication_batch_uuid,
-            },
-        ).scalar_one()
-        if conflict:
-            raise RuntimeError("La corrida analitica ya referencia otra publicacion")
+            {"calculation_run_uuid": calculation_run_uuid},
+        ).mappings().one()
+        if lineage["total_rows"] != expected_rows:
+            raise RuntimeError(
+                "Cantidad analitica inesperada al marcar publicacion: "
+                f"{lineage['total_rows']}/{expected_rows}"
+            )
+        if lineage["marked_batches"] > 1 or lineage["marked_rows"] not in (
+            0,
+            expected_rows,
+        ):
+            raise RuntimeError("El linaje analitico esta fragmentado")
+        if lineage["missing_published_at"]:
+            raise RuntimeError("El linaje analitico publicado no tiene fecha completa")
+        # La fuente conserva el primer lote que publico la corrida. Las siguientes
+        # publicaciones (por ejemplo TEST y DESA) tienen su lote autoritativo en
+        # cada base operativa y no deben sobrescribir ese primer marcador.
+        if lineage["marked_rows"] == expected_rows:
+            return
         connection.execute(
             text(
                 """
@@ -530,8 +579,8 @@ def publish_pdvb(
         existing = target.execute(
             text(
                 """
-                SELECT b.publication_batch_uuid, b.published_row_count,
-                       b.source_checksum, b.status
+                SELECT r.calculation_run_id, b.publication_batch_uuid,
+                       b.published_row_count, b.source_checksum, b.status
                 FROM stock_management.pdd_calculation_run AS r
                 JOIN stock_management.pdd_pdvb_publication_batch AS b
                   ON b.calculation_run_id = r.calculation_run_id
@@ -548,6 +597,24 @@ def publish_pdvb(
             ):
                 raise RuntimeError("Existe una publicacion incompatible para la corrida")
             publication_batch_uuid = existing["publication_batch_uuid"]
+            target.execute(
+                text(
+                    """
+                    UPDATE stock_management.pdd_calculation_run
+                    SET summary = jsonb_set(
+                        COALESCE(summary, '{}'::jsonb),
+                        '{environment}',
+                        to_jsonb(CAST(:target_environment AS text)),
+                        true
+                    )
+                    WHERE calculation_run_id = :calculation_run_id
+                    """
+                ),
+                {
+                    "target_environment": target_settings.target_environment,
+                    "calculation_run_id": existing["calculation_run_id"],
+                },
+            )
             reused = True
         else:
             reused = False
@@ -605,14 +672,17 @@ def publish_pdvb(
                     "input_checksum": source_checksum,
                     "summary": _json(
                         {
-                            "environment": "TEST_PILOT",
+                            "environment": target_settings.target_environment,
                             "source_calculation_run_uuid": str(calculation_run_uuid),
                             "status_counts": status_counts,
                         }
                     ),
                 },
             ).scalar_one()
-            publication_batch_uuid = uuid4()
+            publication_batch_uuid = resolve_publication_batch_uuid(
+                calculation_run_uuid,
+                header["publication_batch_uuid"],
+            )
             publication_batch_id = target.execute(
                 text(
                     """

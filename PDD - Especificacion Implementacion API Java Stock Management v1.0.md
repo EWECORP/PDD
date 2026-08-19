@@ -26,9 +26,10 @@ fuentes -> Python/Prefect  ──────►  pdd_*  ◄──── Java/Sp
 Esta separación permite recalibrar el algoritmo sin cambiar la API y permite
 evolucionar la UI sin acoplarla a tablas analíticas de `diarco_data`.
 
-## 2. Resultado de la revisión de `PDD_BACK`
+## 2. Resultado de la revisión de los repositorios Java canónicos
 
-`E:\ETL\PDD_BACK` no es un microservicio ejecutable. Es la librería:
+El repositorio `connexa-platform-lib-model-stockmanagement` no es un
+microservicio ejecutable. Publica la librería:
 
 - `com.zeetrex.connexa.platform:connexa-platform-lib-model-stock-management`;
 - Spring Boot 3.4.3 y Java 21;
@@ -36,21 +37,25 @@ evolucionar la UI sin acoplarla a tablas analíticas de `diarco_data`.
 - arquitectura hexagonal con modelo, puertos de repositorio y adaptadores JPA;
 - paquete raíz `com.zeetrex.lib.model.stockmanagement`.
 
-Por lo tanto, la solución requiere dos entregas Java:
+El repositorio `connexa-platform-stock-management` es el microservicio
+ejecutable Spring Boot de Stock Management. Por lo tanto, la solución requiere
+dos entregas Java coordinadas:
 
-1. **Librería `PDD_BACK`:** modelos de dominio, entidades JPA, proyecciones,
-   puertos, repositorios, mappers y migraciones de `stock_management.pdd_*`.
-2. **Microservicio Stock Management:** controllers, DTO HTTP, boundaries,
-   servicios de aplicación/casos de uso, seguridad JWT, manejo de errores y
-   publicación SpringDoc.
+1. **Repositorio `connexa-platform-lib-model-stockmanagement`:** modelos de
+   dominio, entidades JPA, proyecciones, puertos, repositorios, mappers y
+   migraciones de `stock_management.pdd_*`.
+2. **Repositorio `connexa-platform-stock-management`:** controllers, DTO HTTP,
+   boundaries, servicios de aplicación/casos de uso, seguridad JWT, manejo de
+   errores y publicación SpringDoc.
 
-No deben agregarse controllers ni configuración web a `PDD_BACK`.
+No deben agregarse controllers ni configuración web a
+`connexa-platform-lib-model-stockmanagement`.
 
 ## 3. Tecnologías y convenciones obligatorias
 
 | Tema | Decisión |
 | --- | --- |
-| Runtime | Java 21, de acuerdo con el `pom.xml` real de `PDD_BACK` |
+| Runtime | Java 21, de acuerdo con los `pom.xml` de ambos repositorios Java |
 | Framework | Spring Boot 3.4.3 |
 | Persistencia | Spring Data JPA/PostgreSQL; consultas nativas o proyecciones para lecturas agregadas |
 | Mapeo | MapStruct; no exponer entidades JPA como respuestas HTTP |
@@ -69,7 +74,7 @@ No deben agregarse controllers ni configuración web a `PDD_BACK`.
 
 ## 4. Estructura propuesta
 
-### 4.1 En `PDD_BACK`
+### 4.1 En `connexa-platform-lib-model-stockmanagement`
 
 Agregar subpaquetes `pdd` para no mezclar planificación con las entidades
 históricas `stk_*`:
@@ -95,7 +100,7 @@ Mantener el patrón existente:
 - mapper `GenericEntityMapper` con `componentModel = "spring"`;
 - repositorios de consulta específicos para filtros, cursores y agregados.
 
-### 4.2 En el microservicio ejecutable
+### 4.2 En `connexa-platform-stock-management`
 
 Usar el package raíz real del microservicio Stock Management y organizar PDD:
 
@@ -294,7 +299,8 @@ v1; la UI informa que la necesidad participará en la próxima foto.
 
 ## 12. Definition of Done de la entrega Java
 
-- modelos/repositorios PDD publicados desde `PDD_BACK`;
+- modelos/repositorios PDD publicados desde
+  `connexa-platform-lib-model-stockmanagement`;
 - migraciones Flyway con baseline aprobado;
 - microservicio consume la librería y expone `/connexa/api/v1/pdd`;
 - JWT, roles, errores, correlación, idempotencia y ETag operativos;

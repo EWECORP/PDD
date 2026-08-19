@@ -26,6 +26,7 @@ SIX_PLACES = Decimal("0.000001")
 class DailyDecasResult:
     calculation_run_uuid: UUID
     business_date: date
+    stock_date: date
     scope_version_uuid: UUID
     pdvb_calculation_run_uuid: UUID
     configuration_version_uuid: UUID
@@ -44,6 +45,7 @@ class DailyDecasResult:
             **self.__dict__,
             "calculation_run_uuid": str(self.calculation_run_uuid),
             "business_date": self.business_date.isoformat(),
+            "stock_date": self.stock_date.isoformat(),
             "scope_version_uuid": str(self.scope_version_uuid),
             "pdvb_calculation_run_uuid": str(self.pdvb_calculation_run_uuid),
             "configuration_version_uuid": str(self.configuration_version_uuid),
@@ -404,7 +406,7 @@ def _ensure_configuration(
 def _read_source_stock(
     engine: Engine,
     scope_version_uuid: UUID,
-    business_date: date,
+    stock_date: date,
     origin_cd: int,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], datetime]:
     with engine.connect() as connection:
@@ -423,7 +425,7 @@ def _read_source_stock(
                             ORDER BY fecha_extraccion DESC NULLS LAST
                         ) AS rn
                         FROM src.base_stock_sucursal AS s
-                        WHERE fecha_stock::date = :business_date
+                        WHERE fecha_stock::date = :stock_date
                     )
                     SELECT p.codigo_articulo, p.sucursal, s.codigo_proveedor,
                            s.stock, s.pedido_pendiente, s.transito_pendiente,
@@ -437,7 +439,7 @@ def _read_source_stock(
                     ORDER BY p.sucursal, p.codigo_articulo
                     """
                 ),
-                {"scope_uuid": scope_version_uuid, "business_date": business_date},
+                {"scope_uuid": scope_version_uuid, "stock_date": stock_date},
             ).mappings()
         ]
         cd_rows = [
@@ -455,7 +457,7 @@ def _read_source_stock(
                             ORDER BY fecha_extraccion DESC NULLS LAST
                         ) AS rn
                         FROM src.base_stock_sucursal AS s
-                        WHERE fecha_stock::date = :business_date
+                        WHERE fecha_stock::date = :stock_date
                           AND codigo_sucursal = :origin_cd
                     )
                     SELECT a.codigo_articulo, s.codigo_proveedor, s.stock,
@@ -469,7 +471,7 @@ def _read_source_stock(
                 ),
                 {
                     "scope_uuid": scope_version_uuid,
-                    "business_date": business_date,
+                    "stock_date": stock_date,
                     "origin_cd": origin_cd,
                 },
             ).mappings()
@@ -641,6 +643,7 @@ def run_daily_decas(
     target_engine: Engine,
     target_settings: OperationalSettings,
     business_date: date,
+    stock_date: date,
     scope_version_uuid: UUID,
     pdvb_calculation_run_uuid: UUID,
     logistics_calculation_run_uuid: UUID,
@@ -658,7 +661,7 @@ def run_daily_decas(
     source_branches, source_cd, source_as_of_ts = _read_source_stock(
         source_engine,
         scope_version_uuid,
-        business_date,
+        stock_date,
         source_settings.origin_cd,
     )
     open_purchase_orders = _read_open_purchase_orders(
@@ -728,6 +731,7 @@ def run_daily_decas(
                 existing["status"] != "SUCCEEDED"
                 or existing["business_date"] != business_date
                 or existing_summary.get("scope_version_uuid") != str(scope_version_uuid)
+                or existing_summary.get("stock_date") != stock_date.isoformat()
                 or existing_summary.get("pdvb_calculation_run_uuid")
                 != str(pdvb_calculation_run_uuid)
                 or existing_summary.get("logistics_calculation_run_uuid")
@@ -739,6 +743,7 @@ def run_daily_decas(
             return DailyDecasResult(
                 calculation_run_uuid=run_uuid,
                 business_date=business_date,
+                stock_date=stock_date,
                 scope_version_uuid=scope_version_uuid,
                 pdvb_calculation_run_uuid=pdvb_calculation_run_uuid,
                 configuration_version_uuid=configuration_version_uuid,
@@ -885,7 +890,10 @@ def run_daily_decas(
         need_checksum = _rows_checksum(needs, ("sucursal", "codigo_articulo", "need_type"))
         cd_checksum = _rows_checksum(cd_positions, ("codigo_articulo",))
         source_checksum = hashlib.sha256(
-            f"{branch_checksum}|{need_checksum}|{cd_checksum}".encode("ascii")
+            (
+                f"{stock_date.isoformat()}|{branch_checksum}|"
+                f"{need_checksum}|{cd_checksum}"
+            ).encode("ascii")
         ).hexdigest()
         branch_counts = dict(Counter(row["calculation_status"] for row in branches))
         need_counts = dict(Counter(row["calculation_status"] for row in needs))
@@ -903,6 +911,8 @@ def run_daily_decas(
         ).scalar_one()
         summary = {
             "entity": "PDD_DAILY_DECAS_TEST_PILOT",
+            "business_date": business_date.isoformat(),
+            "stock_date": stock_date.isoformat(),
             "scope_version_uuid": str(scope_version_uuid),
             "pdvb_calculation_run_uuid": str(pdvb_calculation_run_uuid),
             "logistics_calculation_run_uuid": str(logistics_calculation_run_uuid),
@@ -980,7 +990,7 @@ def run_daily_decas(
                     row_count,checksum,status,detail
                 ) VALUES (
                     :run_id,'BRANCH_AND_CD_STOCK',:source_database,
-                    'src.base_stock_sucursal',true,:business_date,:business_date,
+                    'src.base_stock_sucursal',true,:stock_date,:stock_date,
                     :as_of_ts,:row_count,:checksum,'VALID',CAST(:detail AS jsonb)
                 ) RETURNING source_snapshot_id
                 """
@@ -988,11 +998,17 @@ def run_daily_decas(
             {
                 "run_id": calculation_run_id,
                 "source_database": source_settings.pg_database,
-                "business_date": business_date,
+                "stock_date": stock_date,
                 "as_of_ts": source_as_of_ts,
                 "row_count": len(source_branches) + len(source_cd),
                 "checksum": source_checksum,
-                "detail": _json({"scope_version_uuid": str(scope_version_uuid)}),
+                "detail": _json(
+                    {
+                        "scope_version_uuid": str(scope_version_uuid),
+                        "business_date": business_date.isoformat(),
+                        "stock_date": stock_date.isoformat(),
+                    }
+                ),
             },
         ).scalar_one()
         po_snapshot_id = target.execute(
@@ -1197,6 +1213,7 @@ def run_daily_decas(
     return DailyDecasResult(
         calculation_run_uuid=run_uuid,
         business_date=business_date,
+        stock_date=stock_date,
         scope_version_uuid=scope_version_uuid,
         pdvb_calculation_run_uuid=pdvb_calculation_run_uuid,
         configuration_version_uuid=configuration_version_uuid,

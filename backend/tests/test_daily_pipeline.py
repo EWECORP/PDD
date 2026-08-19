@@ -9,6 +9,7 @@ import yaml
 from pdd_backend.jobs.daily_pipeline import (
     DailySourceState,
     REFRESH_OPEN_PO_SQL,
+    pipeline_stage_revision,
     pipeline_stage_uuid,
     read_daily_source_state,
     refresh_open_purchase_orders,
@@ -139,6 +140,22 @@ def test_stage_uuid_is_stable_and_revisioned() -> None:
     assert first != changed
 
 
+def test_operational_stage_revision_includes_effective_stock_date() -> None:
+    stock_date = date(2026, 8, 18)
+    assert pipeline_stage_revision(
+        "PDVB", "DAILY_PIPELINE_V1", stock_date
+    ) == "DAILY_PIPELINE_V1"
+    assert pipeline_stage_revision(
+        "ITEM_LOGISTICS", "DAILY_PIPELINE_V1", stock_date
+    ) == "DAILY_PIPELINE_V1"
+    assert pipeline_stage_revision(
+        "DAILY_DECAS", "DAILY_PIPELINE_V1", stock_date
+    ) == "DAILY_PIPELINE_V1:STOCK:2026-08-18"
+    assert pipeline_stage_revision(
+        "BACKLOG", "DAILY_PIPELINE_V1", stock_date
+    ) == "DAILY_PIPELINE_V1:STOCK:2026-08-18"
+
+
 def test_open_po_refresh_is_serialized_and_non_concurrent() -> None:
     source = getsource(refresh_open_purchase_orders)
     assert REFRESH_OPEN_PO_SQL == (
@@ -174,3 +191,17 @@ def test_master_deployment_has_daily_2030_argentina_schedule() -> None:
     ]
     assert deployment["parameters"]["force"] is False
     assert "business_date" not in deployment["parameters"]
+
+
+def test_desa_master_deployment_is_isolated_and_manual() -> None:
+    root = Path(__file__).parents[1]
+    config = yaml.safe_load((root / "prefect.yaml").read_text(encoding="utf-8"))
+    deployment = next(
+        item
+        for item in config["deployments"]
+        if item["name"] == "PDD_OPERATIONAL_DAILY_MASTER_DESA"
+    )
+    assert "schedules" not in deployment
+    assert deployment["parameters"]["force"] is False
+    assert deployment["parameters"]["created_by"] == "pdd.daily.orchestrator.desa"
+    assert deployment["work_pool"]["work_queue_name"] == "pdd-desa"

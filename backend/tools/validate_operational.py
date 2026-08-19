@@ -93,6 +93,7 @@ def main() -> None:
         )
         result = {
             "source_database": source_database,
+            "target_environment": target_settings.target_environment,
             "target_database": target_database,
             "publisher_contract": "OK" if not missing else "INCOMPLETE",
             "missing_tables": missing,
