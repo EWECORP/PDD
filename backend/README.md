@@ -611,27 +611,24 @@ Publicar en `connexa_platform_ms` requiere configurar además
 - Cada job tiene un advisory lock para impedir dos escrituras simultáneas del
   mismo tipo.
 
-## API HTTP para frontend
+## Contrato HTTP para frontend
 
-Desde la versión 0.11.0 el paquete expone las 15 operaciones del contrato
-`contracts/pdd-frontend-openapi-v1.yaml` bajo `/api/v1/pdd`.
+Desde la versión 0.14.0 este paquete no expone una API productiva. Python y
+Prefect quedan limitados al ETL, cálculo y publicación de entidades PDD.
+
+El contrato de las 15 operaciones se mantiene en
+`contracts/pdd-frontend-openapi-v1.yaml`, con base pública
+`/connexa/api/v1/pdd`. Debe implementarlo el microservicio Java Stock
+Management que consume la librería `connexa-platform-lib-model-stock-management`.
 
 ```bash
 python tools/validate_frontend_contract.py
-python tools/validate_api.py
-python tools/validate_api_write_rollback.py
-pdd-api
+python tools/run_frontend_mock.py --port 4010
 ```
 
-La API consulta exclusivamente `connexa_platform_test.stock_management`. Las
-altas y transiciones E/C/A usan `Idempotency-Key`, `If-Match`, historial
-append-only y `pdd_business_event_log`. El proceso no reemplaza ni se ejecuta
-mediante Prefect: se instala como `pdd-api.service` y queda detrás del proxy
-corporativo.
-
-El archivo `.env.api` debe ser independiente del `.env` analítico y utilizar un
-rol PostgreSQL de mínimo privilegio. Ver `../PDD - Despliegue y Prueba API
-Backend v1.0.md`.
+El mock sirve solo para desarrollo frontend y pruebas de contrato; no accede a
+PostgreSQL, no sustituye el backend Java y no debe desplegarse como servicio.
+Ver `../PDD - Especificacion Implementacion API Java Stock Management v1.0.md`.
 
 ## Validación sin carga
 

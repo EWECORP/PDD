@@ -1,13 +1,21 @@
 openapi: 3.1.0
 info:
-  title: Connexa PDD Frontend API
-  version: 1.0.0
+  title: Connexa Stock Management - PDD API
+  version: 1.1.0
   description: >-
     Contrato para consulta del backlog DECAS, explicación de cálculo y
     mantenimiento de necesidades dirigidas E/C/A. No asigna ni reserva stock.
+    La implementación productiva pertenece al backend Java Stock Management;
+    Python/Prefect produce las entidades operativas y no expone esta API.
 servers:
-  - url: /api/v1/pdd
-    description: Base path relativo en Connexa
+  - url: /connexa/api/v1/pdd
+    description: Base path público de Connexa
+x-connexa-implementation:
+  runtime: Java 21
+  framework: Spring Boot 3.4.3
+  modelLibrary: connexa-platform-lib-model-stock-management
+  persistenceSchema: stock_management
+  pythonRuntimeRole: analytical-etl-only
 tags:
   - name: Status
   - name: Dashboard

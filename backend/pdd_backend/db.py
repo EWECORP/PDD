@@ -21,10 +21,6 @@ def build_operational_engine(settings: OperationalSettings) -> Engine:
     return _build_engine(settings, "pdd_publisher")
 
 
-def build_api_engine(settings: OperationalSettings) -> Engine:
-    return _build_engine(settings, "pdd_api")
-
-
 def _build_engine(
     settings: Settings | OperationalSettings,
     application_name: str,

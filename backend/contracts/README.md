@@ -1,6 +1,7 @@
 # Contratos PDD para frontend
 
-- `pdd-frontend-openapi-v1.yaml`: contrato HTTP fuente para frontend y backend.
+- `pdd-frontend-openapi-v1.yaml`: contrato HTTP fuente para frontend y backend
+  Java Stock Management. El backend Python no implementa esta API.
 - `examples/dashboard-summary.json`: resumen sintético que conserva los totales
   DECAS y de frescura de la foto Test validada. Los nombres, cantidad de
   proveedores e indicador IRQ son ilustrativos hasta que el adaptador API
@@ -31,6 +32,6 @@ Servidor mock sin dependencias adicionales:
 python tools/run_frontend_mock.py --port 4010
 ```
 
-Base URL: `http://127.0.0.1:4010/api/v1/pdd`. El header de respuesta
+Base URL: `http://127.0.0.1:4010/connexa/api/v1/pdd`. El header de respuesta
 `X-PDD-Mock: true` evita confundirlo con un servicio real. Los filtros del
 listado se aceptan pero se ignoran en el mock estático.

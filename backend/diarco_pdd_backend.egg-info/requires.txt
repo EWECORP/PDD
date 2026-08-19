@@ -2,11 +2,7 @@ SQLAlchemy<3,>=2.0
 psycopg2-binary<3,>=2.9
 python-dotenv<2,>=1.0
 prefect<4,>=3.4
-fastapi<0.120,>=0.115
-pydantic<3,>=2.11
-uvicorn[standard]<1,>=0.34
 PyYAML<7,>=6
 
 [dev]
 pytest<9,>=8
-httpx<1,>=0.28

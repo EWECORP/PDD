@@ -26,6 +26,13 @@ def main() -> None:
     contract = yaml.safe_load(OPENAPI.read_text(encoding="utf-8"))
     if contract.get("openapi") != "3.1.0":
         raise RuntimeError("Se esperaba OpenAPI 3.1.0")
+    if contract.get("servers", [{}])[0].get("url") != "/connexa/api/v1/pdd":
+        raise RuntimeError("Base publica Connexa PDD incorrecta")
+    implementation = contract.get("x-connexa-implementation", {})
+    if implementation.get("runtime") != "Java 21":
+        raise RuntimeError("La API productiva debe pertenecer al runtime Java 21")
+    if implementation.get("pythonRuntimeRole") != "analytical-etl-only":
+        raise RuntimeError("El runtime Python debe quedar limitado a ETL analitico")
     operations = [
         operation["operationId"]
         for path in contract["paths"].values()

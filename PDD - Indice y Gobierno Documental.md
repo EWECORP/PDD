@@ -1,7 +1,7 @@
 # Índice y Gobierno Documental — Planificación de Necesidades Connexa
 
-Versión del paquete: **2.1**
-Fecha de actualización: **2026-07-28**
+Versión del paquete: **2.2**
+Fecha de actualización: **2026-08-19**
 Estado: **Base vigente para desarrollo Fase 1**
 
 ---
@@ -34,17 +34,26 @@ El signo normativo de NDD-D es resta de Stock Neto Sucursal. Su ratificación fu
 | Documento | Propósito |
 | --- | --- |
 | `PDD - ALCANCE Fase 1.md` | Decisión funcional rectora, límites y entregable |
-| `PDD - Especificacion de Requerimiento de Software Connexa v2.0.md` | Requerimientos, aceptación, pruebas y arranque |
-| `PDD - Circuito Operativo de Necesidades de Distribucion Connexa v2.0.md` | Procedimiento diario y responsabilidades |
+| `PDD - Especificación de Requerimiento de Software Connexa v2.0.md` | Requerimientos, aceptación, pruebas y arranque |
+| `PDD - Circuito Operativo de Necesidades de Distribución Connexa v2.0.md` | Procedimiento diario y responsabilidades |
 | `PDD - Modelo de Datos Conceptual Connexa v2.0.md` | Entidades, saldos y restricciones |
 | `PDD - Diccionario de Datos e Identidades v1.0.md` | Contrato físico-funcional de tablas, claves y generación de IDs/UUIDs |
-| `PDD - Integracion Valkimia por Adaptadores v2.0.md` | Contrato lógico oportunista e idempotencia |
-| `PDD - Diseno de Pantallas Operativas Connexa v2.0.md` | MVP de pantallas y UX |
+| `PDD - Integración Valkimia por Adaptadores v2.0.md` | Contrato lógico oportunista e idempotencia |
+| `PDD - Diseño de Pantallas Operativas Connexa v2.0.md` | MVP de pantallas y UX |
 | `PDD - Vision Requerimiento y Plan Connexa v2.0.md` | Síntesis, arquitectura, plan y riesgos |
-| `PDD - Guion Presentacion Ejecutiva Connexa v2.0.md` | Comunicación ejecutiva alineada |
+| `PDD - Guion Presentación Ejecutiva Connexa v2.0.md` | Comunicación ejecutiva alineada |
 | `PDD - Inicio de Desarrollo Fase 1.md` | Épicas, historias, secuencia, gates y UAT para kickoff |
+| `PDD - Especificación Frontend y Contrato API v1.1.md` | Contrato funcional consumido por frontend y backend Java |
+| `PDD - Especificación Implementación API Java Stock Management v1.0.md` | Arquitectura, capas, persistencia y aceptación del backend Java |
+| `backend/contracts/pdd-frontend-openapi-v1.yaml` | Fuente ejecutable OpenAPI v1.1 de las 15 operaciones PDD |
 
-Los nombres físicos v2.0 se conservan para evitar romper referencias existentes; su metadata interna identifica la revisión **2.1**.
+Los nombres físicos v2.0 se conservan para evitar romper referencias existentes;
+la separación de responsabilidades API/ETL queda documentada en la revisión
+**2.2**.
+
+La API productiva pertenece al microservicio Java Stock Management. El backend
+Python/Prefect se limita a ETL, cálculo y publicación; el mock HTTP local es un
+artefacto de contrato y no un servicio desplegable.
 
 ## 4. Vocabulario obligatorio
 

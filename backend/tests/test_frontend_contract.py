@@ -23,8 +23,12 @@ def _walk(value: Any):
 def test_openapi_contract_is_parseable_and_has_unique_operations() -> None:
     contract = yaml.safe_load(CONTRACT.read_text(encoding="utf-8"))
     assert contract["openapi"] == "3.1.0"
-    assert contract["info"]["version"] == "1.0.0"
-    assert contract["servers"][0]["url"] == "/api/v1/pdd"
+    assert contract["info"]["version"] == "1.1.0"
+    assert contract["servers"][0]["url"] == "/connexa/api/v1/pdd"
+    assert contract["x-connexa-implementation"]["runtime"] == "Java 21"
+    assert contract["x-connexa-implementation"]["pythonRuntimeRole"] == (
+        "analytical-etl-only"
+    )
 
     operations = [
         operation["operationId"]

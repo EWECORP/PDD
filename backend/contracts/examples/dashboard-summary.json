@@ -1,32 +1,32 @@
 {
   "snapshot": {
-    "snapshotVersion": "4868597e-f491-48ee-98f3-0f6e248f6431",
+    "snapshotVersion": "00ce50c9-6eac-48b7-9c0a-2425638c76b2",
     "businessDate": "2026-08-16",
-    "calculationRunUuid": "a258f84f-a965-4777-aafc-350a9cf05e3b",
-    "publishedAt": "2026-08-17T16:46:09.236152Z",
+    "calculationRunUuid": "3f146fea-4852-58f4-ba12-797f475455d8",
+    "publishedAt": "2026-08-17T21:32:50.709793Z",
     "freshnessStatus": "INCOMPLETE"
   },
-  "lineCount": 15032,
-  "articleCount": 1635,
+  "lineCount": 14792,
+  "articleCount": 1624,
   "branchCount": 36,
   "supplierCount": 250,
   "quantities": {
-    "d": 1325851,
+    "d": 1296792,
     "e": 0,
     "c": 0,
     "a": 0,
-    "s": 80493,
-    "mandatory": 1325851,
-    "optional": 80493,
-    "total": 1406344
+    "s": 79640,
+    "mandatory": 1296792,
+    "optional": 79640,
+    "total": 1376432
   },
   "freshnessCounts": {
-    "CURRENT": 14391,
+    "CURRENT": 14212,
     "STALE": 0,
-    "INCOMPLETE": 641
+    "INCOMPLETE": 580
   },
   "criticalIrqLineCount": 2100,
   "alertCounts": {
-    "PACKAGES_PER_PALLET_MISSING": 641
+    "PACKAGES_PER_PALLET_MISSING": 580
   }
 }

@@ -1,6 +1,6 @@
--- PDD API v1.0 - privilegios minimos para el adaptador HTTP.
+-- PDD API v1.1 - privilegios minimos para el microservicio Java Stock Management.
 -- Ejecutar en connexa_platform_test con ON_ERROR_STOP y un rol existente.
--- Cambiar connexa_pdd_api si la plataforma define otro nombre.
+-- El nombre de rol no implica tecnologia; cambiarlo si la plataforma define otro.
 
 BEGIN;
 

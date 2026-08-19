@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "contracts" / "examples"
-BASE = "/api/v1/pdd"
+BASE = "/connexa/api/v1/pdd"
 
 
 def _load(name: str) -> dict[str, Any]:
@@ -51,7 +51,7 @@ def mock_response(
         return 200, {}, {
             "status": "DEGRADED",
             "environment": "FRONTEND_MOCK",
-            "apiVersion": "1.0.0",
+            "apiVersion": "1.1.0",
             "currentSnapshot": dashboard["snapshot"],
             "blockers": ["MOCK_DATA", "DIRECTED_NEEDS_NOT_PERSISTED"],
         }

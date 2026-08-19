@@ -1,3 +1,2 @@
 [console_scripts]
-pdd-api = pdd_backend.api.main:main
 pdd-etl = pdd_backend.cli:main

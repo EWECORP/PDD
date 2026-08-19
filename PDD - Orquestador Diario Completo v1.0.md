@@ -210,3 +210,9 @@ El horario está versionado en `prefect.yaml`. Se publica siempre con:
 export PREFECT_API_URL=https://orquestador.connexa-cloud.com/api
 prefect deploy --all
 ```
+
+`PDD_ANALYTICAL_DAILY_PROD` no debe tener un schedule adicional mientras esté
+activo el maestro. El maestro ya ejecuta `pdd_features_flow`, calcula PDVB y
+continúa con publicación, logística, DAILY_DECAS y backlog. Mantener el
+deployment analítico sin schedule permite reejecuciones manuales o diagnóstico;
+programarlo duplicaría cálculo y escrituras sobre la misma fecha.
