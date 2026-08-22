@@ -62,7 +62,10 @@ def test_mock_examples_are_valid_json_and_snapshot_consistent() -> None:
         "backlog-page",
         "dashboard-summary",
         "directed-need",
+        "dispatch-plan",
+        "planning-backlog-page",
         "problem-details",
+        "valkimia-import-detail",
     }
     dashboard = examples["dashboard-summary"]
     backlog = examples["backlog-page"]

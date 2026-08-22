@@ -112,7 +112,7 @@ def pdd_operational_daily_flow(
     model_version_uuid: str | None = None,
     configuration_version_uuid: str = DEFAULT_CONFIGURATION_VERSION_UUID,
     created_by: str = "pdd.daily.orchestrator",
-    pipeline_revision: str = "DAILY_PIPELINE_V1",
+    pipeline_revision: str = "DAILY_PIPELINE_V2",
     force: bool = False,
 ) -> dict:
     logger = get_run_logger()

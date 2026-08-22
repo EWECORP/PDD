@@ -1,0 +1,45 @@
+-- PDD / Manifiesto de DDL vigentes - v2.7 - 2026-08-21
+-- Este archivo es informativo y no ejecuta sentencias.
+--
+-- UBICACION FISICA
+--   - analitica pesada: diarco_data.datamart
+--   - Test: connexa_platform_test.stock_management
+--   - Desarrollo: connexa_platform_diarco.stock_management
+--   - Produccion: connexa_platform_ms.stock_management
+--   - todas las tablas propias del proyecto usan el prefijo pdd_
+--
+-- MIGRACIONES VIGENTES
+--
+-- Base diarco_data, en este orden:
+--   1. PDD - DDL Analitico diarco_data v2.2.sql
+--   2. PDD - Migracion Analitica Scope Congelado v2.3.sql
+--   3. PDD - Migracion Analitica Backtest Rolling v2.4.sql
+--   4. PDD - Migracion Analitica Backtest Intermitente v2.5.sql
+--
+-- Bases Connexa admitidas, esquema stock_management:
+--   1. PDD - DDL Operativo Core connexa_platform_ms v2.2.sql
+--   2. PDD - DDL Operativo DECAS connexa_platform_ms v2.2.sql
+--   3. PDD - Migracion Operativa Metricas Backtest v2.4.sql
+--   4. PDD - Migracion Operativa Backtest Intermitente v2.5.sql
+--   5. PDD - Migracion Operativa Prefijo PDD v2.6.sql
+--   6. PDD - Migracion Operativa Planificacion Viajes v2.7.sql
+--
+-- Controles/seguridad posteriores (no forman parte del orden de migracion):
+--   - PDD - Validacion Operativa Planificacion Viajes v2.7.sql
+--   - PDD - Grants API PDD stock_management v1.2.sql
+--
+-- Para una instalacion nueva se ejecuta la secuencia completa. Para una base
+-- existente, v2.7 es aditiva: incorpora planes, viajes, paradas, lineas,
+-- atribucion DECAS, identidades publicas de importacion y soporte de polling.
+-- No elimina backlog, corridas, necesidades o publicaciones existentes.
+--
+-- v2.7 implementa la decision ADR-003: Connexa selecciona y cubica; Valkimia
+-- recibe solamente viajes aprobados y comunica la ejecucion mediante adaptador.
+-- No modifica formulas PDVB ni las formulas D/S.
+--
+-- La migracion productiva definitiva debe incorporarse a Flyway en
+-- connexa-platform-lib-model-stockmanagement con version libre confirmada por
+-- el equipo Java. Este archivo es el contrato SQL de referencia y puede usarse
+-- manualmente en Test/DESA con ON_ERROR_STOP durante la adopcion controlada.
+--
+-- Las versiones reemplazadas se conservan en Antecedentes.

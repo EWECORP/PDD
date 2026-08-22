@@ -190,6 +190,7 @@ def test_master_deployment_has_daily_2030_argentina_schedule() -> None:
         }
     ]
     assert deployment["parameters"]["force"] is False
+    assert deployment["parameters"]["pipeline_revision"] == "DAILY_PIPELINE_V2"
     assert "business_date" not in deployment["parameters"]
 
 
@@ -203,5 +204,18 @@ def test_desa_master_deployment_is_isolated_and_manual() -> None:
     )
     assert "schedules" not in deployment
     assert deployment["parameters"]["force"] is False
+    assert deployment["parameters"]["pipeline_revision"] == "DAILY_PIPELINE_V2"
     assert deployment["parameters"]["created_by"] == "pdd.daily.orchestrator.desa"
+    assert deployment["work_pool"]["work_queue_name"] == "pdd-desa"
+
+
+def test_desa_item_logistics_deployment_is_manual_and_isolated() -> None:
+    root = Path(__file__).parents[1]
+    config = yaml.safe_load((root / "prefect.yaml").read_text(encoding="utf-8"))
+    deployment = next(
+        item
+        for item in config["deployments"]
+        if item["name"] == "PDD_PUBLISH_ITEM_LOGISTICS_DESA_MANUAL"
+    )
+    assert "schedules" not in deployment
     assert deployment["work_pool"]["work_queue_name"] == "pdd-desa"

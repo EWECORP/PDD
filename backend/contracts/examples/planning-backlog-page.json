@@ -1,0 +1,39 @@
+{
+  "snapshotVersion": "c8573d15-282b-4ee9-91f9-36eb44fcaf37",
+  "businessDate": "2026-08-16",
+  "items": [
+    {
+      "backlogLineUuid": "39889719-8c28-44b7-84df-31b8364a88cf",
+      "snapshotVersion": "c8573d15-282b-4ee9-91f9-36eb44fcaf37",
+      "rowVersion": 3,
+      "originCd": 41,
+      "sucursal": 12,
+      "codigoArticulo": 62047,
+      "nombreArticulo": "ARTICULO DEMOSTRACION",
+      "cProveedorPrimario": 35503,
+      "dOpenQuantity": 72,
+      "eOpenQuantity": 6,
+      "cOpenQuantity": 0,
+      "aOpenQuantity": 0,
+      "sOpenQuantity": 22,
+      "mandatoryOpenQuantity": 78,
+      "optionalOpenQuantity": 22,
+      "totalOpenQuantity": 100,
+      "activePlannedQuantity": 20,
+      "activeImportedQuantity": 10,
+      "availableToPlanQuantity": 70,
+      "cdReferenceStock": 240,
+      "irqScore": 90,
+      "priorityScore": 90,
+      "targetDate": "2026-08-17",
+      "oldestNeedDate": "2026-08-16",
+      "estimatedPackages": 8.333333,
+      "estimatedPallets": 0.694444,
+      "estimatedWeightKg": 125,
+      "estimatedVolumeM3": null,
+      "freshnessStatus": "CURRENT",
+      "alertCodes": []
+    }
+  ],
+  "nextCursor": null
+}

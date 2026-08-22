@@ -3,7 +3,7 @@
 Versión: **1.0**  
 Fecha: **2026-08-18**  
 Estado: **Referencia para desarrollo**  
-Contrato físico considerado: **manifiesto DDL v2.6**
+Contrato físico considerado: **manifiesto DDL v2.7**
 
 ## 1. Respuesta corta sobre IDs y UUIDs
 
@@ -264,6 +264,10 @@ RETURNING calculation_run_id;
 - D/S se recalculan; E/C/A persisten.
 - El backlog es una proyección de saldos, no una orden, reserva ni asignación de stock.
 - Una importación Valkimia representa el mismo backlog y no crea demanda adicional.
+- Un plan/viaje congela una selección y su atribución, pero no cumple la
+  necesidad. El despacho imputa cumplimiento.
+- `pdd_valkimia_import` representa la publicación de un viaje aprobado, no un
+  borrador ni el backlog completo.
 - Los eventos de ejecución y auditoría son append-only.
 - Scope, modelo y configuración son versiones inmutables: un cambio relevante crea otra versión y otro UUID.
 - Los `dm_pdd_*` guardan historia pesada; los `pdd_*` dan servicio a operación/API y conservan trazabilidad compacta.
@@ -272,11 +276,50 @@ RETURNING calculation_run_id;
 
 Este documento resume el contrato compuesto por:
 
-- `PDD - 00 Manifiesto DDL v2.6.sql`;
+- `PDD - 00 Manifiesto DDL v2.7.sql`;
 - DDL operativo Core y DECAS v2.2;
 - DDL analítico v2.2;
 - migraciones analíticas y operativas v2.3–v2.5;
 - migración de prefijo operativo v2.6;
+- migración de planificación de viajes v2.7;
 - implementación actual de `pdd_backend` para publicación, API, backlog, features, backtest y orquestación diaria.
 
 Ante una diferencia, la secuencia de DDL/migraciones aplicada a la base es el contrato físico; el código debe adaptarse a ella y este documento debe versionarse.
+
+## 10. Entidades de planificación y ejecución v2.7
+
+| Entidad | Grano y función |
+| --- | --- |
+| `pdd_dispatch_plan` | Plan por CD, fecha y snapshot de backlog |
+| `pdd_dispatch_trip` | Viaje/carga perteneciente a un plan |
+| `pdd_dispatch_trip_stop` | Sucursal y secuencia dentro del viaje |
+| `pdd_dispatch_trip_line` | Cantidad seleccionada de una revisión de backlog |
+| `pdd_dispatch_line_allocation` | Imputación congelada de la línea a fuentes DECAS |
+| `pdd_valkimia_status_mapping` | Mapeo versionado de estado legacy a estado Connexa |
+| `pdd_integration_checkpoint` | Cursor durable y salud del adaptador |
+
+Identidad completa:
+
+```text
+dispatch_plan_uuid
+  -> dispatch_trip_uuid
+    -> dispatch_trip_line_uuid
+      -> valkimia_import_uuid
+        -> valkimia_import_line_uuid
+          -> external_reference / external_line_reference
+```
+
+`backlog_line_uuid`, `backlog_line_version` y `backlog_snapshot_version` se
+copian a la línea de viaje. No se declara una FK a la proyección vigente porque
+esa proyección puede reemplazar o retirar el grano; la referencia histórica del
+viaje debe sobrevivir.
+
+Campos acumulativos principales:
+
+```text
+planned >= published >= accepted >= prepared >= dispatched >= delivered
+```
+
+Las cantidades canceladas o rechazadas no pueden superar lo planificado. La
+aplicación mantiene la conciliación transaccional y registra cualquier
+corrección como evento.

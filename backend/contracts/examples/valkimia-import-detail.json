@@ -1,0 +1,42 @@
+{
+  "valkimiaImportUuid": "0f8c0fe6-c2b9-486e-abda-e480a3fe3baf",
+  "dispatchTripUuid": "158a92f4-bffe-46d3-9c64-c1d7305028f6",
+  "status": "PARTIAL",
+  "externalReference": "TRF-894470",
+  "lineCount": 1,
+  "totalImportedQuantity": 48,
+  "totalPreparedQuantity": 36,
+  "requestedAt": "2026-08-22T08:05:00Z",
+  "lastPolledAt": "2026-08-22T13:20:00Z",
+  "lines": [
+    {
+      "valkimiaImportLineUuid": "ef69cd31-bacf-468d-839c-c85d310cf215",
+      "dispatchTripLineUuid": "fb14dbb8-f937-4b8b-a99b-b593b9df511e",
+      "backlogLineUuid": "39889719-8c28-44b7-84df-31b8364a88cf",
+      "codigoArticulo": 62047,
+      "sucursal": 12,
+      "importedQuantity": 48,
+      "acceptedQuantity": 48,
+      "preparedQuantity": 36,
+      "dispatchedQuantity": 0,
+      "deliveredQuantity": 0,
+      "cancelledQuantity": 0,
+      "rejectedQuantity": 0,
+      "status": "PARTIAL",
+      "externalReference": "TRF-894470",
+      "externalLineReference": "TRF-894470-001",
+      "lastExternalStatus": "PREPARACION_PARCIAL",
+      "lastExternalUpdatedAt": "2026-08-22T10:15:00-03:00"
+    }
+  ],
+  "events": [
+    {
+      "eventType": "PREPARED",
+      "normalizedStatus": "PARTIAL",
+      "eventQuantity": 36,
+      "externalOccurredAt": "2026-08-22T10:15:00-03:00",
+      "receivedAt": "2026-08-22T13:20:00Z",
+      "processingStatus": "APPLIED"
+    }
+  ]
+}

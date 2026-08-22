@@ -309,3 +309,26 @@ v1; la UI informa que la necesidad participará en la próxima foto.
 - rol PostgreSQL de mínimo privilegio aplicado;
 - frontend integrado sin acceso directo a PostgreSQL;
 - sin servicio `pdd-api` Python en producción.
+
+## 13. Extensión aprobada: planificación de viajes
+
+ADR-003 amplía el backend Java con planes, viajes, paradas, líneas, reservas y
+publicación Valkimia. El contrato ejecutable es
+`backend/contracts/pdd-planning-openapi-v1.yaml` y la persistencia aditiva se
+define en `PDD - Migracion Operativa Planificacion Viajes v2.7.sql`.
+
+Clases/casos de uso adicionales sugeridos:
+
+- `PddDispatchPlanController` y `PddDispatchPlanUseCases`;
+- `PddDispatchTripController` y `PddDispatchTripUseCases`;
+- `PddValkimiaImportController` y `PddValkimiaExecutionUseCases`;
+- `PddPlanningBacklogQueryRepository`;
+- `PddDispatchPlanRepository` y `PddDispatchTripRepository`;
+- puerto `ValkimiaExecutionPort` con adaptador legacy y futura implementación
+  API;
+- worker de outbox y poller/checkpoint fuera del thread HTTP.
+
+La aprobación debe bloquear/revalidar el backlog y reservar en una sola
+transacción. La publicación debe crear importación, líneas, outbox y auditoría
+antes del commit. Los eventos externos se deduplican y el cumplimiento se
+imputa únicamente al despacho.

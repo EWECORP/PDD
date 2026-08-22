@@ -12,7 +12,7 @@ deployments:
     parameters:
       configuration_version_uuid: 2f916828-c59d-4190-a795-29ac5cfc1a66
       created_by: pdd.daily.orchestrator
-      pipeline_revision: DAILY_PIPELINE_V1
+      pipeline_revision: DAILY_PIPELINE_V2
       force: false
     schedules:
       - cron: "30 20 * * *"
@@ -28,7 +28,7 @@ deployments:
     parameters:
       configuration_version_uuid: 2f916828-c59d-4190-a795-29ac5cfc1a66
       created_by: pdd.daily.orchestrator.desa
-      pipeline_revision: DAILY_PIPELINE_V1
+      pipeline_revision: DAILY_PIPELINE_V2
       force: false
     work_pool:
       name: diarco-pdd
@@ -82,6 +82,13 @@ deployments:
     work_pool:
       name: diarco-pdd
       work_queue_name: pdd
+
+  - name: PDD_PUBLISH_ITEM_LOGISTICS_DESA_MANUAL
+    entrypoint: pdd_backend/flows/operational_inputs.py:pdd_publish_item_logistics_flow
+    parameters: {}
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd-desa
 
   - name: PDD_STOCK_READINESS_MANUAL
     entrypoint: pdd_backend/flows/operational_inputs.py:pdd_stock_readiness_flow

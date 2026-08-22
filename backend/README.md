@@ -188,7 +188,7 @@ prefect deployment run \
     "model_version_uuid": "a0a35b25-628d-43f1-b651-82c97207fc60",
     "configuration_version_uuid": "2f916828-c59d-4190-a795-29ac5cfc1a66",
     "created_by": "eduardo.ettlin",
-    "pipeline_revision": "DAILY_PIPELINE_V1",
+    "pipeline_revision": "DAILY_PIPELINE_V2",
     "force": true
   }' \
   --watch
@@ -523,21 +523,31 @@ pdd-etl publish-pdvb \
   --created-by eduardo.ettlin
 ```
 
-### Primer bloque de insumos operativos
+### Fuente canónica y snapshot logístico V2
 
 Antes de calcular necesidades se publican los atributos logísticos congelados
 del artículo. La carga toma todos los artículos de la versión de scope (también
-los que todavía no tienen un par ruteado), usa la fila del CD 41 de
-`src.base_productos_vigentes` y registra una corrida `DATA_PREP`, su
-`pdd_source_snapshot` y el detalle en `pdd_item_logistics_snapshot`.
+los que todavía no tienen un par ruteado), consume exclusivamente
+`src.v_base_articulos_logistica_actual` y registra una corrida `DATA_PREP`, su
+`pdd_source_snapshot` y el detalle en `pdd_item_logistics_snapshot`. La corrida
+se identifica con `formula_version = ITEM_LOGISTICS_V2`.
 
-Mapeo inicial:
+Reglas principales:
 
-- `base_unit`: `KG` cuando `m_vende_por_peso = 1`; en otro caso `UNIT`;
-- `units_per_package`: `q_factor_compra` positivo;
-- `packages_per_pallet`: `full_capacity_pallet` positivo;
-- `unit_weight_kg`: `q_peso_unit_art` positivo;
-- `unit_volume_m3`: nulo porque la fuente actual no lo provee.
+- `units_per_package`: `q_unidades_por_bulto` positivo;
+- `packages_per_pallet`: `q_bultos_por_pallet` positivo;
+- `unit_weight_kg`: peso bruto unitario, o peso bruto del bulto dividido por
+  sus unidades; solamente como último fallback se usa peso neto confirmado;
+- `unit_volume_m3`: `q_volumen_unitario_m3` de la vista canónica;
+- los cuatro estados por eje y las incidencias se publican explícitamente;
+- un atributo ausente se mantiene `NULL`: nunca se reemplaza por cero.
+
+El campo LEGACY `src.base_productos_vigentes.q_peso_unit_art` no se utiliza. Al
+21/08/2026 peso y volumen todavía esperan confirmación GS1, por lo que el
+resultado esperado es `weight_quality_status = MISSING`,
+`volume_quality_status = MISSING` y `quality_status = PARTIAL`. Esto permite
+redondear bultos y pallets sin presentar una cubicación ficticia por peso o
+volumen.
 
 La fecha `2026-08-16` es la primera fecha operativa posterior al cierre de
 ventas confirmado hasta `2026-08-15`:
@@ -712,6 +722,29 @@ WHERE r.calculation_run_uuid = 'UUID_CORRIDA'
 GROUP BY l.quality_status
 ORDER BY l.quality_status;
 
+SELECT l.packaging_quality_status, l.weight_quality_status,
+       l.volume_quality_status, l.pallet_quality_status,
+       count(*) AS registros
+FROM stock_management.pdd_item_logistics_snapshot AS l
+JOIN stock_management.pdd_calculation_run AS r
+  ON r.calculation_run_id = l.calculation_run_id
+WHERE r.calculation_run_uuid = 'UUID_CORRIDA'
+GROUP BY l.packaging_quality_status, l.weight_quality_status,
+         l.volume_quality_status, l.pallet_quality_status
+ORDER BY registros DESC;
+
+SELECT count(*) FILTER (WHERE source_logistics_id IS NULL) AS sin_fuente,
+       count(*) FILTER (WHERE unit_weight_kg IS NOT NULL
+                         AND weight_quality_status = 'MISSING') AS peso_inconsistente,
+       count(*) FILTER (WHERE unit_volume_m3 IS NOT NULL
+                         AND volume_quality_status = 'MISSING') AS volumen_inconsistente,
+       count(*) FILTER (WHERE quality_issue_codes IS NULL
+                         OR attributes IS NULL) AS contrato_incompleto
+FROM stock_management.pdd_item_logistics_snapshot AS l
+JOIN stock_management.pdd_calculation_run AS r
+  ON r.calculation_run_id = l.calculation_run_id
+WHERE r.calculation_run_uuid = 'UUID_CORRIDA';
+
 SELECT s.source_code, s.physical_relation, s.as_of_ts, s.row_count,
        s.status, s.checksum
 FROM stock_management.pdd_source_snapshot AS s
@@ -720,8 +753,17 @@ JOIN stock_management.pdd_calculation_run AS r
 WHERE r.calculation_run_uuid = 'UUID_CORRIDA';
 ```
 
+El mismo control, seleccionando automáticamente la última corrida V2 vigente,
+está disponible en `contracts/sql/item_logistics_v2_validation.sql`.
+
 Los despliegues manuales equivalentes son
-`PDD_PUBLISH_ITEM_LOGISTICS_TEST_MANUAL` y `PDD_STOCK_READINESS_MANUAL`.
+`PDD_PUBLISH_ITEM_LOGISTICS_TEST_MANUAL`,
+`PDD_PUBLISH_ITEM_LOGISTICS_DESA_MANUAL` y `PDD_STOCK_READINESS_MANUAL`.
+
+La incorporación de la fuente canónica cambia las entradas y la huella del
+snapshot. Por eso el orquestador usa `DAILY_PIPELINE_V2`: no se debe forzar una
+corrida V2 con los UUID determinísticos generados anteriormente por
+`DAILY_PIPELINE_V1`.
 
 El destino predeterminado continúa siendo TEST. DESA debe declararse
 explícitamente y coincidir con `connexa_platform_diarco`. Publicar en

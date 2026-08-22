@@ -1,31 +1,39 @@
 # Índice y Gobierno Documental — Planificación de Necesidades Connexa
 
-Versión del paquete: **2.2**
-Fecha de actualización: **2026-08-19**
-Estado: **Base vigente para desarrollo Fase 1**
+Versión del paquete: **2.6**
+Fecha de actualización: **2026-08-21**
+Estado: **Base vigente — DECAS más planificación operativa de viajes**
 
 ---
 
 ## 1. Decisión rectora
 
-La entrega de 40 días implementa **Planificación Diaria de Necesidades de Distribución**, no Gestión de la Distribución.
+La entrega inicial implementó **Planificación Diaria de Necesidades de
+Distribución**. La decisión ADR-003 amplía el alcance: Connexa también
+selecciona el backlog, forma y cubica viajes, reserva cantidades aprobadas y
+publica a Valkimia solamente la carga operativa inmediata.
 
-Connexa calcula, clasifica, prioriza y conserva DECAS. Valkimia consulta/importa oportunísticamente y comunica la ejecución efectiva. Connexa mantiene el remanente y recalcula diariamente.
+Valkimia deja de seleccionar oportunísticamente sobre el backlog completo. Es
+el ejecutor logístico y validador final de stock; comunica aceptación,
+preparación, despacho, cancelación y entrega. Connexa conserva decisión,
+remanente y trazabilidad.
 
-Quedan fuera asignación de stock, reservas, prorrateo, transferencias intersucursal gestionadas, vehículos, viajes, rutas, cubicaje y optimización de carga.
+Continúan fuera la optimización matemática automática de rutas, la asignación
+automática de vehículos, GPS y liquidación de transportistas.
 
 ## 2. Precedencia
 
 Ante una contradicción:
 
 1. decisión aprobada y fechada posterior;
-2. `PDD - ALCANCE Fase 1.md`;
-3. Especificación de Requerimiento de Software v2.1;
-4. Circuito Operativo v2.1;
-5. Modelo de Datos e Integración v2.1;
-6. Diseño de Pantallas v2.1;
-7. Visión y Plan v2.1;
-8. documentos de contexto y reuniones.
+2. `PDD - ADR-003 Planificacion de Viajes en Connexa.md`;
+3. especificaciones de planificación/API publicadas el 2026-08-21;
+4. `PDD - ALCANCE Fase 1.md`, para el alcance analítico original;
+5. Especificación de Requerimiento de Software v2.0;
+6. Circuito Operativo v2.0;
+7. Modelo de Datos e Integración v2.0;
+8. Diseño de Pantallas v2.0;
+9. documentos de contexto y reuniones.
 
 El signo normativo de NDD-D es resta de Stock Neto Sucursal. Su ratificación funcional forma parte de D1–D5.
 
@@ -38,7 +46,7 @@ El signo normativo de NDD-D es resta de Stock Neto Sucursal. Su ratificación fu
 | `PDD - Circuito Operativo de Necesidades de Distribución Connexa v2.0.md` | Procedimiento diario y responsabilidades |
 | `PDD - Modelo de Datos Conceptual Connexa v2.0.md` | Entidades, saldos y restricciones |
 | `PDD - Diccionario de Datos e Identidades v1.0.md` | Contrato físico-funcional de tablas, claves y generación de IDs/UUIDs |
-| `PDD - Integración Valkimia por Adaptadores v2.0.md` | Contrato lógico oportunista e idempotencia |
+| `PDD - Integracion Valkimia por Adaptadores v2.2.md` | Publicación de viajes, polling legacy, idempotencia y conciliación |
 | `PDD - Diseño de Pantallas Operativas Connexa v2.0.md` | MVP de pantallas y UX |
 | `PDD - Vision Requerimiento y Plan Connexa v2.0.md` | Síntesis, arquitectura, plan y riesgos |
 | `PDD - Guion Presentación Ejecutiva Connexa v2.0.md` | Comunicación ejecutiva alineada |
@@ -46,6 +54,19 @@ El signo normativo de NDD-D es resta de Stock Neto Sucursal. Su ratificación fu
 | `PDD - Especificación Frontend y Contrato API v1.1.md` | Contrato funcional consumido por frontend y backend Java |
 | `PDD - Especificación Implementación API Java Stock Management v1.0.md` | Arquitectura, capas, persistencia y aceptación del backend Java |
 | `backend/contracts/pdd-frontend-openapi-v1.yaml` | Fuente ejecutable OpenAPI v1.1 de las 15 operaciones PDD |
+| `PDD - ADR-003 Planificacion de Viajes en Connexa.md` | Decisión de trasladar selección, cubicaje y viajes a Connexa |
+| `PDD - Especificacion Funcional Planificacion de Viajes Connexa v1.0.md` | Pantalla, estados, reglas y aceptación de viajes |
+| `PDD - Contrato API Planificacion y Ejecucion Valkimia v1.0.md` | Contrato Java, integración legacy y conciliación |
+| `backend/contracts/pdd-planning-openapi-v1.yaml` | OpenAPI ejecutable de planificación y seguimiento Valkimia |
+| `PDD - Migracion Operativa Planificacion Viajes v2.7.sql` | Entidades físicas aditivas para el nuevo alcance |
+| `PDD - Despliegue y Prueba Planificacion Viajes v1.0.md` | Secuencia DESA→TEST, smoke test y gates |
+| `PDD - Solicitud de Correccion Contrato Estados Valkimia v1.0.md` | Corrección requerida al BACK para catálogo, eventos, mapping y transiciones Valkimia |
+| `PDD - Migracion Correctiva Estados Valkimia v2.8.sql` | Catálogo canónico, FK de eventos, checks, índice y retiro de duplicaciones |
+| `PDD - Validacion Correctiva Estados Valkimia v2.8.sql` | Control de catálogo, FK, columnas, índice e integridad final |
+| `PDD - DDL Fuente Canonica Articulos Logistica diarco_data v1.0.sql` | Fuente SCD2 de embalaje, peso, volumen, palletización y manipulación para PDD |
+| `PDD - Solicitud Ampliacion Item Logistics Snapshot v1.0.md` | Contrato solicitado al BACK para congelar peso, volumen, palletización, manipulación y calidad logística por corrida |
+| `PDD - Migracion Ampliacion Item Logistics Snapshot v2.9.sql` | Migración Flyway aditiva y compatible para ampliar el snapshot logístico operacional |
+| `PDD - Validacion Ampliacion Item Logistics Snapshot v2.9.sql` | Verificación posterior de columnas, checks, índices, cobertura y consistencia logística |
 
 Los nombres físicos v2.0 se conservan para evitar romper referencias existentes;
 la separación de responsabilidades API/ETL queda documentada en la revisión
@@ -60,23 +81,22 @@ artefacto de contrato y no un servicio desplegable.
 | Término | Uso |
 | --- | --- |
 | Planificación de necesidades | Cálculo, prioridad, backlog y seguimiento |
-| Gestión de distribución | Asignación, reservas, transporte y ejecución; fuera de Fase 1 |
+| Planificación de viajes | Selección, reserva, cubicaje y aprobación realizada en Connexa |
+| Ejecución logística | Validación final, preparación y despacho realizado en Valkimia |
 | DECAS | D Demanda, E Especial, C Campaña, A Acopio, S Sobre-stock |
 | Obligatorio | D/E/C visible hasta saldo cero; no obliga a Connexa a asignar stock |
 | Opcional | A/S seleccionable según oportunidad |
-| Importado | Seleccionado por Valkimia; no cumplido |
+| Importado | Viaje aprobado publicado por Connexa hacia Valkimia; no cumplido |
 | Preparado | Cantidad efectiva informada por Valkimia |
 | Stock Base 2 | Referencia informativa, no reserva |
 | Backlog | Saldo vigente de necesidades |
 | IRQ | Índice explicable de urgencia 0–100 |
 
-No usar en Fase 1:
+No confundir planificación manual gobernada con optimización automática. La
+primera está aprobada; la segunda continúa fuera de alcance.
 
-- “Connexa arma la distribución”;
-- “Connexa completa camiones”;
-- “orden optimizada”;
-- “stock asignado/reservado”;
-- “transferencia intersucursal” como capacidad del producto.
+Una reserva evita doble planificación, pero no equivale a cumplimiento ni a
+stock físicamente preparado. El cumplimiento se imputa al despacho.
 
 ## 5. Control de cambios 2.1
 
@@ -95,26 +115,36 @@ No usar en Fase 1:
 
 ## 6. Contexto no normativo
 
-`Contexto/` y `Reuniones/` explican la evolución. No deben usarse para construir Fase 1 cuando incluyan:
+`Contexto/` y `Reuniones/` explican la evolución. No deben utilizarse como
+contrato cuando contradigan ADR-003 o los documentos vigentes. Continúan fuera:
 
-- Connexa como asignador de stock;
-- motor de prorrateo;
-- planificador integral logístico;
+- motor automático de prorrateo/fair share;
+- optimizador integral logístico;
 - transferencias intersucursal;
-- cubicaje, camiones, viajes o rutas;
 - SND/API WEB como precondición;
-- publicación automática decidida por Connexa.
+- publicación sin aprobación humana ni idempotencia.
 
-Esas ideas podrán recuperarse en Fase 2 mediante nueva aprobación.
+La selección, reserva, cubicaje manual y viajes quedaron expresamente
+aprobados por ADR-003.
 
-## 7. Gobierno de cambios durante los 40 días
+## 7. Control de cambios 2.3
+
+- Connexa pasa a seleccionar el backlog y planificar viajes;
+- Valkimia recibe solamente viajes aprobados para operación inmediata;
+- se incorporan planes, viajes, paradas, líneas y atribuciones congeladas;
+- se define publicación idempotente y polling de la interfaz legacy;
+- se establece despacho como momento de cumplimiento;
+- se mantiene fuera la optimización automática de rutas y vehículos.
+
+## 8. Gobierno de cambios
 
 Todo cambio se clasifica:
 
 - **Aclaración:** no altera esfuerzo ni aceptación; se actualiza la especificación.
 - **Corrección:** resuelve contradicción o defecto; requiere evidencia y regresión.
 - **Cambio de alcance:** agrega actor, entidad, interfaz o capacidad; requiere decisión de producto y reemplazo equivalente.
-- **Fase 2:** cualquier gestión/optimización logística; se registra fuera del backlog comprometido.
+- **Optimización futura:** rutas automáticas, vehículos automáticos, GPS y
+  liquidación; requiere una decisión adicional.
 
 El equipo mantiene:
 
@@ -124,6 +154,22 @@ El equipo mantiene:
 - evidencia UAT;
 - lista explícita de exclusiones.
 
-## 8. Criterio para comenzar
+### Control de cambios 2.4
 
-El desarrollo puede iniciar con la SRS v2.1. Durante D1–D5 deben cerrarse fórmula/redondeo, fuentes, unidad, prioridad/imputación, contrato Valkimia, volumen, calendario y estados. Ninguna de esas definiciones habilita ampliar a Gestión de la Distribución.
+- se reconoce como válida la normalización relacional de estados Valkimia
+  implementada por el equipo BACK en DESA;
+- se documenta la divergencia detectada en `pdd_execution_event`;
+- se exige una nueva migración Flyway correctiva sin modificar checksums
+  históricos;
+- se formalizan criterios de aceptación para catálogo, mapping, eventos y
+  transiciones.
+
+## 9. Criterio para comenzar planificación de viajes
+
+El desarrollo puede iniciar con ADR-003, la migración v2.7, la especificación
+funcional y el OpenAPI de planificación. Antes de implementar el adaptador
+legacy deben obtenerse el DDL real de la tabla Valkimia, muestras de cada
+estado, semántica de cantidades y timestamps confiables de actualización.
+
+La falta de volumen permite comenzar con cubicaje por peso y pallets, pero debe
+permanecer visible como limitación y no convertirse silenciosamente en cero.

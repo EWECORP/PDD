@@ -5,7 +5,7 @@ import json
 from collections import Counter
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Mapping, Sequence
 from uuid import UUID, uuid4
 
@@ -22,8 +22,52 @@ LOGISTICS_COLUMNS = (
     "packages_per_pallet",
     "unit_weight_kg",
     "unit_volume_m3",
+    "source_logistics_id",
+    "supplier_code",
+    "logistics_configuration_code",
+    "source_valid_from",
+    "sells_by_weight",
+    "package_uom",
+    "unit_gtin",
+    "package_gtin",
+    "source_reference",
+    "unit_net_weight_kg",
+    "unit_gross_weight_kg",
+    "package_gross_weight_kg",
+    "weight_basis",
+    "package_length_cm",
+    "package_width_cm",
+    "package_height_cm",
+    "package_volume_m3",
+    "volume_method",
+    "packages_per_layer",
+    "layers_per_pallet",
+    "units_per_pallet",
+    "pallet_type",
+    "pallet_length_cm",
+    "pallet_width_cm",
+    "loaded_pallet_height_cm",
+    "pallet_gross_weight_kg",
+    "stackable",
+    "max_stack_levels",
+    "fragile",
+    "hazardous",
+    "temperature_zone",
+    "temperature_min_c",
+    "temperature_max_c",
+    "orientation_code",
+    "packaging_quality_status",
+    "weight_quality_status",
+    "volume_quality_status",
+    "pallet_quality_status",
+    "quality_issue_codes",
+    "verified_at",
+    "verified_by",
+    "attributes",
     "quality_status",
 )
+
+AXIS_QUALITY_VALUES = {"VERIFIED", "SOURCE", "ESTIMATED", "MISSING", "INVALID"}
 
 
 @dataclass(frozen=True)
@@ -118,40 +162,116 @@ def _canonical_number(value: Any) -> str:
     return "0" if normalized in {"-0", ""} else normalized
 
 
+def _axis_quality(value: Any, *, source_present: bool) -> str:
+    if not source_present:
+        return "MISSING"
+    normalized = str(value or "MISSING").strip().upper()
+    return normalized if normalized in AXIS_QUALITY_VALUES else "INVALID"
+
+
+def _effective_unit_weight(
+    unit_gross_weight_kg: Decimal | None,
+    package_gross_weight_kg: Decimal | None,
+    units_per_package: Decimal | None,
+    unit_net_weight_kg: Decimal | None,
+) -> tuple[Decimal | None, str | None]:
+    if unit_gross_weight_kg is not None:
+        return unit_gross_weight_kg, "GROSS_UNIT"
+    if package_gross_weight_kg is not None and units_per_package is not None:
+        return (
+            (package_gross_weight_kg / units_per_package).quantize(
+                Decimal("0.000001"), rounding=ROUND_HALF_UP
+            ),
+            "GROSS_PACKAGE_DERIVED",
+        )
+    if unit_net_weight_kg is not None:
+        return unit_net_weight_kg, "NET_UNIT_FALLBACK"
+    return None, None
+
+
 def normalize_logistics_row(row: Mapping[str, Any]) -> dict[str, Any]:
     source_present = row.get("source_codigo_articulo") is not None
-    sells_by_weight = row.get("m_vende_por_peso")
-    base_unit = "KG" if sells_by_weight == 1 else "UNIT"
-    if not source_present or sells_by_weight not in (0, 1):
+    sells_by_weight = row.get("m_vende_por_peso") if source_present else None
+    base_unit = str(row.get("c_unidad_base") or "UNKNOWN").strip().upper()
+    if not source_present:
         base_unit = "UNKNOWN"
 
-    units_per_package = _positive(row.get("q_factor_compra"))
-    packages_per_pallet = _positive(row.get("full_capacity_pallet"))
-    unit_weight_kg = _positive(row.get("q_peso_unit_art"))
-    invalid = any(
-        value is not None and _decimal(value) <= 0
-        for value in (row.get("q_factor_compra"),)
-    ) or any(
-        value is not None and _decimal(value) < 0
-        for value in (row.get("full_capacity_pallet"),)
-    ) or (
-        row.get("q_peso_unit_art") is not None
-        and _decimal(row.get("q_peso_unit_art")) < 0
+    units_per_package = _positive(row.get("q_unidades_por_bulto"))
+    packages_per_pallet = _positive(row.get("q_bultos_por_pallet"))
+    unit_net_weight_kg = _positive(row.get("q_peso_neto_unitario_kg"))
+    unit_gross_weight_kg = _positive(row.get("q_peso_bruto_unitario_kg"))
+    package_gross_weight_kg = _positive(row.get("q_peso_bruto_bulto_kg"))
+    unit_weight_kg, weight_basis = _effective_unit_weight(
+        unit_gross_weight_kg,
+        package_gross_weight_kg,
+        units_per_package,
+        unit_net_weight_kg,
+    )
+    unit_volume_m3 = _positive(row.get("q_volumen_unitario_m3"))
+
+    packaging_quality = _axis_quality(
+        row.get("c_calidad_embalaje"), source_present=source_present
+    )
+    weight_quality = _axis_quality(
+        row.get("c_calidad_peso"), source_present=source_present
+    )
+    volume_quality = _axis_quality(
+        row.get("c_calidad_volumen"), source_present=source_present
+    )
+    pallet_quality = _axis_quality(
+        row.get("c_calidad_pallet"), source_present=source_present
     )
 
-    if invalid:
+    if packaging_quality not in {"MISSING", "INVALID"} and (
+        base_unit == "UNKNOWN" or units_per_package is None
+    ):
+        packaging_quality = "INVALID"
+    if weight_quality not in {"MISSING", "INVALID"} and unit_weight_kg is None:
+        weight_quality = "INVALID"
+    if volume_quality not in {"MISSING", "INVALID"} and unit_volume_m3 is None:
+        volume_quality = "INVALID"
+    if pallet_quality not in {"MISSING", "INVALID"} and packages_per_pallet is None:
+        pallet_quality = "INVALID"
+
+    axis_quality = (
+        packaging_quality,
+        weight_quality,
+        volume_quality,
+        pallet_quality,
+    )
+    if "INVALID" in axis_quality:
         quality_status = "INVALID"
     elif not source_present:
         quality_status = "MISSING"
-    elif (
-        base_unit != "UNKNOWN"
-        and units_per_package is not None
-        and packages_per_pallet is not None
-        and unit_weight_kg is not None
-    ):
-        quality_status = "COMPLETE"
-    else:
+    elif "MISSING" in axis_quality:
         quality_status = "PARTIAL"
+    elif "ESTIMATED" in axis_quality:
+        quality_status = "ESTIMATED"
+    else:
+        quality_status = "COMPLETE"
+
+    issue_codes = []
+    for axis, status, missing_code in (
+        ("PACKAGING", packaging_quality, "PACKAGING_MISSING"),
+        ("WEIGHT", weight_quality, "WEIGHT_MISSING"),
+        ("VOLUME", volume_quality, "VOLUME_MISSING"),
+        ("PALLET", pallet_quality, "PALLET_CONFIGURATION_MISSING"),
+    ):
+        if status == "MISSING":
+            issue_codes.append(missing_code)
+        elif status == "INVALID":
+            issue_codes.append(f"{axis}_INVALID")
+    if not source_present:
+        issue_codes.append("SOURCE_LOGISTICS_MISSING")
+
+    attributes = dict(row.get("atributos_adicionales") or {})
+    if source_present:
+        attributes.update(
+            {
+                "source_origin": row.get("fuente_origen"),
+                "source_input_checksum": row.get("source_input_checksum"),
+            }
+        )
 
     normalized = {
         "codigo_articulo": int(row["codigo_articulo"]),
@@ -159,7 +279,49 @@ def normalize_logistics_row(row: Mapping[str, Any]) -> dict[str, Any]:
         "units_per_package": units_per_package,
         "packages_per_pallet": packages_per_pallet,
         "unit_weight_kg": unit_weight_kg,
-        "unit_volume_m3": None,
+        "unit_volume_m3": unit_volume_m3,
+        "source_logistics_id": row.get("articulo_logistica_id"),
+        "supplier_code": row.get("c_proveedor"),
+        "logistics_configuration_code": row.get("c_configuracion_logistica"),
+        "source_valid_from": row.get("f_vigencia_desde"),
+        "sells_by_weight": sells_by_weight,
+        "package_uom": row.get("c_tipo_bulto"),
+        "unit_gtin": row.get("c_gtin_unidad"),
+        "package_gtin": row.get("c_gtin_bulto"),
+        "source_reference": row.get("referencia_origen"),
+        "unit_net_weight_kg": unit_net_weight_kg,
+        "unit_gross_weight_kg": unit_gross_weight_kg,
+        "package_gross_weight_kg": package_gross_weight_kg,
+        "weight_basis": weight_basis,
+        "package_length_cm": _positive(row.get("q_largo_bulto_cm")),
+        "package_width_cm": _positive(row.get("q_ancho_bulto_cm")),
+        "package_height_cm": _positive(row.get("q_alto_bulto_cm")),
+        "package_volume_m3": _positive(row.get("q_volumen_bulto_m3")),
+        "volume_method": row.get("c_metodo_volumen"),
+        "packages_per_layer": row.get("q_bultos_por_capa"),
+        "layers_per_pallet": row.get("q_capas_por_pallet"),
+        "units_per_pallet": _positive(row.get("q_unidades_por_pallet")),
+        "pallet_type": row.get("c_tipo_pallet"),
+        "pallet_length_cm": _positive(row.get("q_largo_pallet_cm")),
+        "pallet_width_cm": _positive(row.get("q_ancho_pallet_cm")),
+        "loaded_pallet_height_cm": _positive(row.get("q_alto_pallet_cargado_cm")),
+        "pallet_gross_weight_kg": _positive(row.get("q_peso_bruto_pallet_kg")),
+        "stackable": row.get("m_apilable"),
+        "max_stack_levels": row.get("q_max_niveles_apilado"),
+        "fragile": row.get("m_fragil"),
+        "hazardous": row.get("m_peligroso"),
+        "temperature_zone": row.get("c_zona_temperatura"),
+        "temperature_min_c": _decimal(row.get("q_temperatura_min_c")),
+        "temperature_max_c": _decimal(row.get("q_temperatura_max_c")),
+        "orientation_code": row.get("c_orientacion"),
+        "packaging_quality_status": packaging_quality,
+        "weight_quality_status": weight_quality,
+        "volume_quality_status": volume_quality,
+        "pallet_quality_status": pallet_quality,
+        "quality_issue_codes": sorted(issue_codes),
+        "verified_at": None,
+        "verified_by": None,
+        "attributes": attributes,
         "quality_status": quality_status,
     }
     normalized["input_checksum"] = logistics_row_checksum(normalized)
@@ -172,6 +334,10 @@ def logistics_row_checksum(row: Mapping[str, Any]) -> str:
         value = row.get(column)
         if isinstance(value, Decimal) or isinstance(value, float):
             values.append(_canonical_number(value))
+        elif isinstance(value, (dict, list, tuple, bool)):
+            values.append(json.dumps(value, default=str, sort_keys=True, separators=(",", ":")))
+        elif isinstance(value, (date, datetime)):
+            values.append(value.isoformat())
         elif value is None:
             values.append("")
         else:
@@ -201,36 +367,65 @@ def _read_logistics_source(
     scope_version_uuid: UUID,
     origin_cd: int,
 ) -> tuple[list[dict[str, Any]], datetime, int]:
+    del origin_cd  # La fuente canonica es por articulo, no por sucursal/CD.
     query = text(
         """
         WITH scope_articles AS (
             SELECT codigo_articulo
             FROM datamart.dm_pdd_scope_article
             WHERE scope_version_uuid = CAST(:scope_version_uuid AS uuid)
-        ),
-        cd_product AS (
-            SELECT DISTINCT ON (p.c_articulo)
-                p.c_articulo,
-                p.m_vende_por_peso,
-                p.q_factor_compra,
-                p.full_capacity_pallet,
-                p.q_peso_unit_art,
-                p.fecha_extraccion
-            FROM src.base_productos_vigentes AS p
-            JOIN scope_articles AS s ON s.codigo_articulo = p.c_articulo
-            WHERE p.c_sucu_empr = :origin_cd
-            ORDER BY p.c_articulo, p.fecha_extraccion DESC NULLS LAST
         )
         SELECT
             s.codigo_articulo,
-            p.c_articulo AS source_codigo_articulo,
-            p.m_vende_por_peso,
-            p.q_factor_compra,
-            p.full_capacity_pallet,
-            p.q_peso_unit_art,
-            p.fecha_extraccion
+            l.c_articulo AS source_codigo_articulo,
+            l.articulo_logistica_id,
+            l.c_proveedor,
+            l.c_configuracion_logistica,
+            l.c_unidad_base,
+            l.m_vende_por_peso,
+            l.c_gtin_unidad,
+            l.c_tipo_bulto,
+            l.c_gtin_bulto,
+            l.q_unidades_por_bulto,
+            l.q_peso_neto_unitario_kg,
+            l.q_peso_bruto_unitario_kg,
+            l.q_peso_bruto_bulto_kg,
+            l.q_largo_bulto_cm,
+            l.q_ancho_bulto_cm,
+            l.q_alto_bulto_cm,
+            l.q_volumen_bulto_m3,
+            l.q_volumen_unitario_m3,
+            l.c_metodo_volumen,
+            l.q_bultos_por_capa,
+            l.q_capas_por_pallet,
+            l.q_bultos_por_pallet,
+            l.q_unidades_por_pallet,
+            l.c_tipo_pallet,
+            l.q_largo_pallet_cm,
+            l.q_ancho_pallet_cm,
+            l.q_alto_pallet_cargado_cm,
+            l.q_peso_bruto_pallet_kg,
+            l.m_apilable,
+            l.q_max_niveles_apilado,
+            l.m_fragil,
+            l.m_peligroso,
+            l.c_zona_temperatura,
+            l.q_temperatura_min_c,
+            l.q_temperatura_max_c,
+            l.c_orientacion,
+            l.c_calidad_embalaje,
+            l.c_calidad_peso,
+            l.c_calidad_volumen,
+            l.c_calidad_pallet,
+            l.f_vigencia_desde,
+            l.fuente_origen,
+            l.referencia_origen,
+            l.fecha_extraccion,
+            l.input_checksum AS source_input_checksum,
+            l.atributos_adicionales
         FROM scope_articles AS s
-        LEFT JOIN cd_product AS p ON p.c_articulo = s.codigo_articulo
+        LEFT JOIN src.v_base_articulos_logistica_actual AS l
+          ON l.c_articulo = s.codigo_articulo
         ORDER BY s.codigo_articulo
         """
     )
@@ -251,10 +446,7 @@ def _read_logistics_source(
             dict(row)
             for row in connection.execute(
                 query,
-                {
-                    "scope_version_uuid": scope_version_uuid,
-                    "origin_cd": origin_cd,
-                },
+                {"scope_version_uuid": scope_version_uuid},
             ).mappings()
         ]
     if len(raw_rows) != scope["article_count"]:
@@ -262,10 +454,15 @@ def _read_logistics_source(
             "La extraccion logistica no cubre el scope congelado: "
             f"filas={len(raw_rows)}, scope={scope['article_count']}"
         )
-    source_timestamps = [row["fecha_extraccion"] for row in raw_rows if row["fecha_extraccion"]]
+    source_timestamps = [
+        timestamp
+        for row in raw_rows
+        for timestamp in (row.get("fecha_extraccion"), row.get("f_vigencia_desde"))
+        if timestamp is not None
+    ]
     source_as_of_ts = max(source_timestamps) if source_timestamps else scope["source_as_of_ts"]
     if source_as_of_ts is None:
-        raise RuntimeError("No se pudo determinar source_as_of_ts de productos vigentes")
+        raise RuntimeError("No se pudo determinar source_as_of_ts de articulos logistica")
     return [normalize_logistics_row(row) for row in raw_rows], source_as_of_ts, scope["article_count"]
 
 
@@ -400,7 +597,7 @@ def publish_item_logistics(
                     ) VALUES (
                         CAST(:run_uuid AS uuid), 'DATA_PREP', :business_date,
                         :cutoff_date, 'CD', :scope_id, :attempt_no,
-                        :scope_version_id, 'ITEM_LOGISTICS_V1', 'RUNNING',
+                        :scope_version_id, 'ITEM_LOGISTICS_V2', 'RUNNING',
                         clock_timestamp(), :created_by, :row_count, :row_count,
                         :warning_count, 0, :checksum, CAST(:summary AS jsonb)
                     ) RETURNING calculation_run_id
@@ -415,15 +612,19 @@ def publish_item_logistics(
                     "scope_version_id": scope["scope_version_id"],
                     "created_by": created_by.strip(),
                     "row_count": len(rows),
-                    "warning_count": quality_counts.get("MISSING", 0)
-                    + quality_counts.get("INVALID", 0),
+                    "warning_count": sum(
+                        count
+                        for status, count in quality_counts.items()
+                        if status != "COMPLETE"
+                    ),
                     "checksum": source_checksum,
                     "summary": _json(
                         {
                             "entity": "pdd_item_logistics_snapshot",
                             "scope_version_uuid": str(scope_version_uuid),
                             "quality_counts": quality_counts,
-                            "unit_volume_m3": "NOT_AVAILABLE_IN_SOURCE",
+                            "canonical_source": "src.v_base_articulos_logistica_actual",
+                            "formula_version": "ITEM_LOGISTICS_V2",
                         }
                     ),
                 },
@@ -437,7 +638,7 @@ def publish_item_logistics(
                         checksum, status, detail
                     ) VALUES (
                         :calculation_run_id, 'PRODUCT_LOGISTICS', :source_database,
-                        'src.base_productos_vigentes', true, :as_of_ts,
+                        'src.v_base_articulos_logistica_actual', true, :as_of_ts,
                         :row_count, :checksum, 'VALID', CAST(:detail AS jsonb)
                     ) RETURNING source_snapshot_id
                     """
@@ -451,7 +652,11 @@ def publish_item_logistics(
                     "detail": _json(
                         {
                             "scope_version_uuid": str(scope_version_uuid),
-                            "source_selector": {"c_sucu_empr": source_settings.origin_cd},
+                            "source_selector": {
+                                "current": True,
+                                "active": True,
+                                "default_configuration": True,
+                            },
                             "canonical_columns": LOGISTICS_COLUMNS,
                         }
                     ),
@@ -463,12 +668,43 @@ def publish_item_logistics(
                     calculation_run_id, origin_cd, codigo_articulo, base_unit,
                     units_per_package, packages_per_pallet, unit_weight_kg,
                     unit_volume_m3, source_snapshot_id, quality_status,
-                    source_as_of_ts, input_checksum
+                    source_as_of_ts, input_checksum,
+                    source_logistics_id, supplier_code,
+                    logistics_configuration_code, source_valid_from,
+                    sells_by_weight, package_uom, unit_gtin, package_gtin,
+                    source_reference, unit_net_weight_kg, unit_gross_weight_kg,
+                    package_gross_weight_kg, weight_basis, package_length_cm,
+                    package_width_cm, package_height_cm, package_volume_m3,
+                    volume_method, packages_per_layer, layers_per_pallet,
+                    units_per_pallet, pallet_type, pallet_length_cm,
+                    pallet_width_cm, loaded_pallet_height_cm,
+                    pallet_gross_weight_kg, stackable, max_stack_levels,
+                    fragile, hazardous, temperature_zone, temperature_min_c,
+                    temperature_max_c, orientation_code,
+                    packaging_quality_status, weight_quality_status,
+                    volume_quality_status, pallet_quality_status,
+                    quality_issue_codes, verified_at, verified_by, attributes
                 ) VALUES (
                     :calculation_run_id, :origin_cd, :codigo_articulo, :base_unit,
                     :units_per_package, :packages_per_pallet, :unit_weight_kg,
                     :unit_volume_m3, :source_snapshot_id, :quality_status,
-                    :source_as_of_ts, :input_checksum
+                    :source_as_of_ts, :input_checksum,
+                    :source_logistics_id, :supplier_code,
+                    :logistics_configuration_code, :source_valid_from,
+                    :sells_by_weight, :package_uom, :unit_gtin, :package_gtin,
+                    :source_reference, :unit_net_weight_kg, :unit_gross_weight_kg,
+                    :package_gross_weight_kg, :weight_basis, :package_length_cm,
+                    :package_width_cm, :package_height_cm, :package_volume_m3,
+                    :volume_method, :packages_per_layer, :layers_per_pallet,
+                    :units_per_pallet, :pallet_type, :pallet_length_cm,
+                    :pallet_width_cm, :loaded_pallet_height_cm,
+                    :pallet_gross_weight_kg, :stackable, :max_stack_levels,
+                    :fragile, :hazardous, :temperature_zone, :temperature_min_c,
+                    :temperature_max_c, :orientation_code,
+                    :packaging_quality_status, :weight_quality_status,
+                    :volume_quality_status, :pallet_quality_status,
+                    :quality_issue_codes, :verified_at, :verified_by,
+                    CAST(:attributes AS jsonb)
                 )
                 """
             )
@@ -482,6 +718,7 @@ def publish_item_logistics(
                             "origin_cd": source_settings.origin_cd,
                             "source_snapshot_id": source_snapshot_id,
                             "source_as_of_ts": source_as_of_ts,
+                            "attributes": _json(row["attributes"]),
                         }
                         for row in chunk
                     ],
@@ -491,6 +728,23 @@ def publish_item_logistics(
                     """
                     SELECT codigo_articulo, base_unit, units_per_package,
                            packages_per_pallet, unit_weight_kg, unit_volume_m3,
+                           source_logistics_id, supplier_code,
+                           logistics_configuration_code, source_valid_from,
+                           sells_by_weight, package_uom, unit_gtin, package_gtin,
+                           source_reference, unit_net_weight_kg,
+                           unit_gross_weight_kg, package_gross_weight_kg,
+                           weight_basis, package_length_cm, package_width_cm,
+                           package_height_cm, package_volume_m3, volume_method,
+                           packages_per_layer, layers_per_pallet,
+                           units_per_pallet, pallet_type, pallet_length_cm,
+                           pallet_width_cm, loaded_pallet_height_cm,
+                           pallet_gross_weight_kg, stackable, max_stack_levels,
+                           fragile, hazardous, temperature_zone,
+                           temperature_min_c, temperature_max_c,
+                           orientation_code, packaging_quality_status,
+                           weight_quality_status, volume_quality_status,
+                           pallet_quality_status, quality_issue_codes,
+                           verified_at, verified_by, attributes,
                            quality_status, input_checksum
                     FROM stock_management.pdd_item_logistics_snapshot
                     WHERE calculation_run_id = :calculation_run_id

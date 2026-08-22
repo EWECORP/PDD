@@ -266,6 +266,12 @@ Authorities: `PDD_VIEWER`, `PDD_BUYER`, `PDD_SUPERVISOR`, `PDD_AUDITOR`,
 
 ## 13. Fuera de alcance v1
 
+Esta sección describe el contrato inicial DECAS v1.1. La decisión posterior
+ADR-003 incorporó reserva, viajes y cubicaje manual mediante un contrato
+separado, sin alterar las 15 operaciones existentes. Para el nuevo alcance son
+normativos `PDD - Especificacion Funcional Planificacion de Viajes Connexa
+v1.0.md` y `backend/contracts/pdd-planning-openapi-v1.yaml`.
+
 - reserva o asignación de stock;
 - órdenes de distribución y prorrateo;
 - selección automática para camiones;
@@ -283,3 +289,11 @@ Authorities: `PDD_VIEWER`, `PDD_BUYER`, `PDD_SUPERVISOR`, `PDD_AUDITOR`,
 - especificación Java `PDD - Especificación Implementación API Java Stock Management v1.0.md`;
 - consultas de referencia para repositorios Java;
 - DDL y diccionario físico vigentes.
+
+## 15. Extensión de planificación aprobada
+
+El frontend Connexa, y no Valkimia, selecciona el backlog, forma viajes,
+controla capacidad y solicita su publicación. La extensión agrega los roles
+`PDD_PLANNER` y casos de uso de planes, viajes y seguimiento. Valkimia recibe
+solamente viajes aprobados; una selección no equivale a cumplimiento y el
+despacho es el evento que imputa el saldo DECAS.
