@@ -11,15 +11,22 @@ from pdd_backend.jobs.daily_pipeline import (
     REFRESH_OPEN_PO_SQL,
     pipeline_stage_revision,
     pipeline_stage_uuid,
+    validate_published_pdvb_run,
     read_daily_source_state,
     refresh_open_purchase_orders,
     resolve_daily_pipeline_context,
+)
+from pdd_backend.flows.daily_pipeline import (
+    pdd_operational_daily_flow,
+    pdd_operational_publish_desa_flow,
 )
 
 
 SCOPE_UUID = UUID("f157e436-1094-431b-ae2a-8f477d780c3e")
 MODEL_UUID = UUID("a0a35b25-628d-43f1-b651-82c97207fc60")
 CONFIG_UUID = UUID("2f916828-c59d-4190-a795-29ac5cfc1a66")
+PDVB_RUN_UUID = UUID("776354b5-b291-58ea-9579-0b86df61023b")
+PUBLICATION_BATCH_UUID = UUID("8e07e28e-cf23-41e4-a4b6-c0a8a6b5e0b7")
 
 
 def source_state(**overrides) -> DailySourceState:
@@ -32,6 +39,11 @@ def source_state(**overrides) -> DailySourceState:
         "branch_stock_date": date(2026, 8, 16),
         "open_po_as_of_ts": datetime(2026, 8, 17, tzinfo=timezone.utc),
         "open_po_row_count": 100,
+        "source_sync_run_uuid": "4ab919d4-2793-4101-90fe-5c5e60504a71",
+        "source_sync_business_date": date(2026, 8, 16),
+        "source_sync_status": "READY",
+        "source_sync_refresh_mode": "FULL",
+        "source_sync_finished_at": datetime(2026, 8, 16, 22, tzinfo=timezone.utc),
         "current_backlog_date": date(2026, 8, 14),
     }
     values.update(overrides)
@@ -97,6 +109,21 @@ def test_daily_context_blocks_stale_or_uninitialized_inputs() -> None:
         )
 
 
+def test_daily_context_requires_ready_audited_source_contract() -> None:
+    with pytest.raises(RuntimeError, match="contrato auditado.*no esta READY"):
+        resolve_daily_pipeline_context(
+            source_state(source_sync_status="BLOCKED"),
+            requested_business_date=date(2026, 8, 16),
+            today=date(2026, 8, 17),
+        )
+    with pytest.raises(RuntimeError, match="contrato auditado.*no esta READY"):
+        resolve_daily_pipeline_context(
+            source_state(source_sync_business_date=date(2026, 8, 15)),
+            requested_business_date=date(2026, 8, 16),
+            today=date(2026, 8, 17),
+        )
+
+
 def test_daily_context_rejects_future_business_date() -> None:
     with pytest.raises(RuntimeError, match="es futura"):
         resolve_daily_pipeline_context(
@@ -156,6 +183,47 @@ def test_operational_stage_revision_includes_effective_stock_date() -> None:
     ) == "DAILY_PIPELINE_V1:STOCK:2026-08-18"
 
 
+def published_pdvb_row(**overrides) -> dict:
+    values = {
+        "calculation_run_uuid": PDVB_RUN_UUID,
+        "business_date": date(2026, 8, 16),
+        "model_version_uuid": MODEL_UUID,
+        "scope_version_uuid": SCOPE_UUID,
+        "origin_cd": 41,
+        "row_count": 50711,
+        "distinct_pair_count": 50711,
+        "expected_pair_count": 50711,
+        "published_row_count": 50711,
+        "published_at_row_count": 50711,
+        "publication_batch_count": 1,
+        "publication_batch_uuid": PUBLICATION_BATCH_UUID,
+        "published_at": datetime(2026, 8, 17, 21, 29, tzinfo=timezone.utc),
+    }
+    values.update(overrides)
+    return values
+
+
+def test_published_pdvb_barrier_accepts_only_complete_published_scope() -> None:
+    result = validate_published_pdvb_run(published_pdvb_row(), PDVB_RUN_UUID)
+    assert result.calculation_run_uuid == PDVB_RUN_UUID
+    assert result.row_count == 50711
+    assert result.publication_batch_uuid == PUBLICATION_BATCH_UUID
+
+
+@pytest.mark.parametrize(
+    ("row", "message"),
+    [
+        (None, "no esta disponible"),
+        (published_pdvb_row(row_count=50710), "no cubre exactamente"),
+        (published_pdvb_row(published_row_count=0), "no fue publicada completamente"),
+        (published_pdvb_row(publication_batch_count=2), "no fue publicada completamente"),
+    ],
+)
+def test_published_pdvb_barrier_rejects_invalid_inputs(row, message) -> None:
+    with pytest.raises(RuntimeError, match=message):
+        validate_published_pdvb_run(row, PDVB_RUN_UUID)
+
+
 def test_open_po_refresh_is_serialized_and_non_concurrent() -> None:
     source = getsource(refresh_open_purchase_orders)
     assert REFRESH_OPEN_PO_SQL == (
@@ -165,12 +233,20 @@ def test_open_po_refresh_is_serialized_and_non_concurrent() -> None:
     assert "CONCURRENTLY" not in source
 
 
+def test_operational_master_consumes_audited_sources_without_refreshing_them() -> None:
+    source = getsource(pdd_operational_daily_flow.fn)
+    assert "refresh_open_purchase_orders_task" not in source
+    assert "resolve_daily_context_task" in source
+
+
 def test_source_state_is_scope_aware_for_features_and_backlog() -> None:
     source = getsource(read_daily_source_state)
     assert "dm_pdd_venta_diaria" in source
     assert "scope_version_uuid = CAST(:scope_uuid AS uuid)" in source
     assert "pdd_distribution_scope_version" in source
     assert "r.scope_id = '41:BACKLOG'" in source
+    assert "audit.pdd_source_sync_run" in source
+    assert "source_sync_status" in source
 
 
 def test_master_deployment_has_daily_2030_argentina_schedule() -> None:
@@ -206,6 +282,34 @@ def test_desa_master_deployment_is_isolated_and_manual() -> None:
     assert deployment["parameters"]["force"] is False
     assert deployment["parameters"]["pipeline_revision"] == "DAILY_PIPELINE_V2"
     assert deployment["parameters"]["created_by"] == "pdd.daily.orchestrator.desa"
+    assert deployment["work_pool"]["work_queue_name"] == "pdd-desa"
+
+
+def test_desa_daily_publisher_is_isolated_scheduled_and_does_not_recalculate() -> None:
+    source = getsource(pdd_operational_publish_desa_flow.fn)
+    assert "pdd_features_flow" not in source
+    assert "daily_pdvb_task" not in source
+    assert "require_published_pdvb_task" in source
+    assert "validate_desa_target_task" in source
+
+    root = Path(__file__).parents[1]
+    config = yaml.safe_load((root / "prefect.yaml").read_text(encoding="utf-8"))
+    deployment = next(
+        item
+        for item in config["deployments"]
+        if item["name"] == "PDD_OPERATIONAL_PUBLISH_DESA_DAILY"
+    )
+    assert deployment["schedules"] == [
+        {
+            "cron": "0 21 * * *",
+            "timezone": "America/Argentina/Buenos_Aires",
+            "slug": "pdd-operational-publish-desa-2100-art",
+            "active": True,
+        }
+    ]
+    assert deployment["parameters"]["force"] is False
+    assert deployment["parameters"]["pipeline_revision"] == "DAILY_PIPELINE_V2"
+    assert "business_date" not in deployment["parameters"]
     assert deployment["work_pool"]["work_queue_name"] == "pdd-desa"
 
 

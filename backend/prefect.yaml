@@ -34,6 +34,22 @@ deployments:
       name: diarco-pdd
       work_queue_name: pdd-desa
 
+  - name: PDD_OPERATIONAL_PUBLISH_DESA_DAILY
+    entrypoint: pdd_backend/flows/daily_pipeline.py:pdd_operational_publish_desa_flow
+    parameters:
+      configuration_version_uuid: 2f916828-c59d-4190-a795-29ac5cfc1a66
+      created_by: pdd.operational.publisher.desa
+      pipeline_revision: DAILY_PIPELINE_V2
+      force: false
+    schedules:
+      - cron: "0 21 * * *"
+        timezone: America/Argentina/Buenos_Aires
+        slug: pdd-operational-publish-desa-2100-art
+        active: true
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd-desa
+
   - name: PDD_SCOPE_SNAPSHOT_MANUAL
     entrypoint: pdd_backend/flows/analytical.py:pdd_scope_snapshot_flow
     parameters: {}

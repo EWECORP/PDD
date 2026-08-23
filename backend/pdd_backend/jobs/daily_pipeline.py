@@ -43,6 +43,11 @@ class DailySourceState:
     branch_stock_date: date | None
     open_po_as_of_ts: datetime | None
     open_po_row_count: int
+    source_sync_run_uuid: str | None
+    source_sync_business_date: date | None
+    source_sync_status: str | None
+    source_sync_refresh_mode: str | None
+    source_sync_finished_at: datetime | None
     current_backlog_date: date | None
 
     def serializable(self) -> dict[str, Any]:
@@ -72,6 +77,152 @@ class DailyPipelineContext:
             ),
             "source_state": self.source_state.serializable(),
         }
+
+
+@dataclass(frozen=True)
+class PublishedPdvbRun:
+    calculation_run_uuid: UUID
+    business_date: date
+    model_version_uuid: UUID
+    scope_version_uuid: UUID
+    origin_cd: int
+    row_count: int
+    expected_pair_count: int
+    publication_batch_uuid: UUID
+    published_at: datetime
+
+    def serializable(self) -> dict[str, Any]:
+        return {
+            **self.__dict__,
+            "calculation_run_uuid": str(self.calculation_run_uuid),
+            "business_date": self.business_date.isoformat(),
+            "model_version_uuid": str(self.model_version_uuid),
+            "scope_version_uuid": str(self.scope_version_uuid),
+            "publication_batch_uuid": str(self.publication_batch_uuid),
+            "published_at": self.published_at.isoformat(),
+        }
+
+
+def validate_published_pdvb_run(
+    row: dict[str, Any] | None,
+    calculation_run_uuid: UUID,
+) -> PublishedPdvbRun:
+    """Valida que una corrida PDVB completa ya haya atravesado publicación TEST."""
+    if row is None:
+        raise RuntimeError(
+            "La corrida analitica PDVB requerida por DESA no esta disponible: "
+            f"{calculation_run_uuid}"
+        )
+
+    row_count = int(row["row_count"])
+    distinct_pair_count = int(row["distinct_pair_count"])
+    expected_pair_count = int(row["expected_pair_count"])
+    if row_count != expected_pair_count or distinct_pair_count != expected_pair_count:
+        raise RuntimeError(
+            "La corrida analitica PDVB no cubre exactamente el scope congelado: "
+            f"corrida={calculation_run_uuid}, filas={row_count}, "
+            f"pares={distinct_pair_count}, esperados={expected_pair_count}"
+        )
+
+    published_row_count = int(row["published_row_count"])
+    published_at_row_count = int(row["published_at_row_count"])
+    publication_batch_count = int(row["publication_batch_count"])
+    if (
+        published_row_count != row_count
+        or published_at_row_count != row_count
+        or publication_batch_count != 1
+        or row["publication_batch_uuid"] is None
+        or row["published_at"] is None
+    ):
+        raise RuntimeError(
+            "La corrida analitica PDVB todavia no fue publicada completamente por "
+            "el proceso operativo precedente: "
+            f"corrida={calculation_run_uuid}, publicadas={published_row_count}/"
+            f"{row_count}, fechas={published_at_row_count}/{row_count}, "
+            f"lotes={publication_batch_count}"
+        )
+
+    return PublishedPdvbRun(
+        calculation_run_uuid=UUID(str(row["calculation_run_uuid"])),
+        business_date=row["business_date"],
+        model_version_uuid=UUID(str(row["model_version_uuid"])),
+        scope_version_uuid=UUID(str(row["scope_version_uuid"])),
+        origin_cd=int(row["origin_cd"]),
+        row_count=row_count,
+        expected_pair_count=expected_pair_count,
+        publication_batch_uuid=UUID(str(row["publication_batch_uuid"])),
+        published_at=row["published_at"],
+    )
+
+
+def read_published_pdvb_run(
+    source_engine: Engine,
+    calculation_run_uuid: UUID,
+    business_date: date,
+    scope_version_uuid: UUID,
+    model_version_uuid: UUID,
+    origin_cd: int,
+) -> PublishedPdvbRun:
+    """Lee la corrida determinística de TEST que DESA está autorizado a materializar."""
+    with source_engine.connect() as connection:
+        rows = connection.execute(
+            text(
+                """
+                SELECT
+                    e.calculation_run_uuid,
+                    e.business_date,
+                    e.model_version_uuid,
+                    e.scope_version_uuid,
+                    e.origin_cd,
+                    count(*)::bigint AS row_count,
+                    count(DISTINCT (e.codigo_articulo, e.sucursal))::bigint
+                        AS distinct_pair_count,
+                    s.pair_count::bigint AS expected_pair_count,
+                    count(*) FILTER (
+                        WHERE e.publication_batch_uuid IS NOT NULL
+                    )::bigint AS published_row_count,
+                    count(*) FILTER (
+                        WHERE e.published_at IS NOT NULL
+                    )::bigint AS published_at_row_count,
+                    count(DISTINCT e.publication_batch_uuid)::integer
+                        AS publication_batch_count,
+                    min(e.publication_batch_uuid::text)::uuid
+                        AS publication_batch_uuid,
+                    max(e.published_at) AS published_at
+                FROM datamart.dm_pdd_pdvb_estimate_detail AS e
+                INNER JOIN datamart.dm_pdd_scope_version AS s
+                    ON s.scope_version_uuid = e.scope_version_uuid
+                WHERE e.calculation_run_uuid = CAST(:calculation_run_uuid AS uuid)
+                  AND e.business_date = CAST(:business_date AS date)
+                  AND e.scope_version_uuid = CAST(:scope_version_uuid AS uuid)
+                  AND e.model_version_uuid = CAST(:model_version_uuid AS uuid)
+                  AND e.origin_cd = :origin_cd
+                GROUP BY
+                    e.calculation_run_uuid,
+                    e.business_date,
+                    e.model_version_uuid,
+                    e.scope_version_uuid,
+                    e.origin_cd,
+                    s.pair_count
+                """
+            ),
+            {
+                "calculation_run_uuid": calculation_run_uuid,
+                "business_date": business_date,
+                "scope_version_uuid": scope_version_uuid,
+                "model_version_uuid": model_version_uuid,
+                "origin_cd": origin_cd,
+            },
+        ).mappings().all()
+    if len(rows) > 1:
+        raise RuntimeError(
+            "La corrida analitica PDVB produjo mas de un snapshot logico: "
+            f"{calculation_run_uuid}"
+        )
+    return validate_published_pdvb_run(
+        dict(rows[0]) if rows else None,
+        calculation_run_uuid,
+    )
 
 
 def refresh_open_purchase_orders(
@@ -155,7 +306,25 @@ def read_daily_source_state(
                     (SELECT max(fecha_extraccion)
                      FROM src.mv_base_oc_pendientes) AS open_po_as_of_ts,
                     (SELECT count(*)::bigint
-                     FROM src.mv_base_oc_pendientes) AS open_po_row_count
+                     FROM src.mv_base_oc_pendientes) AS open_po_row_count,
+                    source_sync.source_sync_run_uuid,
+                    source_sync.business_date AS source_sync_business_date,
+                    source_sync.status AS source_sync_status,
+                    source_sync.refresh_mode AS source_sync_refresh_mode,
+                    source_sync.finished_at AS source_sync_finished_at
+                FROM (VALUES (1)) AS anchor(dummy)
+                LEFT JOIN LATERAL (
+                    SELECT
+                        r.source_sync_run_uuid::text AS source_sync_run_uuid,
+                        r.business_date,
+                        r.status,
+                        r.refresh_mode,
+                        r.finished_at
+                    FROM audit.pdd_source_sync_run AS r
+                    WHERE r.status IN ('READY', 'BLOCKED', 'FAILED')
+                    ORDER BY r.business_date DESC, r.started_at DESC
+                    LIMIT 1
+                ) AS source_sync ON true
                 """
             ),
             {"scope_uuid": scope_version_uuid},
@@ -220,20 +389,20 @@ def resolve_daily_pipeline_context(
         raise RuntimeError(
             f"Las fuentes no alcanzan el corte {cutoff_date}: " + ", ".join(stale)
         )
+    if (
+        state.source_sync_business_date != business_date
+        or state.source_sync_status != "READY"
+    ):
+        raise RuntimeError(
+            "El contrato auditado de fuentes no esta READY para la fecha operativa "
+            f"{business_date}; run={state.source_sync_run_uuid}, "
+            f"fecha={state.source_sync_business_date}, status={state.source_sync_status}"
+        )
     if state.branch_stock_date is None or state.branch_stock_date < business_date:
         raise RuntimeError(
             "La posicion de stock de sucursal no alcanza la fecha operativa "
             f"{business_date}; disponible={state.branch_stock_date}"
         )
-    if (
-        state.open_po_as_of_ts is None
-        or state.open_po_as_of_ts.date() < business_date
-    ):
-        raise RuntimeError(
-            "La vista canonica de OC no quedo actualizada para la fecha operativa "
-            f"{business_date}; as_of={state.open_po_as_of_ts}"
-        )
-
     if (
         not force
         and state.current_backlog_date is not None

@@ -60,6 +60,7 @@ El signo normativo de NDD-D es resta de Stock Neto Sucursal. Su ratificación fu
 | `backend/contracts/pdd-planning-openapi-v1.yaml` | OpenAPI ejecutable de planificación y seguimiento Valkimia |
 | `PDD - Migracion Operativa Planificacion Viajes v2.7.sql` | Entidades físicas aditivas para el nuevo alcance |
 | `PDD - Despliegue y Prueba Planificacion Viajes v1.0.md` | Secuencia DESA→TEST, smoke test y gates |
+| `PDD - Publicacion Operativa Diaria DESA v1.0.md` | Materialización diaria DESA sin recalcular features ni PDVB |
 | `PDD - Solicitud de Correccion Contrato Estados Valkimia v1.0.md` | Corrección requerida al BACK para catálogo, eventos, mapping y transiciones Valkimia |
 | `PDD - Migracion Correctiva Estados Valkimia v2.8.sql` | Catálogo canónico, FK de eventos, checks, índice y retiro de duplicaciones |
 | `PDD - Validacion Correctiva Estados Valkimia v2.8.sql` | Control de catálogo, FK, columnas, índice e integridad final |

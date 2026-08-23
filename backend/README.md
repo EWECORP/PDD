@@ -126,9 +126,9 @@ pdd-etl features --start 2026-07-01 --end 2026-07-31
 ## Prefect
 
 `prefect.yaml` declara deployments en el pool `diarco-pdd`. TEST usa la cola
-`pdd`; DESA usa la cola aislada `pdd-desa`. El único schedule activo es el
-orquestador TEST de las 20:30. El deployment DESA se mantiene manual hasta
-validar su primera publicación y su convivencia operativa con TEST.
+`pdd`; DESA usa la cola aislada `pdd-desa`. El orquestador completo de TEST
+corre a las 20:30 y la materialización operativa de DESA a las 21:00, siempre
+en `America/Argentina/Buenos_Aires`.
 
 ```bash
 export PREFECT_API_URL=https://orquestador.connexa-cloud.com/api
@@ -144,7 +144,8 @@ comando equivalente contra el orquestador de CONNEXA.
 Desde la versión 0.13.0 el deployment `PDD_OPERATIONAL_DAILY_MASTER` ejecuta
 la cadena diaria completa:
 
-1. refresca `src.mv_base_oc_pendientes` bajo un advisory lock;
+1. consume el contrato auditado `audit.pdd_source_sync_run` que dejó READY el
+   orquestador de fuentes;
 2. determina el último cierre común de ventas crudas, ventas enriquecidas y
    stock LEGACY;
 3. valida stock operativo, scope y frescura de OC;
@@ -154,10 +155,9 @@ la cadena diaria completa:
 7. calcula posiciones y necesidades D/S;
 8. consolida y publica el backlog vigente.
 
-La vista se refresca con `REFRESH MATERIALIZED VIEW` no concurrente porque no
-se ha certificado un índice único compatible con `CONCURRENTLY`. El worker PDD
-tiene límite uno y el job agrega un lock transaccional, por lo que dos corridas
-no pueden refrescarla simultáneamente.
+El refresco de `src.mv_base_oc_pendientes` pertenece al orquestador de fuentes
+de `ETL_DIARCO`; este flujo operativo no vuelve a refrescar ni a sincronizar
+fuentes.
 
 Sin `business_date`, el flujo usa como fecha operativa el día posterior al
 cierre común. Si esa fecha ya tiene backlog vigente para el mismo scope,
@@ -211,7 +211,7 @@ Si todavía no existe un nuevo cierre común, termina de forma idempotente como
 `SKIPPED/NO_NEW_CLOSED_DATE`; si una fuente necesaria está atrasada o es
 inconsistente, falla antes de desplazar las publicaciones vigentes.
 
-### Publicación paralela en DESA
+### Publicación diaria en DESA
 
 Desde la versión 0.15.0 el destino operativo se selecciona con una pareja
 ambiente/base validada estrictamente:
@@ -238,22 +238,48 @@ ExecStart=/srv/FORECAST/venv/bin/prefect worker start \
   --limit 1
 ```
 
-Antes de la primera publicación:
+Antes de la primera publicación se valida el entorno y se despliegan las
+definiciones:
 
 ```bash
 export PDD_ENV_PATH=/srv/PDD/backend/.env.desa
 python tools/validate_operational.py
 
 export PREFECT_API_URL=https://orquestador.connexa-cloud.com/api
+prefect deploy --all
+
+export PREFECT_API_URL=https://orquestador.connexa-cloud.com/api
 prefect deployment run \
-  "PDD - Orquestador diario completo/PDD_OPERATIONAL_DAILY_MASTER_DESA" \
+  "PDD - Publicacion operativa diaria DESA/PDD_OPERATIONAL_PUBLISH_DESA_DAILY" \
   --params '{"force": true}' \
   --watch
 ```
 
-El deployment DESA no tiene schedule inicial. Si luego se automatiza, debe
-ejecutarse después de TEST o compartir un límite global para no duplicar al
-mismo tiempo el cálculo y las lecturas sobre `diarco_data`.
+Desde la versión 0.18.0 `PDD_OPERATIONAL_PUBLISH_DESA_DAILY` corre a las 21:00.
+No ejecuta features ni calcula PDVB. Deriva el UUID exacto que debió generar
+`PDD_OPERATIONAL_DAILY_MASTER` para la misma fecha, scope, modelo,
+configuración y `DAILY_PIPELINE_V2`; luego exige que esa corrida cubra todo el
+scope y tenga todas sus filas marcadas como publicadas. La tarea de espera
+reintenta seis veces cada diez minutos, por lo que tolera que TEST termine más
+tarde sin seleccionar una corrida distinta.
+
+Superada esa barrera, DESA ejecuta solamente:
+
+1. publicación PDVB en su propia base operativa;
+2. snapshot logístico;
+3. posiciones y necesidades D/S;
+4. consolidación del backlog vigente.
+
+El flujo valida por código `PDD_OPERATIONAL_TARGET_ENV=DESA`, usa la cola
+`pdd-desa` y es idempotente. Si el backlog de la fecha ya está vigente termina
+`SKIPPED/NO_NEW_CLOSED_DATE`. El deployment anterior
+`PDD_OPERATIONAL_DAILY_MASTER_DESA` permanece sin schedule únicamente como
+herramienta manual de contingencia; no debe automatizarse porque recalcula
+features y PDVB sobre `diarco_data`.
+
+`source_calculation_run_uuid` queda disponible sólo para una recuperación
+manual explícita. Aunque se informe, se siguen validando fecha, scope, modelo,
+CD, cobertura total y publicación completa.
 
 Desde la versión 0.15.1 una misma corrida analítica puede publicarse en más de
 un ambiente. `diarco_data` conserva como marcador el primer lote que publicó la
