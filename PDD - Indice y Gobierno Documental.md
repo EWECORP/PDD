@@ -68,6 +68,11 @@ El signo normativo de NDD-D es resta de Stock Neto Sucursal. Su ratificación fu
 | `PDD - Solicitud Ampliacion Item Logistics Snapshot v1.0.md` | Contrato solicitado al BACK para congelar peso, volumen, palletización, manipulación y calidad logística por corrida |
 | `PDD - Migracion Ampliacion Item Logistics Snapshot v2.9.sql` | Migración Flyway aditiva y compatible para ampliar el snapshot logístico operacional |
 | `PDD - Validacion Ampliacion Item Logistics Snapshot v2.9.sql` | Verificación posterior de columnas, checks, índices, cobertura y consistencia logística |
+| `PDD - Solicitud Catalogo Tipos Vehiculo al BACK Java v1.0.md` | Contrato funcional, persistencia, API y aceptación del catálogo de capacidades de vehículos |
+| `PDD - Migracion Catalogo Tipos Vehiculo v3.0.sql` | Migración Flyway aditiva del catálogo y su vínculo con el snapshot de viaje |
+| `PDD - Validacion Catalogo Tipos Vehiculo v3.0.sql` | Control físico, integridad de capacidades y consistencia de viajes vinculados |
+| `PDD - Grants Catalogo Tipos Vehiculo v1.0.sql` | Permisos del rol Java para consultar y administrar el catálogo sin borrado físico |
+| `PDD - Seed DESA Tipos Vehiculo Simulados v1.0.sql` | Datos transitorios de desarrollo derivados de la imagen de Valkimia, identificados y restringidos a DESA |
 
 Los nombres físicos v2.0 se conservan para evitar romper referencias existentes;
 la separación de responsabilidades API/ETL queda documentada en la revisión
