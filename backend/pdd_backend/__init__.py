@@ -1,3 +1,3 @@
 """Backend analitico de Planificacion Diaria de Distribucion."""
 
-__version__ = "0.16.2"
+__version__ = "0.18.2"

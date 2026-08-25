@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "diarco-pdd-backend"
-version = "0.18.0"
+version = "0.18.2"
 description = "Procesos analiticos PDD sobre diarco_data orquestados con Prefect"
 requires-python = ">=3.10"
 dependencies = [

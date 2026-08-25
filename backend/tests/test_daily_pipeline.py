@@ -36,7 +36,7 @@ def source_state(**overrides) -> DailySourceState:
         "stock_source_date": date(2026, 8, 15),
         "canonical_stock_date": date(2026, 8, 14),
         "scoped_sales_date": date(2026, 8, 14),
-        "branch_stock_date": date(2026, 8, 16),
+        "branch_stock_date": date(2026, 8, 15),
         "open_po_as_of_ts": datetime(2026, 8, 17, tzinfo=timezone.utc),
         "open_po_row_count": 100,
         "source_sync_run_uuid": "4ab919d4-2793-4101-90fe-5c5e60504a71",
@@ -72,6 +72,25 @@ def test_daily_context_catches_up_from_oldest_canonical_feature() -> None:
         today=date(2026, 8, 17),
     )
     assert context.feature_start == date(2026, 8, 11)
+
+
+def test_daily_context_accepts_stock_from_previous_close() -> None:
+    context = resolve_daily_pipeline_context(
+        source_state(branch_stock_date=date(2026, 8, 15)),
+        requested_business_date=date(2026, 8, 16),
+        today=date(2026, 8, 17),
+    )
+
+    assert context.status == "READY"
+
+
+def test_daily_context_rejects_stock_two_closes_behind() -> None:
+    with pytest.raises(RuntimeError, match="cierre requerido 2026-08-15"):
+        resolve_daily_pipeline_context(
+            source_state(branch_stock_date=date(2026, 8, 14)),
+            requested_business_date=date(2026, 8, 16),
+            today=date(2026, 8, 17),
+        )
 
 
 def test_daily_context_skips_already_published_date_unless_forced() -> None:

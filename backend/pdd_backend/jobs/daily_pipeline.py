@@ -398,10 +398,13 @@ def resolve_daily_pipeline_context(
             f"{business_date}; run={state.source_sync_run_uuid}, "
             f"fecha={state.source_sync_business_date}, status={state.source_sync_status}"
         )
-    if state.branch_stock_date is None or state.branch_stock_date < business_date:
+    # La foto reconstruida durante D representa la posición al cierre de D-1.
+    # La evidencia de que fue extraída en D ya forma parte del contrato fuente
+    # auditado y vuelve a validarse en inspect_stock_readiness.
+    if state.branch_stock_date is None or state.branch_stock_date < cutoff_date:
         raise RuntimeError(
-            "La posicion de stock de sucursal no alcanza la fecha operativa "
-            f"{business_date}; disponible={state.branch_stock_date}"
+            "La posicion de stock de sucursal no alcanza el cierre requerido "
+            f"{cutoff_date}; disponible={state.branch_stock_date}"
         )
     if (
         not force

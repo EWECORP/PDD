@@ -1017,8 +1017,18 @@ def _stock_readiness_blockers(
     blockers: list[str] = []
     if result["scope_pairs"] == 0:
         blockers.append("EMPTY_OR_UNKNOWN_SCOPE")
-    if result["stock_date"] is None or result["stock_date"] < expected_through:
+    # La extracción ejecutada en D contiene la posición al cierre de D-1 y el
+    # origen conserva esa fecha efectiva en fecha_stock. Se controlan por
+    # separado la vigencia del contenido y la fecha real de reconstrucción.
+    expected_stock_date = expected_through - timedelta(days=1)
+    stock_date = result["stock_date"]
+    if stock_date is None or stock_date < expected_stock_date:
         blockers.append("STOCK_SOURCE_STALE")
+    source_as_of_ts = result.get("source_as_of_ts")
+    if stock_date is not None and (
+        source_as_of_ts is None or source_as_of_ts.date() < expected_through
+    ):
+        blockers.append("STOCK_REFRESH_NOT_PROVEN")
     if result["excluded_branch_pairs"]:
         blockers.append("SCOPE_CONTAINS_EXCLUDED_BRANCHES")
     if result["unexplained_missing_pairs"]:

@@ -147,6 +147,7 @@ def test_stock_readiness_distinguishes_excluded_branch_from_missing_stock() -> N
     result = {
         "scope_pairs": 100,
         "stock_date": date(2026, 8, 16),
+        "source_as_of_ts": datetime(2026, 8, 16),
         "excluded_branch_pairs": 39,
         "unexplained_missing_pairs": 0,
         "duplicate_pairs": 0,
@@ -169,6 +170,7 @@ def test_stock_readiness_blocks_stale_canonical_purchase_orders() -> None:
     result = {
         "scope_pairs": 100,
         "stock_date": date(2026, 8, 16),
+        "source_as_of_ts": datetime(2026, 8, 16),
         "excluded_branch_pairs": 0,
         "unexplained_missing_pairs": 0,
         "duplicate_pairs": 0,
@@ -186,6 +188,7 @@ def test_stock_readiness_requires_complete_cd_snapshot() -> None:
     result = {
         "scope_pairs": 100,
         "stock_date": date(2026, 8, 18),
+        "source_as_of_ts": datetime(2026, 8, 18),
         "excluded_branch_pairs": 0,
         "unexplained_missing_pairs": 0,
         "duplicate_pairs": 0,
@@ -198,6 +201,57 @@ def test_stock_readiness_requires_complete_cd_snapshot() -> None:
     }
     assert _stock_readiness_blockers(result, date(2026, 8, 16)) == [
         "SCOPE_CD_ARTICLES_WITHOUT_STOCK"
+    ]
+
+
+def _complete_stock_readiness_result() -> dict:
+    return {
+        "scope_pairs": 100,
+        "stock_date": date(2026, 8, 24),
+        "source_as_of_ts": datetime(2026, 8, 25, 6, 57),
+        "excluded_branch_pairs": 0,
+        "unexplained_missing_pairs": 0,
+        "duplicate_pairs": 0,
+        "null_physical_stock": 0,
+        "missing_cd_articles": 0,
+        "duplicate_cd_articles": 0,
+        "null_cd_physical_stock": 0,
+        "negative_in_transit": 0,
+        "open_po_as_of_ts": datetime(2026, 8, 25, 6, 58),
+    }
+
+
+def test_stock_readiness_accepts_previous_close_extracted_today() -> None:
+    result = _complete_stock_readiness_result()
+
+    assert _stock_readiness_blockers(result, date(2026, 8, 25)) == []
+
+
+def test_stock_readiness_blocks_snapshot_two_closes_behind() -> None:
+    result = _complete_stock_readiness_result()
+    result["stock_date"] = date(2026, 8, 23)
+
+    assert _stock_readiness_blockers(result, date(2026, 8, 25)) == [
+        "STOCK_SOURCE_STALE"
+    ]
+
+
+def test_stock_readiness_blocks_previous_close_not_extracted_today() -> None:
+    result = _complete_stock_readiness_result()
+    result["source_as_of_ts"] = datetime(2026, 8, 24, 23, 59)
+
+    assert _stock_readiness_blockers(result, date(2026, 8, 25)) == [
+        "STOCK_REFRESH_NOT_PROVEN"
+    ]
+
+
+def test_stock_readiness_blocks_missing_snapshot() -> None:
+    result = _complete_stock_readiness_result()
+    result["stock_date"] = None
+    result["source_as_of_ts"] = None
+
+    assert _stock_readiness_blockers(result, date(2026, 8, 25)) == [
+        "STOCK_SOURCE_STALE"
     ]
 
 
