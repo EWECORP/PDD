@@ -117,6 +117,19 @@ panel AS (
        AND s.codigo_articulo = sp.codigo_articulo
        AND s.sucursal = sp.sucursal
 ),
+validated_panel AS (
+    SELECT
+        p.*,
+        (
+            p.enriched_row_count > 0
+            AND abs(
+                p.observed_units
+                - coalesce(p.enriched_basal_units, 0)
+                - coalesce(p.enriched_promotional_units, 0)
+            ) <= 0.001
+        ) AS enriched_units_conserved
+    FROM panel AS p
+),
 classified AS (
     SELECT
         p.*,
@@ -127,28 +140,31 @@ classified AS (
             ELSE 'OUT_OF_STOCK'
         END::varchar(30) AS availability_status,
         CASE
-            WHEN p.enriched_row_count > 0 THEN p.enriched_basal_units
+            WHEN p.enriched_units_conserved THEN p.enriched_basal_units
+            WHEN p.enriched_row_count > 0 THEN 0
             WHEN p.source_row_count > 0
              AND (p.special_sale_flag OR p.normal_promo_flag OR p.strong_promo_flag)
                 THEN 0
             ELSE p.observed_units
         END::numeric(18,6) AS basal_units,
         CASE
-            WHEN p.enriched_row_count > 0 THEN p.enriched_promotional_units
+            WHEN p.enriched_units_conserved THEN p.enriched_promotional_units
+            WHEN p.enriched_row_count > 0 THEN p.observed_units
             WHEN p.source_row_count > 0
              AND (p.special_sale_flag OR p.normal_promo_flag OR p.strong_promo_flag)
                 THEN p.observed_units
             ELSE 0
         END::numeric(18,6) AS promotional_units,
         CASE
-            WHEN p.enriched_row_count > 0 THEN 'ENRICHED'
+            WHEN p.enriched_units_conserved THEN 'ENRICHED'
+            WHEN p.enriched_row_count > 0 THEN 'ENRICHED_INVALID'
             WHEN p.source_row_count > 0
              AND (p.special_sale_flag OR p.normal_promo_flag OR p.strong_promo_flag)
                 THEN 'RAW_FLAGS'
             WHEN p.source_row_count > 0 THEN 'NO_ADJUSTMENT'
             ELSE 'NOT_APPLICABLE'
         END::varchar(30) AS promo_adjustment_method
-    FROM panel AS p
+    FROM validated_panel AS p
 ),
 prepared AS (
     SELECT
@@ -156,8 +172,11 @@ prepared AS (
         (
             c.availability_status IN ('IN_STOCK', 'INFERRED_FROM_SALE')
             AND NOT (
-                c.promo_adjustment_method = 'RAW_FLAGS'
-                AND c.observed_units > 0
+                (
+                    c.promo_adjustment_method = 'RAW_FLAGS'
+                    AND c.observed_units > 0
+                )
+                OR c.promo_adjustment_method = 'ENRICHED_INVALID'
             )
         ) AS eligible_for_pdvb,
         array_remove(ARRAY[
@@ -166,6 +185,10 @@ prepared AS (
             CASE
                 WHEN c.promo_adjustment_method = 'RAW_FLAGS' AND c.observed_units > 0
                 THEN 'PROMO_WITHOUT_ENRICHMENT'
+            END,
+            CASE
+                WHEN c.promo_adjustment_method = 'ENRICHED_INVALID'
+                THEN 'ENRICHED_UNITS_MISMATCH'
             END
         ], NULL)::text[] AS exclusion_codes,
         encode(
