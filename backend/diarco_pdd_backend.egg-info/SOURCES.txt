@@ -25,6 +25,7 @@ pdd_backend/flows/backtest.py
 pdd_backend/flows/daily_pipeline.py
 pdd_backend/flows/operational_inputs.py
 pdd_backend/flows/publisher.py
+pdd_backend/flows/simulation.py
 pdd_backend/jobs/__init__.py
 pdd_backend/jobs/backlog.py
 pdd_backend/jobs/backtest.py
@@ -36,6 +37,7 @@ pdd_backend/jobs/pdvb.py
 pdd_backend/jobs/publisher.py
 pdd_backend/jobs/sales_daily.py
 pdd_backend/jobs/scope_snapshot.py
+pdd_backend/jobs/simulation.py
 pdd_backend/jobs/stock_daily.py
 pdd_backend/manifests/model_versions.json
 pdd_backend/manifests/operational_configurations.json
@@ -59,5 +61,8 @@ tests/test_frontend_contract.py
 tests/test_frontend_mock.py
 tests/test_operational_inputs.py
 tests/test_partitioning.py
+tests/test_planning_contract.py
+tests/test_sales_daily_contract.py
 tests/test_scope_rules.py
+tests/test_simulation.py
 tests/test_windows.py
