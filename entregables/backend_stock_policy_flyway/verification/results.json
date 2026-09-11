@@ -1,0 +1,12 @@
+[
+  {
+    "path": "fresh",
+    "passed": true,
+    "rollback": true
+  },
+  {
+    "path": "existing_test",
+    "passed": true,
+    "rollback": true
+  }
+]

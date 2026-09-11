@@ -1,0 +1,1347 @@
+openapi: 3.0.3
+info:
+  title: CONNEXA - Pol?ticas de stock
+  version: 1.0.0
+  description: Contrato propuesto, no API desplegada. Reglas de publicaci?n y seguridad
+    en DISENO_PUBLICACION.md. Orden estable por created_at/id en versiones e id en
+    reglas; paginaci?n base cero. No ofrece edici?n de grupos ni fallback legacy.
+servers:
+- url: /api/v1
+security:
+- bearerAuth: []
+paths:
+  /domains/{domain}/stock-policy-versions:
+    get:
+      operationId: listVersions
+      summary: Listar versiones
+      description: Listar versiones
+      parameters:
+      - $ref: '#/components/parameters/Domain'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum:
+          - DRAFT
+          - PUBLISHED
+          - RETIRED
+      - name: validOn
+        in: query
+        schema:
+          type: string
+          format: date
+      - name: createdBy
+        in: query
+        schema:
+          type: string
+      - name: q
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Operaci?n exitosa
+          headers:
+            ETag:
+              schema: &id001
+                type: string
+              description: Revisi?n de versi?n cuando aplica; para colecciones de
+                reglas corresponde a la versi?n.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionPage'
+        default:
+          description: Error funcional o t?cnico; ver DISENO_PUBLICACION.md y x-error-codes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      operationId: createVersion
+      summary: Crear o copiar borrador
+      description: Crear o copiar borrador
+      parameters:
+      - $ref: '#/components/parameters/Domain'
+      - $ref: '#/components/parameters/Idempotency'
+      responses:
+        '201':
+          description: Operaci?n exitosa
+          headers:
+            ETag:
+              schema: *id001
+              description: Revisi?n de versi?n cuando aplica; para colecciones de
+                reglas corresponde a la versi?n.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Version'
+        default:
+          description: Error funcional o t?cnico; ver DISENO_PUBLICACION.md y x-error-codes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionInput'
+  /domains/{domain}/stock-policy-versions/{versionId}:
+    get:
+      operationId: getVersion
+      summary: Consultar versi?n
+      description: Consultar versi?n
+      parameters:
+      - $ref: '#/components/parameters/Domain'
+      - $ref: '#/components/parameters/VersionId'
+      responses:
+        '200':
+          description: Operaci?n exitosa
+          headers:
+            ETag:
+              schema: *id001
+              description: Revisi?n de versi?n cuando aplica; para colecciones de
+                reglas corresponde a la versi?n.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Version'
+        default:
+          description: Error funcional o t?cnico; ver DISENO_PUBLICACION.md y x-error-codes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      operationId: updateVersion
+      summary: Actualizar cabecera de borrador
+      description: Actualizar cabecera de borrador
+      parameters:
+      - $ref: '#/components/parameters/Domain'
+      - $ref: '#/components/parameters/VersionId'
+      - $ref: '#/components/parameters/Idempotency'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Operaci?n exitosa
+          headers:
+            ETag:
+              schema: *id001
+              description: Revisi?n de versi?n cuando aplica; para colecciones de
+                reglas corresponde a la versi?n.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Version'
+        default:
+          description: Error funcional o t?cnico; ver DISENO_PUBLICACION.md y x-error-codes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HeaderInput'
+  /domains/{domain}/stock-policy-versions/{versionId}/rules:
+    get:
+      operationId: listRules
+      summary: Listar reglas
+      description: Listar reglas
+      parameters:
+      - $ref: '#/components/parameters/Domain'
+      - $ref: '#/components/parameters/VersionId'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: siteId
+        in: query
+        schema:
+          type: string
+          format: uuid
+      - name: supplyClusterId
+        in: query
+        schema:
+          type: string
+          format: uuid
+      - name: purchaseClassificationCode
+        in: query
+        schema:
+          type: integer
+      - name: categoryLevel
+        in: query
+        schema:
+          type: string
+          enum:
+          - ALL
+          - FAMILY
+          - CATEGORY
+      - name: familyCategoryId
+        in: query
+        schema:
+          type: string
+          format: uuid
+      - name: categoryId
+        in: query
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Operaci?n exitosa
+          headers:
+            ETag:
+              schema: *id001
+              description: Revisi?n de versi?n cuando aplica; para colecciones de
+                reglas corresponde a la versi?n.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RulePage'
+        default:
+          description: Error funcional o t?cnico; ver DISENO_PUBLICACION.md y x-error-codes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      operationId: createRule
+      summary: Agregar regla
+      description: Agregar regla
+      parameters:
+      - $ref: '#/components/parameters/Domain'
+      - $ref: '#/components/parameters/VersionId'
+      - $ref: '#/components/parameters/Idempotency'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '201':
+          description: Operaci?n exitosa
+          headers:
+            ETag:
+              schema: *id001
+              description: Revisi?n de versi?n cuando aplica; para colecciones de
+                reglas corresponde a la versi?n.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rule'
+        default:
+          description: Error funcional o t?cnico; ver DISENO_PUBLICACION.md y x-error-codes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RuleInput'
+  /domains/{domain}/stock-policy-versions/{versionId}/rules/{ruleId}:
+    put:
+      operationId: updateRule
+      summary: Actualizar regla
+      description: Actualizar regla
+      parameters:
+      - $ref: '#/components/parameters/Domain'
+      - $ref: '#/components/parameters/VersionId'
+      - $ref: '#/components/parameters/RuleId'
+      - $ref: '#/components/parameters/Idempotency'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Operaci?n exitosa
+          headers:
+            ETag:
+              schema: *id001
+              description: Revisi?n de versi?n cuando aplica; para colecciones de
+                reglas corresponde a la versi?n.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rule'
+        default:
+          description: Error funcional o t?cnico; ver DISENO_PUBLICACION.md y x-error-codes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RuleInput'
+    delete:
+      operationId: deleteRule
+      summary: Quitar regla sin evidencia de importaci?n
+      description: Quitar regla sin evidencia de importaci?n
+      parameters:
+      - $ref: '#/components/parameters/Domain'
+      - $ref: '#/components/parameters/VersionId'
+      - $ref: '#/components/parameters/RuleId'
+      - $ref: '#/components/parameters/Idempotency'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Operaci?n exitosa
+          headers:
+            ETag:
+              schema: *id001
+              description: Revisi?n de versi?n cuando aplica; para colecciones de
+                reglas corresponde a la versi?n.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Version'
+        default:
+          description: Error funcional o t?cnico; ver DISENO_PUBLICACION.md y x-error-codes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /domains/{domain}/stock-policy-versions/{versionId}/resolve:
+    post:
+      operationId: resolvePolicy
+      summary: Comprobar aplicaci?n a art?culo/local
+      description: 'Consulta sin mutaci?n: no requiere idempotencia. El backend resuelve
+        atributos maestros. Valores nulos salvo outcome RESOLVED.'
+      parameters:
+      - $ref: '#/components/parameters/Domain'
+      - $ref: '#/components/parameters/VersionId'
+      responses:
+        '200':
+          description: Operaci?n exitosa
+          headers:
+            ETag:
+              schema: *id001
+              description: Revisi?n de versi?n cuando aplica; para colecciones de
+                reglas corresponde a la versi?n.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resolution'
+        default:
+          description: Error funcional o t?cnico; ver DISENO_PUBLICACION.md y x-error-codes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveInput'
+  /domains/{domain}/stock-policy-versions/{versionId}/validations:
+    post:
+      operationId: startValidation
+      summary: Validar cobertura de borrador
+      description: Validar cobertura de borrador
+      parameters:
+      - $ref: '#/components/parameters/Domain'
+      - $ref: '#/components/parameters/VersionId'
+      - $ref: '#/components/parameters/Idempotency'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '202':
+          description: Operaci?n aceptada
+          headers:
+            ETag:
+              schema: *id001
+              description: Revisi?n de versi?n cuando aplica; para colecciones de
+                reglas corresponde a la versi?n.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Validation'
+        default:
+          description: Error funcional o t?cnico; ver DISENO_PUBLICACION.md y x-error-codes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidationInput'
+  /domains/{domain}/stock-policy-versions/{versionId}/validations/{validationId}:
+    get:
+      operationId: getValidation
+      summary: Consultar validaci?n
+      description: Consultar validaci?n
+      parameters:
+      - $ref: '#/components/parameters/Domain'
+      - $ref: '#/components/parameters/VersionId'
+      - $ref: '#/components/parameters/ValidationId'
+      responses:
+        '200':
+          description: Operaci?n exitosa
+          headers:
+            ETag:
+              schema: *id001
+              description: Revisi?n de versi?n cuando aplica; para colecciones de
+                reglas corresponde a la versi?n.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Validation'
+        default:
+          description: Error funcional o t?cnico; ver DISENO_PUBLICACION.md y x-error-codes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /domains/{domain}/stock-policy-versions/{versionId}/validations/{validationId}/issues:
+    get:
+      operationId: listValidationIssues
+      summary: Consultar incidencias
+      description: Consultar incidencias
+      parameters:
+      - $ref: '#/components/parameters/Domain'
+      - $ref: '#/components/parameters/VersionId'
+      - $ref: '#/components/parameters/ValidationId'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: severity
+        in: query
+        schema:
+          type: string
+          enum:
+          - ERROR
+          - WARNING
+          - INFO
+      - name: code
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Operaci?n exitosa
+          headers:
+            ETag:
+              schema: *id001
+              description: Revisi?n de versi?n cuando aplica; para colecciones de
+                reglas corresponde a la versi?n.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssuePage'
+        default:
+          description: Error funcional o t?cnico; ver DISENO_PUBLICACION.md y x-error-codes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /domains/{domain}/stock-policy-versions/{versionId}/publish:
+    post:
+      operationId: publishVersion
+      summary: Publicar con transici?n de vigencia
+      description: Publicar con transici?n de vigencia
+      parameters:
+      - $ref: '#/components/parameters/Domain'
+      - $ref: '#/components/parameters/VersionId'
+      - $ref: '#/components/parameters/Idempotency'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Operaci?n exitosa
+          headers:
+            ETag:
+              schema: *id001
+              description: Revisi?n de versi?n cuando aplica; para colecciones de
+                reglas corresponde a la versi?n.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Version'
+        default:
+          description: Error funcional o t?cnico; ver DISENO_PUBLICACION.md y x-error-codes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishInput'
+  /domains/{domain}/stock-policy-versions/{versionId}/audit:
+    get:
+      operationId: listAudit
+      summary: Historial de versi?n
+      description: Historial de versi?n
+      parameters:
+      - $ref: '#/components/parameters/Domain'
+      - $ref: '#/components/parameters/VersionId'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Operaci?n exitosa
+          headers:
+            ETag:
+              schema: *id001
+              description: Revisi?n de versi?n cuando aplica; para colecciones de
+                reglas corresponde a la versi?n.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditEventPage'
+        default:
+          description: Error funcional o t?cnico; ver DISENO_PUBLICACION.md y x-error-codes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /domains/{domain}/stock-policy-versions/{versionId}/import-rows:
+    get:
+      operationId: listImportRows
+      summary: Evidencia de importaci?n
+      description: Evidencia de importaci?n
+      parameters:
+      - $ref: '#/components/parameters/Domain'
+      - $ref: '#/components/parameters/VersionId'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: mappingStatus
+        in: query
+        schema:
+          type: string
+          enum:
+          - MAPPED
+          - PENDING
+          - EXCLUDED_CLOSED
+      responses:
+        '200':
+          description: Operaci?n exitosa
+          headers:
+            ETag:
+              schema: *id001
+              description: Revisi?n de versi?n cuando aplica; para colecciones de
+                reglas corresponde a la versi?n.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportRowPage'
+        default:
+          description: Error funcional o t?cnico; ver DISENO_PUBLICACION.md y x-error-codes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /domains/{domain}/stock-policy-catalogs/sites:
+    get:
+      operationId: catalog_sites
+      summary: Consultar sites
+      description: Consultar sites
+      parameters:
+      - $ref: '#/components/parameters/Domain'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: q
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Operaci?n exitosa
+          headers:
+            ETag:
+              schema: *id001
+              description: Revisi?n de versi?n cuando aplica; para colecciones de
+                reglas corresponde a la versi?n.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogItemPage'
+        default:
+          description: Error funcional o t?cnico; ver DISENO_PUBLICACION.md y x-error-codes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /domains/{domain}/stock-policy-catalogs/clusters:
+    get:
+      operationId: catalog_clusters
+      summary: Consultar clusters
+      description: Consultar clusters
+      parameters:
+      - $ref: '#/components/parameters/Domain'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: q
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Operaci?n exitosa
+          headers:
+            ETag:
+              schema: *id001
+              description: Revisi?n de versi?n cuando aplica; para colecciones de
+                reglas corresponde a la versi?n.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogItemPage'
+        default:
+          description: Error funcional o t?cnico; ver DISENO_PUBLICACION.md y x-error-codes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /domains/{domain}/stock-policy-catalogs/families:
+    get:
+      operationId: catalog_families
+      summary: Consultar families
+      description: Consultar families
+      parameters:
+      - $ref: '#/components/parameters/Domain'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: q
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Operaci?n exitosa
+          headers:
+            ETag:
+              schema: *id001
+              description: Revisi?n de versi?n cuando aplica; para colecciones de
+                reglas corresponde a la versi?n.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogItemPage'
+        default:
+          description: Error funcional o t?cnico; ver DISENO_PUBLICACION.md y x-error-codes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /domains/{domain}/stock-policy-catalogs/categories:
+    get:
+      operationId: catalog_categories
+      summary: Consultar categories
+      description: Consultar categories
+      parameters:
+      - $ref: '#/components/parameters/Domain'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: q
+        in: query
+        schema:
+          type: string
+      - name: familyId
+        in: query
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Operaci?n exitosa
+          headers:
+            ETag:
+              schema: *id001
+              description: Revisi?n de versi?n cuando aplica; para colecciones de
+                reglas corresponde a la versi?n.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogItemPage'
+        default:
+          description: Error funcional o t?cnico; ver DISENO_PUBLICACION.md y x-error-codes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /domains/{domain}/stock-policy-catalogs/purchase-classifications:
+    get:
+      operationId: catalog_purchase_classifications
+      summary: Consultar purchase-classifications
+      description: Consultar purchase-classifications
+      parameters:
+      - $ref: '#/components/parameters/Domain'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: q
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Operaci?n exitosa
+          headers:
+            ETag:
+              schema: *id001
+              description: Revisi?n de versi?n cuando aplica; para colecciones de
+                reglas corresponde a la versi?n.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogItemPage'
+        default:
+          description: Error funcional o t?cnico; ver DISENO_PUBLICACION.md y x-error-codes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /domains/{domain}/stock-policy-catalogs/clusters/{clusterId}/sites:
+    get:
+      operationId: clusterSites
+      summary: Consultar composici?n del grupo
+      description: Consultar composici?n del grupo
+      parameters:
+      - $ref: '#/components/parameters/Domain'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - $ref: '#/components/parameters/ClusterId'
+      responses:
+        '200':
+          description: Operaci?n exitosa
+          headers:
+            ETag:
+              schema: *id001
+              description: Revisi?n de versi?n cuando aplica; para colecciones de
+                reglas corresponde a la versi?n.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogItemPage'
+        default:
+          description: Error funcional o t?cnico; ver DISENO_PUBLICACION.md y x-error-codes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Adaptar al mecanismo autenticado existente de CONNEXA; no introducir
+        autenticaci?n paralela.
+  parameters:
+    Domain:
+      name: domain
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Dominio autorizado; DEFAULT para la instalaci?n actual.
+    VersionId:
+      name: versionId
+      in: path
+      required: true
+      schema: &id002
+        type: string
+        format: uuid
+    RuleId:
+      name: ruleId
+      in: path
+      required: true
+      schema: *id002
+    ValidationId:
+      name: validationId
+      in: path
+      required: true
+      schema: *id002
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: ^"[1-9][0-9]*"$
+      example: '"1"'
+      description: Revisi?n de la versi?n, no de la regla.
+    Idempotency:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: *id002
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    Size:
+      name: size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 25
+    ClusterId:
+      name: clusterId
+      in: path
+      required: true
+      schema: *id002
+  schemas:
+    Error:
+      type: object
+      additionalProperties: false
+      properties:
+        code: *id001
+        message: *id001
+        requestId: *id001
+        fieldErrors:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              field: *id001
+              message: *id001
+            required:
+            - field
+            - message
+      required:
+      - code
+      - message
+      - requestId
+    Days:
+      type: string
+      pattern: ^(0|[1-9][0-9]{0,5})(\.[0-9]{1,4})?$
+      example: '15.0000'
+      description: Decimal exacto, sin exponente; de 0 a 999999.9999.
+    VersionInput:
+      type: object
+      additionalProperties: false
+      properties:
+        baseVersionId: &id006
+          type: string
+          format: uuid
+          nullable: true
+        changeReason: &id003
+          type: string
+          minLength: 1
+        validFrom: &id004
+          type: string
+          format: date
+          nullable: true
+        validTo: &id005
+          type: string
+          format: date
+          nullable: true
+      required:
+      - changeReason
+    HeaderInput:
+      type: object
+      additionalProperties: false
+      properties:
+        changeReason: *id003
+        validFrom: *id004
+        validTo: *id005
+      required:
+      - changeReason
+      - validFrom
+      - validTo
+    Version:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id002
+        domain: *id001
+        revision:
+          type: integer
+          format: int64
+          minimum: 1
+        status:
+          type: string
+          enum:
+          - DRAFT
+          - PUBLISHED
+          - RETIRED
+        validFrom:
+          type: string
+          format: date
+          nullable: true
+        validTo:
+          type: string
+          format: date
+          nullable: true
+        changeReason: *id001
+        createdAt:
+          type: string
+          format: date-time
+        createdBy: *id001
+        ruleCount:
+          type: integer
+          minimum: 0
+        integrationStatus:
+          type: string
+          enum:
+          - NOT_INTEGRATED
+          - SCHEDULED
+          - IN_USE
+          - UNKNOWN
+      required:
+      - id
+      - domain
+      - revision
+      - status
+      - validFrom
+      - validTo
+      - changeReason
+      - createdAt
+      - createdBy
+      - ruleCount
+      - integrationStatus
+    RuleInput:
+      type: object
+      additionalProperties: false
+      properties:
+        siteId: *id006
+        supplyClusterId: *id006
+        familyCategoryId: *id006
+        categoryId: *id006
+        purchaseClassificationCode: &id007
+          type: integer
+        targetStockDays: &id008
+          $ref: '#/components/schemas/Days'
+        overstockDays: &id009
+          $ref: '#/components/schemas/Days'
+      required:
+      - siteId
+      - supplyClusterId
+      - familyCategoryId
+      - categoryId
+      - purchaseClassificationCode
+      - targetStockDays
+      - overstockDays
+      description: Exactamente siteId o supplyClusterId no nulo. Rubro exige familia
+        y parent_id compatible. Ambas categor?as NULL significa todas; clasificaci?n
+        obligatoria. Backend valida XOR y jerarqu?a.
+    Rule:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id002
+        versionId: *id002
+        siteId: *id006
+        supplyClusterId: *id006
+        familyCategoryId: *id006
+        categoryId: *id006
+        purchaseClassificationCode: *id007
+        targetStockDays: *id008
+        overstockDays: *id009
+      required:
+      - id
+      - versionId
+      - siteId
+      - supplyClusterId
+      - familyCategoryId
+      - categoryId
+      - purchaseClassificationCode
+      - targetStockDays
+      - overstockDays
+    ValidationInput:
+      type: object
+      additionalProperties: false
+      properties:
+        scopeReference:
+          type: string
+          minLength: 1
+        businessDate:
+          type: string
+          format: date
+      required:
+      - scopeReference
+      - businessDate
+    Validation:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id002
+        versionId: *id002
+        revision:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum:
+          - RUNNING
+          - PASSED
+          - FAILED
+          - ERROR
+        scopeReference: *id001
+        businessDate:
+          type: string
+          format: date
+        inputFingerprint: *id001
+        pairCount:
+          type: integer
+          format: int64
+          nullable: true
+        coveredCount:
+          type: integer
+          format: int64
+          nullable: true
+        blockingCount:
+          type: integer
+          format: int64
+          nullable: true
+      required:
+      - id
+      - versionId
+      - revision
+      - status
+      - scopeReference
+      - businessDate
+      - inputFingerprint
+      - pairCount
+      - coveredCount
+      - blockingCount
+    Issue:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id002
+        severity:
+          type: string
+          enum:
+          - ERROR
+          - WARNING
+          - INFO
+        code: *id001
+        message: *id001
+        context:
+          type: object
+          additionalProperties: true
+      required:
+      - id
+      - severity
+      - code
+      - message
+      - context
+    PublishInput:
+      type: object
+      additionalProperties: false
+      properties:
+        validationId: *id002
+        expectedPreviousVersionId: *id006
+        changeReason:
+          type: string
+          minLength: 1
+      required:
+      - validationId
+      - expectedPreviousVersionId
+      - changeReason
+    ResolveInput:
+      type: object
+      additionalProperties: false
+      properties:
+        siteId: *id002
+        articleCode:
+          type: string
+          minLength: 1
+        businessDate:
+          type: string
+          format: date
+        draftPreview:
+          type: boolean
+          default: false
+      required:
+      - siteId
+      - articleCode
+      - businessDate
+    Resolution:
+      type: object
+      additionalProperties: false
+      properties:
+        outcome:
+          type: string
+          enum:
+          - RESOLVED
+          - NO_COVERAGE
+          - AMBIGUOUS
+          - MISSING_CLASSIFICATION
+          - OUTSIDE_VALIDITY
+        ruleId: *id006
+        targetStockDays:
+          type: string
+          pattern: ^(0|[1-9][0-9]{0,5})(\.[0-9]{1,4})?$
+          example: '15.0000'
+          description: Decimal exacto, sin exponente; de 0 a 999999.9999.
+          nullable: true
+        overstockDays:
+          type: string
+          pattern: ^(0|[1-9][0-9]{0,5})(\.[0-9]{1,4})?$
+          example: '15.0000'
+          description: Decimal exacto, sin exponente; de 0 a 999999.9999.
+          nullable: true
+        explanation: *id001
+        inputFingerprint: *id001
+      required:
+      - outcome
+      - ruleId
+      - targetStockDays
+      - overstockDays
+      - explanation
+      - inputFingerprint
+    CatalogItem:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id001
+        code: *id001
+        name: *id001
+        available:
+          type: boolean
+      required:
+      - id
+      - code
+      - name
+      - available
+    AuditEvent:
+      type: object
+      additionalProperties: false
+      properties:
+        id: *id002
+        action: *id001
+        actor: *id001
+        occurredAt:
+          type: string
+          format: date-time
+        reason: *id001
+        before:
+          type: object
+          additionalProperties: true
+          nullable: true
+        after:
+          type: object
+          additionalProperties: true
+          nullable: true
+      required:
+      - id
+      - action
+      - actor
+      - occurredAt
+      - reason
+      - before
+      - after
+    ImportRow:
+      type: object
+      additionalProperties: false
+      properties:
+        siteCode:
+          type: integer
+        familyCode:
+          type: integer
+        categoryCode:
+          type: integer
+        purchaseClassificationCode:
+          type: integer
+        targetStockDays:
+          $ref: '#/components/schemas/Days'
+        overstockDays:
+          $ref: '#/components/schemas/Days'
+        ruleId: *id006
+        mappingStatus:
+          type: string
+          enum:
+          - MAPPED
+          - PENDING
+          - EXCLUDED_CLOSED
+        mappingReason:
+          type: string
+          nullable: true
+      required:
+      - siteCode
+      - familyCode
+      - categoryCode
+      - purchaseClassificationCode
+      - targetStockDays
+      - overstockDays
+      - ruleId
+      - mappingStatus
+      - mappingReason
+    VersionPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Version'
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+      required:
+      - items
+      - total
+      - page
+      - size
+    RulePage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Rule'
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+      required:
+      - items
+      - total
+      - page
+      - size
+    IssuePage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Issue'
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+      required:
+      - items
+      - total
+      - page
+      - size
+    AuditEventPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditEvent'
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+      required:
+      - items
+      - total
+      - page
+      - size
+    ImportRowPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportRow'
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+      required:
+      - items
+      - total
+      - page
+      - size
+    CatalogItemPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogItem'
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+      required:
+      - items
+      - total
+      - page
+      - size
+x-error-codes:
+  '400':
+  - INVALID_REQUEST
+  '401':
+  - UNAUTHENTICATED
+  '403':
+  - FORBIDDEN
+  '404':
+  - NOT_FOUND
+  '409':
+  - NOT_DRAFT
+  - DUPLICATE_RULE
+  - SCHEDULE_CONFLICT
+  - PREVIOUS_VERSION_CHANGED
+  - IMPORT_EVIDENCE_REFERENCE
+  - IDEMPOTENCY_CONFLICT
+  - STALE_VALIDATION
+  - VALIDATION_FAILED
+  '412':
+  - REVISION_MISMATCH
+  '422':
+  - INVALID_DAYS
+  - INVALID_CATEGORY
+  - INVALID_SCOPE
+  - INVALID_VALIDITY
+  '428':
+  - PRECONDITION_REQUIRED
+  '503':
+  - SOURCE_UNAVAILABLE

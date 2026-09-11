@@ -1,0 +1,10 @@
+{
+  "stock_date": "2026-08-27",
+  "total_pairs": 1278480,
+  "missing_article": 0,
+  "ambiguous_article": 0,
+  "covered_pairs": 74373,
+  "uncovered_pairs": 1204107,
+  "different_pairs": 57775,
+  "equal_pairs": 16598
+}
