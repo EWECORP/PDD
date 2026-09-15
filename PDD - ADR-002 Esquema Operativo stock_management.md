@@ -3,6 +3,12 @@
 Fecha: **2026-08-05**  
 Estado: **Aprobado**
 
+## Aclaración de alcance — 2026-09-14
+
+BACK definió la integración de los maestros sugeridos en `connexa_platform_test.inventory` (`inv_*`), sin crear `replenishment`. Esto no modifica la decisión de alojar corridas, DECAS, backlog, viajes y ejecución PDD en `stock_management.pdd_*`. Tampoco implica que las políticas versionadas se hayan trasladado: las cuatro tablas del borrador permanecen en `supply_planning` a la fecha relevada.
+
+La estructura observada y los cambios a solicitar están documentados en la [auditoría de inventory TEST](documentacion/parametros_stock/07_auditoria_inventory_test_20260914.md). Se requiere cerrar con BACK el ámbito final de las políticas y su consumo. Esta aclaración no describe ni autoriza una migración de Producción.
+
 ## Decisión
 
 Todos los objetos operativos de planificación de la distribución en Connexa se

@@ -1,0 +1,109 @@
+--- a/forecast_compare/extend.py
++++ b/forecast_compare/extend.py
+@@ -3,6 +3,7 @@
+ import hashlib
+ import json
+ from datetime import datetime
++from decimal import Decimal
+ from pathlib import Path
+ 
+ import numpy as np
+@@ -46,6 +47,12 @@
+     if field.startswith(('TRANSITO_PENDIENTE', 'TRANSFER_PENDIENTE')):
+         return 'dedicated_pending_source_integration_pending'
+     return 'unresolved_mapping_or_policy' if field in PENDING else 'source_null_or_absent'
++
++
++def _json_decimal(value):
++    if isinstance(value, Decimal):
++        return str(value)  # Preserve exact master values in evidence JSON.
++    raise TypeError(type(value).__name__)
+ 
+ 
+ def digest(path):
+@@ -84,21 +91,21 @@
+                 not frozen_ids or frozen_ids == [supplier_id])
+             checks.append(dict(entity='supplier', code=str(supplier), inventory_id=supplier_id,
+                                current_inventory_id=supplier_id, replica_id=replica, valid=valid))
+-            cur.execute('''SELECT product_id::text, id::text, boxes_per_layer, pallet_layers,
+-                purchase_factor, weight_in_gr, uom_id
+-                FROM inventory.inv_logistic_variable
+-                WHERE active IS TRUE AND principal IS TRUE AND product_id=ANY(%s::uuid[])''',
++            cur.execute('''SELECT product_id::text, logistic_variable_id::text, boxes_per_layer, pallet_layers,
++                purchase_factor, weight_in_gr, uom_id, selection_row_version
++                FROM inventory.inv_planning_logistics_v
++                WHERE usable_for_forecast IS TRUE AND product_id=ANY(%s::uuid[])''',
+                 (universe.inventory_product_id.astype(str).unique().tolist(),))
+             logistics = [dict(zip(['product_id', 'logistic_variable_id', 'boxes_per_layer',
+-                         'pallet_layers', 'purchase_factor', 'weight_in_gr', 'uom_id'], row))
++                         'pallet_layers', 'purchase_factor', 'weight_in_gr', 'uom_id', 'selection_row_version'], row))
+                          for row in cur.fetchall()]
+             scope = universe[['inventory_product_id', 'inventory_site_id']].to_dict('records')
+             cur.execute('''WITH scope AS (
+                 SELECT * FROM jsonb_to_recordset(%s::jsonb)
+                 AS x(inventory_product_id uuid, inventory_site_id uuid))
+                 SELECT ps.product_id::text,ps.site_id::text,ps.id::text,
+-                    ps.expected_stock_days,ps.supply_type,ps.supplying_site_id::text,
+-                    supply.code,r.id::text,r.minimum_order_quantity,r.preparation_days,r.safety_stock_days
++                    r.target_stock_days,ps.supply_type,ps.supplying_site_id::text,
++                    supply.code,r.id::text,r.minimum_order_quantity,r.preparation_days,r.overstock_days,r.row_version
+                 FROM scope x JOIN inventory.inv_product_site ps
+                   ON ps.product_id=x.inventory_product_id AND ps.site_id=x.inventory_site_id
+                 LEFT JOIN inventory.inv_site supply ON supply.id=ps.supplying_site_id
+@@ -106,9 +113,9 @@
+                   ON r.product_site_id=ps.id AND r.active IS TRUE''', (json.dumps(scope),))
+             site_parameters = [dict(zip(['product_id','site_id','product_site_id','Q_DIAS_STOCK',
+                 'ABASTECIMIENTO','COD_CD','supplying_site_code','replenishment_id','PEDIDO_MIN',
+-                'DIAS_PREPARACION','Q_DIAS_SOBRE_STOCK'], row)) for row in cur.fetchall()]
++                'DIAS_PREPARACION','Q_DIAS_SOBRE_STOCK','replenishment_row_version'], row)) for row in cur.fetchall()]
+     return dict(checked_at=datetime.now().astimezone().isoformat(),
+-                source='CONNEXA_TEST_current_not_historical', supplier_id=supplier_id,
++                source='CONNEXA_TEST_current_not_historical', parameter_contract='inventory-planning-v1', supplier_id=supplier_id,
+                 checks=checks, logistics=logistics, site_parameters=site_parameters)
+ 
+ 
+@@ -120,7 +127,7 @@
+         raise ValueError('Ambiguous product/site or active replenishment parameters')
+     for field in ['product_site_id','Q_DIAS_STOCK','ABASTECIMIENTO','COD_CD',
+                   'supplying_site_code','replenishment_id','PEDIDO_MIN',
+-                  'DIAS_PREPARACION','Q_DIAS_SOBRE_STOCK']:
++                  'DIAS_PREPARACION','Q_DIAS_SOBRE_STOCK','replenishment_row_version']:
+         out[field] = [groups.get((p, s), [{}])[0].get(field)
+                       for p, s in zip(out.product_id, out.site_id)]
+ 
+@@ -139,6 +146,7 @@
+         if dest == 'Q_PESO_UNIT_ART':
+             out[dest] = pd.to_numeric(out[dest], errors='raise') / 1000.0
+     out['logistic_variable_id'] = out.product_id.map(lambda key: unique.get(key, {}).get('logistic_variable_id'))
++    out['logistics_selection_row_version'] = out.product_id.map(lambda key: unique.get(key, {}).get('selection_row_version'))
+     def weight_flag(key):
+         uom = unique.get(key, {}).get('uom_id')
+         return pd.NA if uom is None else int(uom != 'unidad')
+@@ -231,7 +239,7 @@
+     pd.DataFrame(missing, columns=['field', 'missing_rows', 'reason']).to_csv(output/'missing_fields.csv', index=False)
+     report['field_status_summary'] = write_status_reports(output, missing, audit is not None)
+     report['output_sha256'] = digest(output/'extended_draft.csv')
+-    (output/'report.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
++    (output/'report.json').write_text(json.dumps(report, indent=2, default=_json_decimal), encoding='utf-8')
+     return report
+ 
+ 
+--- a/forecast_compare/field_status.py
++++ b/forecast_compare/field_status.py
+@@ -13,13 +13,13 @@
+         return 'funciones_forecast.agregar_detalle_calculo_forecast', 'generation_pending', 'Reutilizar generador existente y helpers con metricas y contexto del piloto'
+     if field == 'C_COMPRADOR':
+         return 'spl_buyer + spl_buyer_supplier', 'execution_context_pending', 'Integrar usuario de ejecucion y resolver comprador vigente'
+-    if field in ('PEDIDO_MIN', 'DIAS_PREPARACION', 'Q_DIAS_SOBRE_STOCK'):
++    if field in ('PEDIDO_MIN', 'DIAS_PREPARACION', 'Q_DIAS_STOCK', 'Q_DIAS_SOBRE_STOCK'):
+         return 'inventory.inv_product_site_replenishment', ('source_data_pending' if master_checked else 'source_not_checked'), 'Verificar fila activa y valores; no usar fallback legado'
+-    if field in ('Q_DIAS_STOCK', 'ABASTECIMIENTO', 'COD_CD'):
++    if field in ('ABASTECIMIENTO', 'COD_CD'):
+         return 'inventory.inv_product_site', ('source_data_review' if master_checked else 'source_not_checked'), 'Revisar nulos segun modalidad; no consolidar ni exigir sitio abastecedor a toda entrega directa'
+     if field in ('NUMBER_OF_BOXES_PER_LAYER', 'NUMBER_OF_LAYERS', 'Q_FACTOR_COMPRA',
+                  'M_VENDE_POR_PESO', 'Q_PESO_UNIT_ART'):
+-        return 'inventory.inv_logistic_variable', ('source_data_pending' if master_checked else 'source_not_checked'), 'Resolver ausencia, multiples activas/principales o atributos nulos; peso en kg'
++        return 'inventory.inv_planning_logistics_v', ('source_data_pending' if master_checked else 'source_not_checked'), 'Configurar seleccion logistica explicita y atributos utilizables; peso en kg'
+     if field in ('product_id', 'site_id', 'supplier_id'):
+         return 'inventory', 'identity_review', 'Verificar UUID de origen y replica sin sustituir identidad'
+     if field in ('STOCK', 'PEDIDO_PENDIENTE', 'PEDIDO_PENDIENTE_FECHA', 'ULTIMO_INGRESO',

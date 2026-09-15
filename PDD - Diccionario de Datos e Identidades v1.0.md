@@ -1,9 +1,13 @@
 # PDD — Diccionario de datos e identidades
 
-Versión: **1.0**  
-Fecha: **2026-08-18**  
+Versión: **1.1** (se conserva el nombre de archivo para mantener enlaces)
+
+Fecha: **2026-09-14**
+
 Estado: **Referencia para desarrollo**  
 Contrato físico considerado: **manifiesto DDL v2.7**
+
+Actualización de maestros TEST: se incorpora la ubicación `inventory.inv_*` decidida por BACK. El detalle comprobado, las diferencias con lo solicitado y los cambios pendientes están en la [auditoría del 14/09/2026](documentacion/parametros_stock/07_auditoria_inventory_test_20260914.md). Esta actualización no certifica nuevamente todo el contrato operativo v2.7 ni cambia los cálculos.
 
 ## 1. Respuesta corta sobre IDs y UUIDs
 
@@ -26,10 +30,14 @@ Por lo tanto, la respuesta correcta no es «los UUID los genera la base» ni «l
 | Base | Esquema | Prefijo | Responsabilidad |
 |---|---|---|---|
 | `connexa_platform_test` | `stock_management` | `pdd_` | Operación de Test, API, gobierno, estados vigentes, auditoría e integración |
+| `connexa_platform_test` | `inventory` | `inv_` | Maestros de producto, local, producto/local, logística y configuración de reposición; integración PDD pendiente |
+| `connexa_platform_test` | `supply_planning` | `spl_stock_` | Borrador de políticas versionadas: 605 reglas; ubicación final a reconciliar con BACK |
 | `connexa_platform_ms` | `stock_management` | `pdd_` | La misma capa operativa en Producción |
 | `diarco_data` | `datamart` | `dm_pdd_` | Historia analítica pesada, features, scope congelado, estimaciones explicables y backtest |
 
 Las referencias entre `diarco_data` y `connexa_platform_*` son lógicas mediante UUID. PostgreSQL no implementa FK entre bases de datos distintas.
+
+Las convenciones bigint identity + UUID público de este diccionario corresponden a `pdd_*`, no a todos los maestros CONNEXA. En `inventory`, las entidades principales usan `id uuid` como PK; varias requieren que la aplicación lo proporcione. Los UUID entre inventory y supply_planning no son intercambiables: la auditoría detectó cuatro categorías con igual código y distinto UUID.
 
 ## 3. Flujo principal
 

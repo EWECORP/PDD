@@ -1,0 +1,103 @@
+{
+  "status": "PASSED",
+  "captured_at": "2026-09-14T13:30:56.885Z",
+  "engine": "PostgreSQL 17.5 on aarch64-unknown-linux-gnu, compiled by emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 3.1.74 (1092ec30a3fb1d46b1782ff1b4db5094d3d06ae5), 32-bit",
+  "target_engine": "PostgreSQL 14.24, not executed against TEST",
+  "database_writes_to_test": 0,
+  "limitation": "PGlite local PostgreSQL; synthetic minimal baseline. Does not run Flyway CLI, Java/API or multi-session concurrency.",
+  "migration_sha256": {
+    "migrations/inventory/V2026091401__normalize_product_site_replenishment.sql": "f56f91b4a8f991a62d6ecb3580309c9b236c0238b8c8d29cb624256248db0f02",
+    "migrations/inventory/V2026091402__explicit_planning_logistics.sql": "824afa4f529f9a5a7db7699fae7c2cad6440f36df9cf7c1e08b8949d34811bfb",
+    "migrations/supply_planning/V2026091403__forecast_planning_input_snapshot.sql": "6a01fcbd11eec10cc42cfdf47c27fc7e9645fde6f4774f558bb01a563e3d6d85"
+  },
+  "checks": [
+    {
+      "name": "reset refuses a database other than TEST",
+      "status": "PASSED"
+    },
+    {
+      "name": "migration refuses nonempty old table and transaction preserves data",
+      "status": "PASSED"
+    },
+    {
+      "name": "all migrations execute transactionally",
+      "status": "PASSED"
+    },
+    {
+      "name": "obsolete names are absent and no business data invented",
+      "status": "PASSED"
+    },
+    {
+      "name": "maintenance requires explicit actor",
+      "status": "PASSED"
+    },
+    {
+      "name": "fractional days retained and legacy value does not override",
+      "status": "PASSED"
+    },
+    {
+      "name": "both policy days mandatory, zero allowed",
+      "status": "PASSED"
+    },
+    {
+      "name": "unique product/site parameter row",
+      "status": "PASSED"
+    },
+    {
+      "name": "unknown product/site rejected",
+      "status": "PASSED"
+    },
+    {
+      "name": "negative days rejected",
+      "status": "PASSED"
+    },
+    {
+      "name": "NaN and infinities rejected",
+      "status": "PASSED"
+    },
+    {
+      "name": "nonpositive multiples rejected, NULL remains optional",
+      "status": "PASSED"
+    },
+    {
+      "name": "revision and optimistic update contract",
+      "status": "PASSED"
+    },
+    {
+      "name": "parameter identity cannot be reassigned",
+      "status": "PASSED"
+    },
+    {
+      "name": "audit keeps old/new values and actor",
+      "status": "PASSED"
+    },
+    {
+      "name": "inactive replenishment omitted by view",
+      "status": "PASSED"
+    },
+    {
+      "name": "no automatic selection from duplicate principal logistics",
+      "status": "PASSED"
+    },
+    {
+      "name": "selection cannot reference another product",
+      "status": "PASSED"
+    },
+    {
+      "name": "explicit selection is unique and preserves fractional purchase factor",
+      "status": "PASSED"
+    },
+    {
+      "name": "deactivation of chosen variable is visible and not silently replaced",
+      "status": "PASSED"
+    },
+    {
+      "name": "selected logistic variable cannot be deleted",
+      "status": "PASSED"
+    },
+    {
+      "name": "forecast snapshot immutable and survives parameter deletion",
+      "status": "PASSED"
+    }
+  ]
+}

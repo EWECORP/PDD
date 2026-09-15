@@ -1,5 +1,7 @@
 # Primera implementación de políticas en TEST
 
+> Documento histórico. Para el estado actual y la decisión de reutilizar `inventory`, consultar la [auditoría de TEST del 14/09/2026](07_auditoria_inventory_test_20260914.md). Los conteos y recomendaciones siguientes corresponden a su fecha original.
+
 Fecha: 2026-09-11. Estado: migración y carga inicial **aplicadas en TEST como DRAFT**. No se activó un cambio de fuente en PDD.
 
 ## Decisiones confirmadas por el usuario

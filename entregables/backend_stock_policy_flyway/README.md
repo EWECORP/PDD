@@ -1,5 +1,7 @@
 # Paquete backend: entidades de políticas de stock
 
+> Revisión 14/09/2026: BACK decidió reutilizar `inventory` para los maestros. Este paquete conserva la propuesta original en `supply_planning`; no debe ejecutarse sin reconciliar el ámbito final con BACK. Ver [auditoría actual](../../documentacion/parametros_stock/07_auditoria_inventory_test_20260914.md) y [solicitudes pendientes](../../documentacion/parametros_stock/08_solicitudes_BACK_inventory_test.md). Los SQL entregados no fueron modificados ni ejecutados en esta revisión.
+
 Entrega: 2026-09-11. PostgreSQL 14+. Alcance: **migraciones de entidades para integrar en el Flyway del backend**. No incluye frontend, publicación de políticas ni cambio de fuente de PDD.
 
 ## Archivos

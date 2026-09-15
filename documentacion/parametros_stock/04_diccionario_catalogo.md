@@ -1,5 +1,7 @@
 # Diccionario del cat?logo de TEST
 
+> Documento histórico. Para el estado actual y la decisión de reutilizar `inventory`, consultar la [auditoría de TEST del 14/09/2026](07_auditoria_inventory_test_20260914.md). Los conteos y recomendaciones siguientes corresponden a su fecha original.
+
 Captura UTC: 2026-09-11T12:12:10.507357+00:00. Base: connexa_platform_test. PostgreSQL 14.24.
 
 Generado desde cat?logo visible para el usuario de relevamiento. Incluye particiones y tablas externas: 1047 objetos no equivalen a 1047 tablas de negocio independientes. Filas estimadas -1 significa sin estimaci?n, no tabla vac?a. No se consultaron filas de tablas externas.

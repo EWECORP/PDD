@@ -1,5 +1,7 @@
 # Relevamiento de parámetros de reposición
 
+> Documento histórico. Para el estado actual y la decisión de reutilizar `inventory`, consultar la [auditoría de TEST del 14/09/2026](07_auditoria_inventory_test_20260914.md). Los conteos y recomendaciones siguientes corresponden a su fecha original.
+
 ## Resultado comprobado en código
 
 `backend/pdd_backend/jobs/daily_decas.py`, función `_read_source_stock`, lee `src.base_stock_sucursal.q_dias_stock` y `q_dias_sobre_stock` para cada artículo/local. Filtra `fecha_stock` y selecciona la última `fecha_extraccion` por artículo/local. No consulta una política de CONNEXA para estos dos valores.
