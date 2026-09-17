@@ -1,0 +1,478 @@
+{
+  "captured_at": "2026-09-17T14:25:34.289462+00:00",
+  "database": {
+    "database": "diarco_data",
+    "read_only": "on"
+  },
+  "columns": [
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "c_sucu_empr",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "c_articulo",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "c_proveedor_primario",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "abastecimiento",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "cod_cd",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "habilitado",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "fecha_registro",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "fecha_baja",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "q_peso_unit_art",
+      "data_type": "double precision"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "m_vende_por_peso",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "unid_transferencia",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "q_unid_transferencia",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "pedido_min",
+      "data_type": "double precision"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "frente_lineal",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "capacid_gondola",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "stock_minimo",
+      "data_type": "double precision"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "cod_comprador",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "promocion",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "active_for_purchase",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "active_for_sale",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "active_on_mix",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "delivered_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "product_base_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "own_production",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "q_factor_compra",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "full_capacity_pallet",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "number_of_layers",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "number_of_boxes_per_layer",
+      "data_type": "double precision"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "fuente_origen",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "fecha_extraccion",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_productos_vigentes",
+      "column_name": "estado_sincronizacion",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "codigo_articulo",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "codigo_sucursal",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "codigo_proveedor",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "precio_venta",
+      "data_type": "double precision"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "precio_costo",
+      "data_type": "double precision"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "factor_venta",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "ultimo_ingreso",
+      "data_type": "double precision"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "fecha_ultimo_ingreso",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "fecha_ultima_venta",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "m_vende_por_peso",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "venta_unidades_1q",
+      "data_type": "double precision"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "venta_unidades_2q",
+      "data_type": "double precision"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "venta_mes_unidades",
+      "data_type": "double precision"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "venta_mes_valorizada",
+      "data_type": "double precision"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "dias_stock",
+      "data_type": "double precision"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "fecha_stock",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "stock",
+      "data_type": "double precision"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "transfer_pendiente",
+      "data_type": "double precision"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "pedido_pendiente",
+      "data_type": "double precision"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "transito_pendiente",
+      "data_type": "double precision"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "transfer_pendiente_fecha",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "pedido_pendiente_fecha",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "transito_pendiente_fecha",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "promocion",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "lote",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "validez_lote",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "stock_reserva",
+      "data_type": "double precision"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "validez_promocion",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "q_dias_stock",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "q_dias_sobre_stock",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "i_lista_calculado",
+      "data_type": "double precision"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "pedido_sgm",
+      "data_type": "double precision"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "importe_minimo",
+      "data_type": "double precision"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "bultos_minimo",
+      "data_type": "double precision"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "dias_preparacion",
+      "data_type": "integer"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "fuente_origen",
+      "data_type": "character varying"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "fecha_extraccion",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_schema": "src",
+      "table_name": "base_stock_sucursal",
+      "column_name": "estado_sincronizacion",
+      "data_type": "integer"
+    }
+  ],
+  "quality": {
+    "products": [
+      {
+        "rows": 1010195,
+        "pairs": 1010195,
+        "min_extraction": "2026-09-17 06:55:23.808927",
+        "max_extraction": "2026-09-17 06:56:50.137211",
+        "null_minimum": 0,
+        "invalid_minimum": 0
+      }
+    ],
+    "stock_latest": [
+      {
+        "latest_stock": "2026-09-16 00:00:00"
+      }
+    ],
+    "stock_latest_quality": [
+      {
+        "rows": 1284942,
+        "pairs": 1284942,
+        "missing_required_days": 637876,
+        "negative_days": 0,
+        "min_extraction": "2026-09-17 06:51:32.433742",
+        "max_extraction": "2026-09-17 06:54:06.527581"
+      }
+    ],
+    "source_join": [
+      {
+        "product_pairs": 1010195,
+        "pairs_without_latest_stock": 34380,
+        "duplicated_product_pairs": 0,
+        "duplicated_latest_stock_pairs": 0
+      }
+    ],
+    "matched_required_fields": [
+      {
+        "legacy_purchase_enabled": false,
+        "product_pairs": 652079,
+        "without_stock": 23109,
+        "null_target": 5922,
+        "null_overstock": 5922,
+        "null_preparation": 333139,
+        "complete_parameters": 295831
+      },
+      {
+        "legacy_purchase_enabled": true,
+        "product_pairs": 358116,
+        "without_stock": 11271,
+        "null_target": 0,
+        "null_overstock": 0,
+        "null_preparation": 151358,
+        "complete_parameters": 195487
+      }
+    ]
+  }
+}

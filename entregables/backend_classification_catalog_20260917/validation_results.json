@@ -1,0 +1,18 @@
+{
+  "status": "PASSED",
+  "engine": "PostgreSQL 17.5 on aarch64-unknown-linux-gnu, compiled by emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 3.1.74 (1092ec30a3fb1d46b1782ff1b4db5094d3d06ae5), 32-bit",
+  "checks": [
+    "nonempty non-TEST database refused",
+    "empty database migrates transactionally",
+    "seven values, two types preserved",
+    "valid assignment active by default",
+    "wrong type rejected by composite FK",
+    "empty/reversed interval rejected",
+    "duplicate code within type rejected",
+    "same code in different type allowed",
+    "referenced value cannot be deleted"
+  ],
+  "migration_sha256": "465eb84468ca3ebd079a8a2920110ccdee3bf64e0e1e655fb7e8c30be7ee20a0",
+  "database_writes_to_test": 0,
+  "limitations": "Local PGlite, not PostgreSQL 14/Flyway. TEST-only deletion not run; non-TEST guard tested. Temporal exclusivity is a service responsibility."
+}

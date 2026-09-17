@@ -1,0 +1,286 @@
+{
+  "captured_at": "2026-09-17T18:39:18.684191+00:00",
+  "database": [
+    {
+      "database": "connexa_platform_test",
+      "read_only": "on"
+    }
+  ],
+  "columns": [
+    {
+      "table_name": "inv_product_classification",
+      "column_name": "id",
+      "data_type": "uuid",
+      "is_nullable": "NO",
+      "column_default": "gen_random_uuid()"
+    },
+    {
+      "table_name": "inv_product_classification",
+      "column_name": "product_id",
+      "data_type": "uuid",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "inv_product_classification",
+      "column_name": "classification_type_id",
+      "data_type": "uuid",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "inv_product_classification",
+      "column_name": "valid_from",
+      "data_type": "date",
+      "is_nullable": "NO",
+      "column_default": "CURRENT_DATE"
+    },
+    {
+      "table_name": "inv_product_classification",
+      "column_name": "valid_to",
+      "data_type": "date",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "table_name": "inv_product_classification",
+      "column_name": "active",
+      "data_type": "boolean",
+      "is_nullable": "NO",
+      "column_default": "true"
+    },
+    {
+      "table_name": "inv_product_classification",
+      "column_name": "created_at",
+      "data_type": "timestamp without time zone",
+      "is_nullable": "NO",
+      "column_default": "now()"
+    },
+    {
+      "table_name": "inv_product_classification",
+      "column_name": "classification_value_id",
+      "data_type": "uuid",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "inv_product_classification_type",
+      "column_name": "id",
+      "data_type": "uuid",
+      "is_nullable": "NO",
+      "column_default": "gen_random_uuid()"
+    },
+    {
+      "table_name": "inv_product_classification_type",
+      "column_name": "value",
+      "data_type": "character varying",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "inv_product_classification_type",
+      "column_name": "created_at",
+      "data_type": "timestamp without time zone",
+      "is_nullable": "NO",
+      "column_default": "now()"
+    },
+    {
+      "table_name": "inv_product_classification_value",
+      "column_name": "id",
+      "data_type": "uuid",
+      "is_nullable": "NO",
+      "column_default": "gen_random_uuid()"
+    },
+    {
+      "table_name": "inv_product_classification_value",
+      "column_name": "classification_type_id",
+      "data_type": "uuid",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "inv_product_classification_value",
+      "column_name": "code",
+      "data_type": "character varying",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "inv_product_classification_value",
+      "column_name": "description",
+      "data_type": "character varying",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "table_name": "inv_product_classification_value",
+      "column_name": "active",
+      "data_type": "boolean",
+      "is_nullable": "NO",
+      "column_default": "true"
+    },
+    {
+      "table_name": "inv_product_classification_value",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "NO",
+      "column_default": "now()"
+    }
+  ],
+  "constraints": [
+    {
+      "table_name": "inv_product_classification",
+      "conname": "ck_inv_classification_validity",
+      "convalidated": true,
+      "definition": "CHECK ((isfinite(valid_from) AND ((valid_to IS NULL) OR (isfinite(valid_to) AND (valid_to > valid_from)))))"
+    },
+    {
+      "table_name": "inv_product_classification",
+      "conname": "fk_inv_classification_value_same_type",
+      "convalidated": true,
+      "definition": "FOREIGN KEY (classification_value_id, classification_type_id) REFERENCES inventory.inv_product_classification_value(id, classification_type_id) ON DELETE RESTRICT"
+    },
+    {
+      "table_name": "inv_product_classification",
+      "conname": "fk_inv_product_classification_product",
+      "convalidated": true,
+      "definition": "FOREIGN KEY (product_id) REFERENCES inventory.inv_product(id) ON DELETE CASCADE"
+    },
+    {
+      "table_name": "inv_product_classification",
+      "conname": "fk_inv_product_classification_type",
+      "convalidated": true,
+      "definition": "FOREIGN KEY (classification_type_id) REFERENCES inventory.inv_product_classification_type(id) ON DELETE RESTRICT"
+    },
+    {
+      "table_name": "inv_product_classification",
+      "conname": "pk_inv_product_classification",
+      "convalidated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table_name": "inv_product_classification_type",
+      "conname": "pk_inv_product_classification_type",
+      "convalidated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table_name": "inv_product_classification_type",
+      "conname": "uk_inv_product_classification_type_value",
+      "convalidated": true,
+      "definition": "UNIQUE (value)"
+    },
+    {
+      "table_name": "inv_product_classification_value",
+      "conname": "ck_inv_classification_value_code",
+      "convalidated": true,
+      "definition": "CHECK ((((code)::text = btrim((code)::text)) AND ((code)::text <> ''::text)))"
+    },
+    {
+      "table_name": "inv_product_classification_value",
+      "conname": "ck_inv_classification_value_description",
+      "convalidated": true,
+      "definition": "CHECK ((btrim((description)::text) <> ''::text))"
+    },
+    {
+      "table_name": "inv_product_classification_value",
+      "conname": "fk_inv_classification_value_type",
+      "convalidated": true,
+      "definition": "FOREIGN KEY (classification_type_id) REFERENCES inventory.inv_product_classification_type(id) ON DELETE RESTRICT"
+    },
+    {
+      "table_name": "inv_product_classification_value",
+      "conname": "pk_inv_product_classification_value",
+      "convalidated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table_name": "inv_product_classification_value",
+      "conname": "uq_inv_classification_value_code",
+      "convalidated": true,
+      "definition": "UNIQUE (classification_type_id, code)"
+    },
+    {
+      "table_name": "inv_product_classification_value",
+      "conname": "uq_inv_classification_value_type",
+      "convalidated": true,
+      "definition": "UNIQUE (id, classification_type_id)"
+    }
+  ],
+  "catalog": [
+    {
+      "type": "Clasificación Compra",
+      "code": "1",
+      "description": "Sensibles",
+      "active": true
+    },
+    {
+      "type": "Clasificación Compra",
+      "code": "100",
+      "description": "Sin Clasificar",
+      "active": true
+    },
+    {
+      "type": "Clasificación Compra",
+      "code": "2",
+      "description": "Resto Top",
+      "active": true
+    },
+    {
+      "type": "Clasificación Compra",
+      "code": "3",
+      "description": "Variedad Extra",
+      "active": true
+    },
+    {
+      "type": "Clasificación Compra",
+      "code": "4",
+      "description": "A Remover",
+      "active": true
+    },
+    {
+      "type": "Clasificación Compra",
+      "code": "5",
+      "description": "Sin Venta",
+      "active": true
+    },
+    {
+      "type": "Clasificación Compra",
+      "code": "6",
+      "description": "Sensibles PM",
+      "active": true
+    }
+  ],
+  "assignments": [
+    {
+      "rows": 0,
+      "active_rows": 0
+    }
+  ],
+  "flyway": [
+    {
+      "version": "20260917160001",
+      "script": "V20260917160001__product_classification_value_catalog.sql",
+      "success": true,
+      "installed_on": "2026-09-17 14:27:18.063938"
+    },
+    {
+      "version": "20260914150002",
+      "script": "V20260914150002__explicit_planning_logistics.sql",
+      "success": true,
+      "installed_on": "2026-09-17 10:30:53.132589"
+    },
+    {
+      "version": "20260914150001",
+      "script": "V20260914150001__normalize_product_site_replenishment.sql",
+      "success": true,
+      "installed_on": "2026-09-17 10:30:52.068727"
+    },
+    {
+      "version": "20260909161722",
+      "script": "V20260909161722__add_uomid_to_logistic_variable.sql",
+      "success": true,
+      "installed_on": "2026-09-17 10:24:17.178780"
+    }
+  ]
+}

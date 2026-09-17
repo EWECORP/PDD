@@ -1,5 +1,7 @@
 # Nivelación inventory — PDD y FORECAST
 
+> **Última verificación 17/09/2026:** BACK ya aplicó en TEST las tres migraciones, incluida `spl_forecast_planning_input`. Reposición y selección logística siguen vacías. No repetir el reset ni las migraciones. Ver [estado actual](../../documentacion/parametros_stock/11_estado_y_clasificaciones_TEST_20260917.md) y [calidad de las fuentes](../../documentacion/parametros_stock/10_verificacion_BACK_TEST_20260917.md). El texto siguiente registra el paquete original previo a su aplicación.
+
 Entrega **14/09/2026**. **Paquete preparado, no aplicado en TEST.** Punto de partida: estructura actual aceptada por BACK; este paquete incorpora el nuevo alcance acordado con el usuario, sin exigir completar la propuesta anterior de políticas por grupo.
 
 **Decisión confirmada:** `inventory.inv_product_site_replenishment` será la fuente única de parámetros directos por artículo/local para PDD y FORECAST. Se usarán **`target_stock_days` y `overstock_days`**. Se eliminan `target_coverage_days` y `safety_stock_days`; sus valores de prueba no se convierten ni se copian. Los 852 registros actuales pueden borrarse y regenerarse. Los valores nuevos deben provenir de una carga definida por negocio: no se suministra una carga ficticia ni se presupone sobrestock cero.

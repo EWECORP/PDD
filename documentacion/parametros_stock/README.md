@@ -1,5 +1,9 @@
 # Parámetros de stock y maestros CONNEXA
 
+**Clasificaciones, actualización posterior del 17/09:** aplicado y verificado el catálogo de valores por tipo, con las siete opciones de Compra activas y cero asignaciones a productos. Relaciones, unicidad y vigencias conforme al SQL entregado. Próximo paso: carga desde T050. Ver [paquete aplicado y estado](../../entregables/backend_classification_catalog_20260917/README.md).
+
+**Última verificación del 17/09/2026:** las tres migraciones del paquete están aplicadas, incluido el snapshot FORECAST. Reposición y selección logística siguen vacías; faltan carga e integración de consumidores. Ver [estado actual y revisión de clasificaciones](11_estado_y_clasificaciones_TEST_20260917.md) y [diagnóstico de fuentes](10_verificacion_BACK_TEST_20260917.md). Los estados anteriores que siguen se conservan como antecedentes.
+
 Actualización: **2026-09-14**. Estado: **TEST auditado en solo lectura; documentación actualizada; solicitudes a BACK preparadas, pendientes de envío**.
 
 ## Estado actual

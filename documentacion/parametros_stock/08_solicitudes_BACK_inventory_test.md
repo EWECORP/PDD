@@ -1,5 +1,7 @@
 # Solicitudes a BACK: entidades inventory y contrato PDD
 
+> **Última actualización 17/09/2026:** las tres migraciones del paquete directo están aplicadas, incluido el snapshot FORECAST. Esta lista es histórica y no debe reenviarse como pendientes vigentes. Ver [estado actual y clasificaciones](11_estado_y_clasificaciones_TEST_20260917.md) y [diagnóstico de carga](10_verificacion_BACK_TEST_20260917.md). La decisión posterior de parámetros por artículo/local dejó las reglas por grupo fuera del circuito nuevo.
+
 Fecha: **2026-09-14**. Destino: equipo BACK de CONNEXA. Estado: **preparado; no enviado ni aplicado**.
 
 Referencia: [auditoría de TEST](07_auditoria_inventory_test_20260914.md). Se acepta reutilizar `inventory`; no se solicita crear `replenishment`. Los nombres de nuevas entidades que BACK elija deben quedar reflejados en el contrato final. No se adjunta SQL ejecutable para evitar aplicar decisiones todavía abiertas.
