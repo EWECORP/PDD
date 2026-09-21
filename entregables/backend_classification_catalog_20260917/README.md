@@ -1,5 +1,7 @@
 # Catálogo de valores de clasificación — entrega BACK
 
+**Carga posterior confirmada:** 18.386 asignaciones de compra desde T050. Ver [carga inicial y pendientes](../../documentacion/parametros_stock/12_carga_inicial_TEST_20260917.md). El estado vac?o descrito debajo corresponde a la verificaci?n previa.
+
 **Aplicado por BACK en TEST y verificado en solo lectura el 17/09/2026.** Flyway registra `20260917160001__product_classification_value_catalog.sql` exitosamente. El catálogo contiene las siete opciones de Compra activas; las asignaciones a productos están vacías. Se verificaron FK compuesta, unicidad por tipo/código y controles de vigencia. No volver a ejecutar la migración. Evidencia: [captura posterior](../../documentacion/parametros_stock/clasificaciones_catalogo_aplicado_20260917.json).
 
 El siguiente paso es preparar la sincronización de asignaciones desde T050. La migración no implementa el control de solapamientos ni la validación de valores activos en el servicio; esos aspectos no fueron verificados por esta lectura del catálogo.

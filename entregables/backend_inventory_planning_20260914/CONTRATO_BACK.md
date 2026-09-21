@@ -19,7 +19,7 @@ Se conserva `inventory.inv_product_site_replenishment`, su PK UUID y UNIQUE `pro
 | `created_at`, `updated_at` | timestamptz | Sí | Tiempos de creación/cambio administrados por trigger |
 | `updated_by` | text | Sí | Actor del contexto transaccional autenticado |
 
-Se eliminan los dos nombres antiguos; **no hay alias, compatibilidad ni copia de valores de seguridad**. Se conservan `replenishment_method` y `replenishment_frequency` por compatibilidad con BACK, pero el circuito PDD/FORECAST no los interpreta. La modalidad de abastecimiento sigue en `inv_product_site.supply_type` y el origen en `supplying_site_id`.
+Se eliminan los dos nombres antiguos; **no hay alias, compatibilidad ni copia de valores de seguridad**. Se conservan `replenishment_method` y `replenishment_frequency`. Por definición posterior del usuario (17/09/2026), `replenishment_method` se completa con la descripción de `src.base_productos_vigentes.abastecimiento`: 0 → `Entrega desde CD`, 1 → `Entrega Desde el Proveedor`, 2 → `Cross Doking`, 3 → `Entrega desde QX`. Ver [proceso de carga](../../cargas_inventory/README.md). Esta carga no cambia `inv_product_site.supply_type` ni `supplying_site_id`, ni incorpora interpretación nueva de estos textos en los cálculos PDD/FORECAST.
 
 `expected_stock_days` se conserva físicamente para otros consumidores existentes. El editor y lectores nuevos sólo mantienen/consumen `target_stock_days`; no hay sincronización bidireccional ni fallback a `expected_stock_days`. Retirar el campo antiguo de todas las aplicaciones es otro cambio que requiere inventariar sus consumidores.
 

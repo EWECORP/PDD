@@ -1,5 +1,13 @@
 # Parámetros de stock y maestros CONNEXA
 
+**Lead time desde CD:** regla confirmada: proveedor 0 por sucursal. Ver [estado y evidencia](14_lead_time_TEST_20260917.md).
+
+**Método de reposición:** proceso para completar `replenishment_method` desde `abastecimiento` incorporado a la carga. Ver [conversión y evidencia de ejecución](13_metodo_reposicion_TEST_20260917.md).
+
+**Actualización de la carga:** completados los 5.922 pares antes excluidos por días NULL: objetivo 7 y sobrestock 0. Total TEST: **1.001.400** reposiciones. Ver [estado actualizado](12_carga_inicial_TEST_20260917.md).
+
+**Carga inicial confirmada el 17/09/2026:** 995.478 reposiciones, 18.386 clasificaciones y 2.766 selecciones log?sticas. Los pares con fila de stock y d?as NULL quedaron excluidos. Ver [estado de carga, evidencia y pendientes](12_carga_inicial_TEST_20260917.md). Las capturas siguientes describen estados anteriores a esta carga.
+
 **Clasificaciones, actualización posterior del 17/09:** aplicado y verificado el catálogo de valores por tipo, con las siete opciones de Compra activas y cero asignaciones a productos. Relaciones, unicidad y vigencias conforme al SQL entregado. Próximo paso: carga desde T050. Ver [paquete aplicado y estado](../../entregables/backend_classification_catalog_20260917/README.md).
 
 **Última verificación del 17/09/2026:** las tres migraciones del paquete están aplicadas, incluido el snapshot FORECAST. Reposición y selección logística siguen vacías; faltan carga e integración de consumidores. Ver [estado actual y revisión de clasificaciones](11_estado_y_clasificaciones_TEST_20260917.md) y [diagnóstico de fuentes](10_verificacion_BACK_TEST_20260917.md). Los estados anteriores que siguen se conservan como antecedentes.
