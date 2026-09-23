@@ -1043,10 +1043,13 @@ def _stock_readiness_blockers(
         blockers.append("DUPLICATE_CD_STOCK_ARTICLES")
     if result.get("null_cd_physical_stock", 0):
         blockers.append("NULL_CD_PHYSICAL_STOCK")
+    # Las OC, al igual que el stock, representan la posicion al cierre de D-1.
+    # No se exige una marca de tiempo en D porque la reconstruccion canonica
+    # puede completarse durante el propio cierre anterior.
     open_po_as_of_ts = result.get("open_po_as_of_ts")
     if open_po_as_of_ts is None:
         blockers.append("OPEN_PURCHASE_ORDERS_MISSING")
-    elif open_po_as_of_ts.date() < expected_through:
+    elif open_po_as_of_ts.date() < expected_stock_date:
         blockers.append("OPEN_PURCHASE_ORDERS_STALE")
     if result["negative_in_transit"]:
         blockers.append("NEGATIVE_IN_TRANSIT")

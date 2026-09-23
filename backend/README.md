@@ -100,6 +100,11 @@ Stock, venta diaria y PDVB rechazan un UUID que no exista o cuya membresía no
 coincida con los conteos sellados. Nunca vuelven a calcular el scope desde la
 tabla viva durante una corrida.
 
+La preparación operativa interpreta tanto el stock como las órdenes de compra
+como posiciones al cierre de `D-1`. Para un día operativo `D`, ambas fuentes
+deben alcanzar como mínimo ese cierre; el stock conserva además la evidencia
+separada de que su reconstrucción fue ejecutada en `D`.
+
 La primera corrida carga únicamente las tres ventanas de evidencia usadas por
 PDVB: reciente, anterior y estacional. No materializa innecesariamente todos
 los días intermedios del año.

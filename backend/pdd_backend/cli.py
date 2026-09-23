@@ -185,7 +185,6 @@ def main() -> None:
             args.scope_version_uuid,
             args.version_no,
             args.business_date,
-            args.stock_date,
             args.captured_by,
             args.supersedes_scope_version_uuid,
         )

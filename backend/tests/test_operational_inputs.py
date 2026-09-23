@@ -177,11 +177,28 @@ def test_stock_readiness_blocks_stale_canonical_purchase_orders() -> None:
         "null_physical_stock": 0,
         "negative_purchase_orders": 0,
         "negative_in_transit": 0,
-        "open_po_as_of_ts": datetime(2026, 8, 14),
+        "open_po_as_of_ts": datetime(2026, 8, 13),
     }
     assert _stock_readiness_blockers(result, date(2026, 8, 15)) == [
         "OPEN_PURCHASE_ORDERS_STALE"
     ]
+
+
+def test_stock_readiness_accepts_purchase_orders_from_previous_close() -> None:
+    result = {
+        "scope_pairs": 100,
+        "stock_date": date(2026, 9, 22),
+        "source_as_of_ts": datetime(2026, 9, 23, 6, 54),
+        "excluded_branch_pairs": 0,
+        "unexplained_missing_pairs": 0,
+        "duplicate_pairs": 0,
+        "null_physical_stock": 0,
+        "negative_purchase_orders": 0,
+        "negative_in_transit": 0,
+        "open_po_as_of_ts": datetime(2026, 9, 22, 23, 36),
+    }
+
+    assert _stock_readiness_blockers(result, date(2026, 9, 23)) == []
 
 
 def test_stock_readiness_requires_complete_cd_snapshot() -> None:
