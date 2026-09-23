@@ -12,7 +12,7 @@ deployments:
     parameters:
       configuration_version_uuid: 2f916828-c59d-4190-a795-29ac5cfc1a66
       created_by: pdd.daily.orchestrator
-      pipeline_revision: DAILY_PIPELINE_V2
+      pipeline_revision: DAILY_PIPELINE_V3
       force: false
     schedules:
       - cron: "30 20 * * *"

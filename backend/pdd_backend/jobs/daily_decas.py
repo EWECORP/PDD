@@ -63,6 +63,15 @@ class OpenPurchaseOrderSnapshot:
     checksum: str
 
 
+@dataclass(frozen=True)
+class PlanningParameterSnapshot:
+    as_of_ts: datetime
+    row_count: int
+    checksum: str
+    inactive_pair_count: int
+    inactive_purchase_count: int
+
+
 def _decimal(value: Any, default: Decimal | None = None) -> Decimal | None:
     if value is None:
         return default
@@ -217,6 +226,7 @@ def build_branch_position(
         "alert_codes": alerts,
         "explanation": {
             "pdvb_status": estimate["status"],
+            "planning_input": source.get("planning_input"),
             "lead_time_source_value": source_lead,
             "lead_time_fallback_used": used_fallback,
             "direct_po_source": "src.mv_base_oc_pendientes",
@@ -232,7 +242,7 @@ def build_branch_position(
             "origin_cd", "sucursal", "codigo_articulo", "physical_stock",
             "direct_po_inbound", "cd_in_transit", "pdvb_estimate_id",
             "pdvb_value", "lead_time_days", "target_stock_days",
-            "overstock_days", "calculation_status", "alert_codes",
+            "overstock_days", "planning_input", "calculation_status", "alert_codes",
         ),
     )
     return row
@@ -430,7 +440,6 @@ def _read_source_stock(
                     SELECT p.codigo_articulo, p.sucursal, s.codigo_proveedor,
                            s.stock, s.pedido_pendiente, s.transito_pendiente,
                            s.transfer_pendiente, s.dias_preparacion,
-                           s.q_dias_stock, s.q_dias_sobre_stock,
                            s.fecha_extraccion
                     FROM scope_pairs AS p
                     LEFT JOIN ranked AS s
@@ -486,6 +495,143 @@ def _read_source_stock(
     if not timestamps:
         raise RuntimeError("La fuente de stock no posee fecha_extraccion")
     return branch_rows, cd_rows, max(timestamps)
+
+
+def apply_inventory_parameters(
+    stock_rows: Sequence[dict[str, Any]],
+    parameter_rows: Sequence[Mapping[str, Any]],
+) -> PlanningParameterSnapshot:
+    """Overlay the canonical policy days and freeze their Inventory identity."""
+    by_pair: dict[tuple[int, int], Mapping[str, Any]] = {}
+    for row in parameter_rows:
+        key = (int(row["codigo_articulo"]), int(row["sucursal"]))
+        if key in by_pair:
+            raise RuntimeError(f"Parametro Inventory ambiguo para el par {key}")
+        by_pair[key] = row
+
+    stock_pairs = [
+        (int(row["codigo_articulo"]), int(row["sucursal"])) for row in stock_rows
+    ]
+    if len(stock_pairs) != len(set(stock_pairs)):
+        raise RuntimeError("El stock fuente contiene pares duplicados")
+    if set(stock_pairs) != set(by_pair):
+        missing = sorted(set(stock_pairs) - set(by_pair))[:10]
+        extra = sorted(set(by_pair) - set(stock_pairs))[:10]
+        raise RuntimeError(
+            "La lectura de parametros Inventory no coincide con el scope; "
+            f"faltantes={missing}, fuera_scope={extra}"
+        )
+
+    captured_at: datetime | None = None
+    evidence_rows: list[dict[str, Any]] = []
+    inactive_pairs = 0
+    inactive_purchase = 0
+    for source in stock_rows:
+        key = (int(source["codigo_articulo"]), int(source["sucursal"]))
+        parameter = by_pair[key]
+        required = (
+            "inventory_product_id", "inventory_site_id", "product_site_id",
+            "replenishment_id", "replenishment_row_version", "captured_at",
+        )
+        if any(parameter.get(field) is None for field in required):
+            raise RuntimeError(f"Par sin parametro activo en Inventory: {key}")
+        target_days = _decimal(parameter.get("target_stock_days"))
+        overstock_days = _decimal(parameter.get("overstock_days"))
+        if target_days is None or not target_days.is_finite() or target_days < 0:
+            raise RuntimeError(f"target_stock_days invalido en Inventory: {key}")
+        if overstock_days is None or not overstock_days.is_finite() or overstock_days < 0:
+            raise RuntimeError(f"overstock_days invalido en Inventory: {key}")
+        row_captured_at = parameter["captured_at"]
+        if captured_at is None:
+            captured_at = row_captured_at
+        elif captured_at != row_captured_at:
+            raise RuntimeError("La fotografia Inventory no posee un corte unico")
+
+        product_site_active = parameter.get("product_site_active") is True
+        active_for_purchase = parameter.get("active_for_purchase") is True
+        inactive_pairs += int(not product_site_active)
+        inactive_purchase += int(not active_for_purchase)
+        evidence = {
+            "contract_version": "inventory-planning-v1",
+            "source_relation": "inventory.inv_planning_parameters_v",
+            "inventory_product_id": str(parameter["inventory_product_id"]),
+            "inventory_site_id": str(parameter["inventory_site_id"]),
+            "product_site_id": str(parameter["product_site_id"]),
+            "replenishment_id": str(parameter["replenishment_id"]),
+            "replenishment_row_version": int(parameter["replenishment_row_version"]),
+            "target_stock_days": str(target_days),
+            "overstock_days": str(overstock_days),
+            "product_site_active": product_site_active,
+            "active_for_purchase": active_for_purchase,
+            "captured_at": row_captured_at.isoformat(),
+        }
+        evidence_row = {
+            "codigo_articulo": key[0],
+            "sucursal": key[1],
+            "planning_input": evidence,
+        }
+        evidence_row["input_checksum"] = _row_checksum(
+            evidence_row, ("codigo_articulo", "sucursal", "planning_input")
+        )
+        evidence_rows.append(evidence_row)
+        source["q_dias_stock"] = target_days
+        source["q_dias_sobre_stock"] = overstock_days
+        source["planning_input"] = evidence
+
+    if captured_at is None:
+        raise RuntimeError("El scope no contiene parametros Inventory")
+    return PlanningParameterSnapshot(
+        as_of_ts=captured_at,
+        row_count=len(evidence_rows),
+        checksum=_rows_checksum(evidence_rows, ("sucursal", "codigo_articulo")),
+        inactive_pair_count=inactive_pairs,
+        inactive_purchase_count=inactive_purchase,
+    )
+
+
+def _read_inventory_parameters(
+    connection: Connection,
+    stock_rows: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    scope = [
+        {
+            "codigo_articulo": str(row["codigo_articulo"]),
+            "sucursal": str(row["sucursal"]),
+        }
+        for row in stock_rows
+    ]
+    return [
+        dict(row)
+        for row in connection.execute(
+            text(
+                """
+                WITH scope AS (
+                    SELECT *
+                    FROM jsonb_to_recordset(CAST(:scope AS jsonb)) AS x(
+                        codigo_articulo text, sucursal text
+                    )
+                )
+                SELECT x.codigo_articulo, x.sucursal,
+                       p.id AS inventory_product_id,
+                       s.id AS inventory_site_id,
+                       q.product_site_id, q.replenishment_id,
+                       q.replenishment_row_version,
+                       q.target_stock_days, q.overstock_days,
+                       q.product_site_active, q.active_for_purchase,
+                       statement_timestamp() AS captured_at
+                FROM scope AS x
+                LEFT JOIN inventory.inv_product AS p
+                  ON p.ext_code = x.codigo_articulo
+                LEFT JOIN inventory.inv_site AS s
+                  ON s.code = x.sucursal
+                LEFT JOIN inventory.inv_planning_parameters_v AS q
+                  ON q.product_id = p.id AND q.site_id = s.id
+                ORDER BY x.sucursal::integer, x.codigo_articulo::bigint
+                """
+            ),
+            {"scope": _json(scope)},
+        ).mappings()
+    ]
 
 
 def _read_open_purchase_orders(
@@ -758,6 +904,11 @@ def run_daily_decas(
                 reused_run=True,
             )
 
+        planning_parameters = apply_inventory_parameters(
+            source_branches,
+            _read_inventory_parameters(target, source_branches),
+        )
+
         pdvb_header = target.execute(
             text(
                 """
@@ -891,7 +1042,8 @@ def run_daily_decas(
         cd_checksum = _rows_checksum(cd_positions, ("codigo_articulo",))
         source_checksum = hashlib.sha256(
             (
-                f"{stock_date.isoformat()}|{branch_checksum}|"
+                f"{stock_date.isoformat()}|{planning_parameters.checksum}|"
+                f"{branch_checksum}|"
                 f"{need_checksum}|{cd_checksum}"
             ).encode("ascii")
         ).hexdigest()
@@ -939,6 +1091,16 @@ def run_daily_decas(
                 "cd_articles_with_open_po": len(open_purchase_orders.cd_by_article),
                 "quantity_semantics": "BASE_UNIT_ALREADY_NORMALIZED_BY_VIEW",
             },
+            "planning_parameters": {
+                "contract_version": "inventory-planning-v1",
+                "source_relation": "inventory.inv_planning_parameters_v",
+                "row_count": planning_parameters.row_count,
+                "checksum": planning_parameters.checksum,
+                "captured_at": planning_parameters.as_of_ts.isoformat(),
+                "inactive_pair_count": planning_parameters.inactive_pair_count,
+                "inactive_purchase_count": planning_parameters.inactive_purchase_count,
+                "eligibility_authority": "FROZEN_PDD_SCOPE",
+            },
         }
         calculation_run_id = target.execute(
             text(
@@ -952,7 +1114,7 @@ def run_daily_decas(
                 ) VALUES (
                     CAST(:uuid AS uuid),'DAILY_DECAS',:business_date,:cutoff_date,
                     'CD',:scope_id,:attempt_no,:scope_version_id,
-                    :configuration_version_id,'DAILY_DECAS_V2_TEST_PILOT','RUNNING',
+                    :configuration_version_id,'DAILY_DECAS_V3_INVENTORY_PARAMS','RUNNING',
                     clock_timestamp(),:created_by,:input_rows,:output_rows,
                     :warning_count,0,:checksum,CAST(:summary AS jsonb)
                 ) RETURNING calculation_run_id
@@ -971,6 +1133,7 @@ def run_daily_decas(
                     len(source_branches)
                     + len(source_cd)
                     + open_purchase_orders.positive_line_count
+                    + planning_parameters.row_count
                 ),
                 "output_rows": len(branches) + len(needs) + len(cd_positions),
                 "warning_count": (
@@ -1034,6 +1197,29 @@ def run_daily_decas(
                 "detail": _json(summary["open_purchase_orders"]),
             },
         ).scalar_one()
+        target.execute(
+            text(
+                """
+                INSERT INTO stock_management.pdd_source_snapshot (
+                    calculation_run_id,source_code,source_database,physical_relation,
+                    is_required,min_business_date,max_business_date,as_of_ts,
+                    row_count,checksum,status,detail
+                ) VALUES (
+                    :run_id,'INVENTORY_PLANNING_PARAMETERS',:source_database,
+                    'inventory.inv_planning_parameters_v',true,NULL,NULL,
+                    :as_of_ts,:row_count,:checksum,'VALID',CAST(:detail AS jsonb)
+                )
+                """
+            ),
+            {
+                "run_id": calculation_run_id,
+                "source_database": target_settings.pg_database,
+                "as_of_ts": planning_parameters.as_of_ts,
+                "row_count": planning_parameters.row_count,
+                "checksum": planning_parameters.checksum,
+                "detail": _json(summary["planning_parameters"]),
+            },
+        )
 
         for parent in (
             "pdd_branch_stock_position", "pdd_cd_stock_position", "pdd_need_snapshot"

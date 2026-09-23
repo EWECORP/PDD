@@ -125,6 +125,23 @@ pdd-etl features --start 2026-07-01 --end 2026-07-31
 
 ## Prefect
 
+### Parámetros canónicos de Inventory
+
+Desde la versión 0.19.0, `DAILY_DECAS` deja de leer `q_dias_stock` y
+`q_dias_sobre_stock` desde `diarco_data.src.base_stock_sucursal`. Para cada par
+del scope congelado consulta en la base operativa
+`inventory.inv_planning_parameters_v` y usa exclusivamente
+`target_stock_days` y `overstock_days`.
+
+La lectura conserva el scope PDD como autoridad de elegibilidad y exige
+cobertura exacta: un producto, local o parámetro activo ausente detiene toda la
+corrida antes de publicar posiciones. Cada posición guarda en `explanation` los
+UUID de Inventory, la revisión, los valores y el instante capturado. La corrida
+registra además `INVENTORY_PLANNING_PARAMETERS` en
+`stock_management.pdd_source_snapshot`, con cantidad y checksum de la
+fotografía. Stock, preparación, OC y las fórmulas DECAS conservan sus fuentes y
+semántica anteriores.
+
 `prefect.yaml` declara deployments en el pool `diarco-pdd`. TEST usa la cola
 `pdd`; DESA usa la cola aislada `pdd-desa`. El orquestador completo de TEST
 corre a las 20:30 y la materialización operativa de DESA a las 21:00, siempre
@@ -171,7 +188,9 @@ revisión y el mismo snapshot reutiliza resultados compatibles sin duplicarlos;
 un snapshot más nuevo genera nuevas corridas operativas sin recalcular PDVB.
 Cuando cambie la lógica de una etapa y se necesite recalcular una fecha ya
 procesada, se debe incrementar la revisión, por ejemplo a
-`DAILY_PIPELINE_V2`.
+`DAILY_PIPELINE_V3`. Esta revisión vuelve a calcular TEST usando los días
+canónicos de Inventory; los deployments DESA permanecen en
+`DAILY_PIPELINE_V2` hasta su promoción explícita.
 
 Primera prueba completa del piloto existente:
 
@@ -188,7 +207,7 @@ prefect deployment run \
     "model_version_uuid": "a0a35b25-628d-43f1-b651-82c97207fc60",
     "configuration_version_uuid": "2f916828-c59d-4190-a795-29ac5cfc1a66",
     "created_by": "eduardo.ettlin",
-    "pipeline_revision": "DAILY_PIPELINE_V2",
+    "pipeline_revision": "DAILY_PIPELINE_V3",
     "force": true
   }' \
   --watch

@@ -57,6 +57,11 @@ SOURCE_COLUMNS = {
 }
 
 TARGET_COLUMNS = {
+    ("inventory", "inv_planning_parameters_v"): {
+        "product_id", "site_id", "product_site_id", "replenishment_id",
+        "replenishment_row_version", "target_stock_days", "overstock_days",
+        "product_site_active", "active_for_purchase",
+    },
     ("stock_management", "pdd_item_logistics_snapshot"): {
         "source_logistics_id", "supplier_code", "logistics_configuration_code",
         "source_valid_from", "sells_by_weight", "package_uom", "unit_gtin",
@@ -154,8 +159,10 @@ def main() -> None:
                         """
                         SELECT table_schema, table_name, column_name
                         FROM information_schema.columns
-                        WHERE table_schema = 'stock_management'
-                          AND table_name = 'pdd_item_logistics_snapshot'
+                        WHERE (table_schema = 'stock_management'
+                               AND table_name = 'pdd_item_logistics_snapshot')
+                           OR (table_schema = 'inventory'
+                               AND table_name = 'inv_planning_parameters_v')
                         """
                     )
                 )

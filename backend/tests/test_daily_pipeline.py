@@ -285,7 +285,7 @@ def test_master_deployment_has_daily_2030_argentina_schedule() -> None:
         }
     ]
     assert deployment["parameters"]["force"] is False
-    assert deployment["parameters"]["pipeline_revision"] == "DAILY_PIPELINE_V2"
+    assert deployment["parameters"]["pipeline_revision"] == "DAILY_PIPELINE_V3"
     assert "business_date" not in deployment["parameters"]
 
 

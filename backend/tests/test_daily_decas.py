@@ -4,6 +4,7 @@ from inspect import getsource
 
 from pdd_backend.jobs.daily_decas import (
     _read_source_stock,
+    apply_inventory_parameters,
     build_branch_position,
     build_need_rows,
     calculation_cutoff_date,
@@ -135,6 +136,60 @@ def test_source_stock_uses_explicit_effective_stock_date() -> None:
     source = getsource(_read_source_stock)
     assert source.count("fecha_stock::date = :stock_date") == 2
     assert "fecha_stock::date = :business_date" not in source
+    assert "s.q_dias_stock" not in source
+    assert "s.q_dias_sobre_stock" not in source
+
+
+def test_inventory_parameters_replace_legacy_days_and_freeze_evidence() -> None:
+    from datetime import datetime, timezone
+
+    captured = datetime(2026, 9, 23, 12, 0, tzinfo=timezone.utc)
+    stock = [{"codigo_articulo": 100, "sucursal": 1,
+              "q_dias_stock": 99, "q_dias_sobre_stock": 88}]
+    parameters = [{
+        "codigo_articulo": "100", "sucursal": "1",
+        "inventory_product_id": UUID("00000000-0000-0000-0000-000000000001"),
+        "inventory_site_id": UUID("00000000-0000-0000-0000-000000000002"),
+        "product_site_id": UUID("00000000-0000-0000-0000-000000000003"),
+        "replenishment_id": UUID("00000000-0000-0000-0000-000000000004"),
+        "replenishment_row_version": 7,
+        "target_stock_days": Decimal("15.2500"),
+        "overstock_days": Decimal("2.5000"),
+        "product_site_active": True,
+        "active_for_purchase": True,
+        "captured_at": captured,
+    }]
+
+    snapshot = apply_inventory_parameters(stock, parameters)
+
+    assert stock[0]["q_dias_stock"] == Decimal("15.2500")
+    assert stock[0]["q_dias_sobre_stock"] == Decimal("2.5000")
+    assert stock[0]["planning_input"]["replenishment_row_version"] == 7
+    assert snapshot.as_of_ts == captured
+    assert snapshot.row_count == 1
+    assert len(snapshot.checksum) == 64
+
+
+def test_inventory_parameters_reject_missing_active_parameter() -> None:
+    from datetime import datetime, timezone
+
+    stock = [{"codigo_articulo": 100, "sucursal": 1}]
+    missing = [{
+        "codigo_articulo": "100", "sucursal": "1",
+        "inventory_product_id": None, "inventory_site_id": None,
+        "product_site_id": None, "replenishment_id": None,
+        "replenishment_row_version": None,
+        "target_stock_days": None, "overstock_days": None,
+        "product_site_active": None, "active_for_purchase": None,
+        "captured_at": datetime(2026, 9, 23, tzinfo=timezone.utc),
+    }]
+
+    try:
+        apply_inventory_parameters(stock, missing)
+    except RuntimeError as exc:
+        assert "sin parametro activo" in str(exc)
+    else:
+        raise AssertionError("Missing Inventory parameters must block PDD")
 
 
 def test_pilot_configuration_is_versioned_and_explicit() -> None:
