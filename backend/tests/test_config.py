@@ -27,6 +27,8 @@ def test_operational_safety_defaults() -> None:
     assert settings.keepalives_idle_seconds == 60
     assert settings.keepalives_interval_seconds == 30
     assert settings.keepalives_count == 5
+    assert settings.runtime_environment == "TEST"
+    assert settings.runtime_process_code == "DAILY_MASTER"
 
 
 def test_operational_target_defaults_to_test_only(monkeypatch) -> None:

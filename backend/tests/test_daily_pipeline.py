@@ -268,7 +268,7 @@ def test_source_state_is_scope_aware_for_features_and_backlog() -> None:
     assert "source_sync_status" in source
 
 
-def test_master_deployment_has_daily_2030_argentina_schedule() -> None:
+def test_master_deployment_waits_for_the_audited_source_window() -> None:
     root = Path(__file__).parents[1]
     config = yaml.safe_load((root / "prefect.yaml").read_text(encoding="utf-8"))
     deployment = next(
@@ -278,15 +278,30 @@ def test_master_deployment_has_daily_2030_argentina_schedule() -> None:
     )
     assert deployment["schedules"] == [
         {
-            "cron": "30 20 * * *",
+            "cron": "15 21 * * *",
             "timezone": "America/Argentina/Buenos_Aires",
-            "slug": "pdd-operational-daily-2030-art",
+            "slug": "pdd-operational-daily-2115-art",
             "active": True,
         }
     ]
     assert deployment["parameters"]["force"] is False
-    assert deployment["parameters"]["pipeline_revision"] == "DAILY_PIPELINE_V3"
+    assert deployment["work_pool"]["work_queue_name"] == "pdd-test-127"
+    assert "pipeline_revision" not in deployment["parameters"]
+    assert "configuration_version_uuid" not in deployment["parameters"]
     assert "business_date" not in deployment["parameters"]
+
+
+def test_weekly_model_monitoring_is_declared_but_requires_activation() -> None:
+    root = Path(__file__).parents[1]
+    config = yaml.safe_load((root / "prefect.yaml").read_text(encoding="utf-8"))
+    deployment = next(
+        item
+        for item in config["deployments"]
+        if item["name"] == "PDD_MODEL_MONITORING_WEEKLY"
+    )
+    assert deployment["schedules"][0]["cron"] == "0 10 * * 0"
+    assert deployment["schedules"][0]["active"] is False
+    assert deployment["parameters"]["lookback_days"] == 56
 
 
 def test_desa_master_deployment_is_isolated_and_manual() -> None:

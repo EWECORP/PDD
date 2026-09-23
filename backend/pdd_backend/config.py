@@ -81,6 +81,8 @@ class Settings:
     keepalives_idle_seconds: int = 60
     keepalives_interval_seconds: int = 30
     keepalives_count: int = 5
+    runtime_environment: str = "TEST"
+    runtime_process_code: str = "DAILY_MASTER"
     scope_version_uuid: UUID | None = None
     model_version_uuid: UUID | None = None
 
@@ -105,6 +107,13 @@ class Settings:
                 os.getenv("PDD_DB_KEEPALIVES_INTERVAL_SECONDS", "30")
             ),
             keepalives_count=int(os.getenv("PDD_DB_KEEPALIVES_COUNT", "5")),
+            runtime_environment=os.getenv(
+                "PDD_RUNTIME_ENVIRONMENT",
+                os.getenv("PDD_OPERATIONAL_TARGET_ENV", "TEST"),
+            ).strip().upper(),
+            runtime_process_code=os.getenv(
+                "PDD_RUNTIME_PROCESS_CODE", "DAILY_MASTER"
+            ).strip().upper(),
             scope_version_uuid=_optional_uuid("PDD_SCOPE_VERSION_UUID"),
             model_version_uuid=_optional_uuid("PDD_MODEL_VERSION_UUID"),
         )
@@ -114,6 +123,12 @@ class Settings:
             )
         if settings.origin_cd != 41:
             raise RuntimeError("La Fase 1 solo admite PDD_ORIGIN_CD=41")
+        if settings.runtime_environment not in {"TEST", "DESA", "PROD"}:
+            raise RuntimeError(
+                "PDD_RUNTIME_ENVIRONMENT debe ser TEST, DESA o PROD"
+            )
+        if not settings.runtime_process_code:
+            raise RuntimeError("PDD_RUNTIME_PROCESS_CODE no puede estar vacio")
         if settings.statement_timeout_ms <= 0:
             raise RuntimeError("PDD_DB_STATEMENT_TIMEOUT_MS debe ser positivo")
         if min(

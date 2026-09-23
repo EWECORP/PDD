@@ -54,6 +54,13 @@ SOURCE_COLUMNS = {
     ("datamart", "dm_pdd_scope_pair"): {
         "scope_version_uuid", "codigo_articulo", "destination_branch",
     },
+    ("audit", "pdd_runtime_binding"): {
+        "runtime_binding_uuid", "environment", "process_code", "revision_no",
+        "scope_version_uuid", "model_version_uuid",
+        "configuration_version_uuid", "pipeline_revision",
+        "effective_business_date", "status", "activated_at", "activated_by",
+        "reason", "supersedes_runtime_binding_uuid", "detail",
+    },
 }
 
 TARGET_COLUMNS = {
@@ -133,6 +140,8 @@ def main() -> None:
                             'v_base_articulos_logistica_actual'
                         )) OR (n.nspname = 'datamart' AND c.relname IN (
                             'dm_pdd_scope_article', 'dm_pdd_scope_pair'
+                        )) OR (n.nspname = 'audit' AND c.relname IN (
+                            'pdd_runtime_binding'
                         )))
                         """
                     )

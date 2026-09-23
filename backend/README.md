@@ -32,15 +32,63 @@ Se buscan variables en este orden:
 Las variables `PG_*` deben apuntar a `diarco_data`. No se registran contraseñas
 en logs.
 
-También deben definirse:
+La selección funcional vigente no se guarda en el archivo de secretos. El
+`.env` identifica solamente el ambiente y el proceso estable:
 
 ```text
-PDD_SCOPE_VERSION_UUID
-PDD_MODEL_VERSION_UUID
+PDD_RUNTIME_ENVIRONMENT=TEST
+PDD_RUNTIME_PROCESS_CODE=DAILY_MASTER
 ```
 
-Son identidades lógicas. Cuando se instale `connexa_platform_ms.stock_management`, esos UUID
-deben registrarse allí con sus filtros, parámetros, estado y aprobación.
+Scope, modelo, configuración operativa y revisión del pipeline se resuelven
+desde la versión `ACTIVE` de `audit.pdd_runtime_binding`. Los antiguos
+`PDD_SCOPE_VERSION_UUID` y `PDD_MODEL_VERSION_UUID` se aceptan temporalmente
+como fallback de migración cuando todavía no existe un binding activo.
+
+Antes de usar el registro se aplica, una sola vez sobre `diarco_data`,
+`PDD - Migracion Registro Runtime v3.1.sql`.
+
+El rol PostgreSQL utilizado por PDD necesita `SELECT`, `INSERT` y `UPDATE`
+sobre `audit.pdd_runtime_binding`, además de `USAGE` sobre el esquema
+`audit`. Si Infra aplica la migración con otro rol, debe otorgar esos permisos
+al usuario de `PG_USER` sin concederle privilegios de DDL.
+
+### Gobierno de versiones runtime
+
+Consultar la selección vigente y su historia:
+
+```bash
+pdd-etl runtime-config show --environment TEST
+pdd-etl runtime-config history --environment TEST
+```
+
+Un scope nuevo sigue el orden obligatorio `capturar -> backfill -> validar ->
+activar`. La activación valida membresía sellada, features hasta `D-1`, modelo,
+configuración y readiness operativo, y reemplaza el binding anterior en una
+sola transacción:
+
+```bash
+pdd-etl runtime-config activate \
+  --environment TEST \
+  --scope-version-uuid UUID_SCOPE \
+  --model-version-uuid UUID_MODELO \
+  --configuration-version-uuid UUID_CONFIGURACION \
+  --pipeline-revision DAILY_PIPELINE_V3 \
+  --effective-business-date 2026-09-23 \
+  --activated-by identificador_corporativo \
+  --reason "Motivo auditable"
+```
+
+El rollback crea una revisión nueva que copia la selección histórica; no
+reescribe ni reactiva filas anteriores:
+
+```bash
+pdd-etl runtime-config rollback \
+  --environment TEST --revision 1 \
+  --effective-business-date 2026-09-23 \
+  --activated-by identificador_corporativo \
+  --reason "Motivo del rollback"
+```
 
 ## Instalación en el entorno FORECAST
 
@@ -110,7 +158,9 @@ PDVB: reciente, anterior y estacional. No materializa innecesariamente todos
 los días intermedios del año.
 
 ```bash
-pdd-etl initial-backfill --business-date 2026-08-02
+pdd-etl initial-backfill --business-date 2026-08-02 \
+  --scope-version-uuid UUID_NUEVO \
+  --model-version-uuid UUID_MODELO
 ```
 
 El día de negocio debe ser el posterior al último día cerrado común. El flow se
@@ -148,8 +198,8 @@ fotografía. Stock, preparación, OC y las fórmulas DECAS conservan sus fuentes
 semántica anteriores.
 
 `prefect.yaml` declara deployments en el pool `diarco-pdd`. TEST usa la cola
-`pdd`; DESA usa la cola aislada `pdd-desa`. El orquestador completo de TEST
-corre a las 20:30 y la materialización operativa de DESA a las 21:00, siempre
+aislada `pdd-test-127`; DESA usa la cola aislada `pdd-desa`. El orquestador completo de TEST
+corre a las 21:15 y la materialización operativa de DESA a las 21:00, siempre
 en `America/Argentina/Buenos_Aires`.
 
 ```bash
@@ -228,12 +278,21 @@ prefect deployment run \
   --watch
 ```
 
-Desde la versión 0.13.1 el deployment tiene activo el schedule
-`pdd-operational-daily-2030-art`: todos los días a las 20:30 de
+Desde la versión 0.20.0 el deployment tiene activo el schedule
+`pdd-operational-daily-2115-art`: todos los días a las 21:15 de
 `America/Argentina/Buenos_Aires`, con `business_date=null` y `force=false`.
 Si todavía no existe un nuevo cierre común, termina de forma idempotente como
 `SKIPPED/NO_NEW_CLOSED_DATE`; si una fuente necesaria está atrasada o es
 inconsistente, falla antes de desplazar las publicaciones vigentes.
+
+### Monitoreo semanal del modelo
+
+`PDD_MODEL_MONITORING_WEEKLY` ejecuta un rolling backtest de las últimas ocho
+semanas contra el modelo y scope del binding activo. La ventana se deriva del
+último cierre común real, no de la fecha del calendario. El schedule del
+domingo a las 10:00 ART se entrega inactivo hasta medir duración y consumo en
+TEST. El monitoreo produce evidencia y métricas; nunca promociona ni modifica
+automáticamente el modelo activo.
 
 ### Publicación diaria en DESA
 
@@ -390,7 +449,8 @@ SELECT count(*) FROM datamart.dm_pdd_pdvb_backtest_detail;
 El proceso compara siete estimadores sobre las mismas features basales y de
 disponibilidad:
 
-- `PDVB_CANDIDATE`: modelo indicado por `PDD_MODEL_VERSION_UUID`;
+- `PDVB_CANDIDATE`: modelo del binding runtime activo o del UUID explícito de
+  una corrida candidata;
 - `MEAN_28`: media servible de la ventana reciente;
 - `ALGO_01_GROWTH`: factores 0,8/0,1/0,2 sin normalizar; la suma 1,1 representa
   el crecimiento intencional usado en FORECAST;

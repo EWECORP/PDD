@@ -8,7 +8,7 @@ from prefect import flow, get_run_logger, task
 from pdd_backend.clock import business_today
 from pdd_backend.config import OperationalSettings, Settings
 from pdd_backend.db import build_engine, build_operational_engine
-from pdd_backend.flows.analytical import _uuid, pdd_features_flow
+from pdd_backend.flows.analytical import pdd_features_flow
 from pdd_backend.flows.operational_inputs import (
     daily_decas_task,
     inspect_stock_readiness_task,
@@ -25,9 +25,11 @@ from pdd_backend.jobs.daily_pipeline import (
     resolve_daily_pipeline_context,
 )
 from pdd_backend.jobs.pdvb import calculate_pdvb
+from pdd_backend.runtime_registry import resolve_runtime_selection
 
 
 DEFAULT_CONFIGURATION_VERSION_UUID = "2f916828-c59d-4190-a795-29ac5cfc1a66"
+DEFAULT_PIPELINE_REVISION = "DAILY_PIPELINE_V3"
 
 
 @task(
@@ -49,23 +51,46 @@ def resolve_daily_context_task(
     business_date: date | None,
     scope_version_uuid: str | None,
     model_version_uuid: str | None,
+    configuration_version_uuid: str | None,
+    pipeline_revision: str | None,
     force: bool,
 ) -> dict:
     source_settings = Settings.from_env()
     target_settings = OperationalSettings.from_env()
-    scope_uuid = _uuid(
-        scope_version_uuid,
-        source_settings.scope_version_uuid,
-        "scope_version_uuid",
-    )
-    model_uuid = _uuid(
-        model_version_uuid,
-        source_settings.model_version_uuid,
-        "model_version_uuid",
-    )
+    if source_settings.runtime_environment != target_settings.target_environment:
+        raise RuntimeError(
+            "Ambiente runtime y destino operativo inconsistentes: "
+            f"runtime={source_settings.runtime_environment}, "
+            f"target={target_settings.target_environment}"
+        )
     source_engine = build_engine(source_settings)
     target_engine = build_operational_engine(target_settings)
     try:
+        with source_engine.connect() as connection:
+            runtime = resolve_runtime_selection(
+                connection,
+                source_settings.runtime_environment,
+                source_settings.runtime_process_code,
+                explicit_scope_uuid=(
+                    UUID(scope_version_uuid) if scope_version_uuid else None
+                ),
+                explicit_model_uuid=(
+                    UUID(model_version_uuid) if model_version_uuid else None
+                ),
+                explicit_configuration_uuid=(
+                    UUID(configuration_version_uuid)
+                    if configuration_version_uuid else None
+                ),
+                explicit_pipeline_revision=pipeline_revision,
+                legacy_scope_uuid=source_settings.scope_version_uuid,
+                legacy_model_uuid=source_settings.model_version_uuid,
+                default_configuration_uuid=UUID(
+                    DEFAULT_CONFIGURATION_VERSION_UUID
+                ),
+                default_pipeline_revision=DEFAULT_PIPELINE_REVISION,
+            )
+        scope_uuid = runtime.scope_version_uuid
+        model_uuid = runtime.model_version_uuid
         state = read_daily_source_state(source_engine, target_engine, scope_uuid)
         context = resolve_daily_pipeline_context(
             state,
@@ -73,10 +98,20 @@ def resolve_daily_context_task(
             today=business_today(),
             force=force,
         )
+        if (
+            runtime.effective_business_date is not None
+            and context.business_date < runtime.effective_business_date
+        ):
+            raise RuntimeError(
+                "El binding runtime todavia no es efectivo para la fecha solicitada: "
+                f"business_date={context.business_date}, "
+                f"effective_from={runtime.effective_business_date}"
+            )
         return {
             **context.serializable(),
             "scope_version_uuid": str(scope_uuid),
             "model_version_uuid": str(model_uuid),
+            "runtime": runtime.serializable(),
         }
     finally:
         target_engine.dispose()
@@ -151,20 +186,20 @@ def pdd_operational_daily_flow(
     business_date: date | None = None,
     scope_version_uuid: str | None = None,
     model_version_uuid: str | None = None,
-    configuration_version_uuid: str = DEFAULT_CONFIGURATION_VERSION_UUID,
+    configuration_version_uuid: str | None = None,
     created_by: str = "pdd.daily.orchestrator",
-    pipeline_revision: str = "DAILY_PIPELINE_V2",
+    pipeline_revision: str | None = None,
     force: bool = False,
 ) -> dict:
     logger = get_run_logger()
     if not created_by.strip():
         raise ValueError("created_by es obligatorio")
-    configuration_uuid = UUID(configuration_version_uuid)
-
     context = resolve_daily_context_task(
         business_date,
         scope_version_uuid,
         model_version_uuid,
+        configuration_version_uuid,
+        pipeline_revision,
         force,
     )
     if context["status"] == "SKIPPED":
@@ -184,6 +219,8 @@ def pdd_operational_daily_flow(
     feature_start = date.fromisoformat(context["feature_start"])
     scope_uuid = UUID(context["scope_version_uuid"])
     model_uuid = UUID(context["model_version_uuid"])
+    configuration_uuid = UUID(context["runtime"]["configuration_version_uuid"])
+    pipeline_revision = context["runtime"]["pipeline_revision"]
 
     readiness = inspect_stock_readiness_task(
         target_date,
@@ -284,9 +321,9 @@ def pdd_operational_publish_desa_flow(
     business_date: date | None = None,
     scope_version_uuid: str | None = None,
     model_version_uuid: str | None = None,
-    configuration_version_uuid: str = DEFAULT_CONFIGURATION_VERSION_UUID,
+    configuration_version_uuid: str | None = None,
     created_by: str = "pdd.operational.publisher.desa",
-    pipeline_revision: str = "DAILY_PIPELINE_V2",
+    pipeline_revision: str | None = None,
     source_calculation_run_uuid: str | None = None,
     force: bool = False,
 ) -> dict:
@@ -294,13 +331,13 @@ def pdd_operational_publish_desa_flow(
     logger = get_run_logger()
     if not created_by.strip():
         raise ValueError("created_by es obligatorio")
-    configuration_uuid = UUID(configuration_version_uuid)
-
     target = validate_desa_target_task()
     context = resolve_daily_context_task(
         business_date,
         scope_version_uuid,
         model_version_uuid,
+        configuration_version_uuid,
+        pipeline_revision,
         force,
         wait_for=[target],
     )
@@ -320,6 +357,8 @@ def pdd_operational_publish_desa_flow(
     target_date = date.fromisoformat(context["business_date"])
     scope_uuid = UUID(context["scope_version_uuid"])
     model_uuid = UUID(context["model_version_uuid"])
+    configuration_uuid = UUID(context["runtime"]["configuration_version_uuid"])
+    pipeline_revision = context["runtime"]["pipeline_revision"]
     expected_pdvb_uuid = pipeline_stage_uuid(
         "PDVB",
         target_date,

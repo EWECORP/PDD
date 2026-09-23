@@ -4,6 +4,7 @@ import argparse
 import json
 from datetime import date
 from decimal import Decimal, InvalidOperation
+from uuid import UUID
 
 from .flows.analytical import (
     pdd_backtest_flow,
@@ -22,6 +23,15 @@ from .flows.operational_inputs import (
 )
 from .flows.publisher import pdd_publish_pdvb_flow
 from .flows.simulation import pdd_simulate_directed_needs_flow
+from .config import Settings
+from .db import build_engine
+from .runtime_registry import (
+    DEFAULT_RUNTIME_PROCESS,
+    activate_runtime_binding,
+    list_runtime_bindings,
+    read_active_runtime_binding,
+    rollback_runtime_binding,
+)
 
 
 def parse_date(value: str) -> date:
@@ -175,6 +185,46 @@ def build_parser() -> argparse.ArgumentParser:
     simulation.add_argument("--lines-per-type", type=int, default=6)
     simulation.add_argument("--shared-pairs", type=int, default=2)
     simulation.add_argument("--daily-calculation-run-uuid")
+
+    runtime = subparsers.add_parser(
+        "runtime-config",
+        help="Consulta y gobierna la seleccion activa de versiones PDD",
+    )
+    runtime_subcommands = runtime.add_subparsers(
+        dest="runtime_command", required=True
+    )
+
+    runtime_show = runtime_subcommands.add_parser("show")
+    runtime_show.add_argument("--environment")
+    runtime_show.add_argument("--process-code", default=DEFAULT_RUNTIME_PROCESS)
+
+    runtime_history = runtime_subcommands.add_parser("history")
+    runtime_history.add_argument("--environment")
+    runtime_history.add_argument("--process-code", default=DEFAULT_RUNTIME_PROCESS)
+    runtime_history.add_argument("--limit", type=int, default=20)
+
+    runtime_activate = runtime_subcommands.add_parser("activate")
+    runtime_activate.add_argument("--environment")
+    runtime_activate.add_argument("--process-code", default=DEFAULT_RUNTIME_PROCESS)
+    runtime_activate.add_argument("--scope-version-uuid", required=True)
+    runtime_activate.add_argument("--model-version-uuid", required=True)
+    runtime_activate.add_argument("--configuration-version-uuid", required=True)
+    runtime_activate.add_argument("--pipeline-revision", required=True)
+    runtime_activate.add_argument(
+        "--effective-business-date", required=True, type=parse_date
+    )
+    runtime_activate.add_argument("--activated-by", required=True)
+    runtime_activate.add_argument("--reason", required=True)
+
+    runtime_rollback = runtime_subcommands.add_parser("rollback")
+    runtime_rollback.add_argument("--environment")
+    runtime_rollback.add_argument("--process-code", default=DEFAULT_RUNTIME_PROCESS)
+    runtime_rollback.add_argument("--revision", required=True, type=int)
+    runtime_rollback.add_argument(
+        "--effective-business-date", required=True, type=parse_date
+    )
+    runtime_rollback.add_argument("--activated-by", required=True)
+    runtime_rollback.add_argument("--reason", required=True)
     return parser
 
 
@@ -278,6 +328,58 @@ def main() -> None:
             args.shared_pairs,
             args.daily_calculation_run_uuid,
         )
+        print(json.dumps(result, default=str, indent=2, sort_keys=True))
+    elif args.command == "runtime-config":
+        settings = Settings.from_env()
+        environment = args.environment or settings.runtime_environment
+        engine = build_engine(settings)
+        try:
+            if args.runtime_command == "show":
+                with engine.connect() as connection:
+                    binding = read_active_runtime_binding(
+                        connection, environment, args.process_code
+                    )
+                result = binding.serializable() if binding else None
+            elif args.runtime_command == "history":
+                with engine.connect() as connection:
+                    bindings = list_runtime_bindings(
+                        connection,
+                        environment,
+                        args.process_code,
+                        args.limit,
+                    )
+                result = [binding.serializable() for binding in bindings]
+            elif args.runtime_command == "activate":
+                binding, reused = activate_runtime_binding(
+                    engine,
+                    settings,
+                    environment=environment,
+                    process_code=args.process_code,
+                    scope_version_uuid=UUID(args.scope_version_uuid),
+                    model_version_uuid=UUID(args.model_version_uuid),
+                    configuration_version_uuid=UUID(
+                        args.configuration_version_uuid
+                    ),
+                    pipeline_revision=args.pipeline_revision,
+                    effective_business_date=args.effective_business_date,
+                    activated_by=args.activated_by,
+                    reason=args.reason,
+                )
+                result = {"reused": reused, "binding": binding.serializable()}
+            else:
+                binding = rollback_runtime_binding(
+                    engine,
+                    settings,
+                    environment=environment,
+                    process_code=args.process_code,
+                    target_revision_no=args.revision,
+                    effective_business_date=args.effective_business_date,
+                    activated_by=args.activated_by,
+                    reason=args.reason,
+                )
+                result = {"binding": binding.serializable()}
+        finally:
+            engine.dispose()
         print(json.dumps(result, default=str, indent=2, sort_keys=True))
 
 

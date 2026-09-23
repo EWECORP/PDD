@@ -194,6 +194,7 @@ IMPLEMENTATION_FILES = (
     "pdd_backend/model_registry.py",
     "pdd_backend/operational_registry.py",
     "pdd_backend/operational_contract.py",
+    "pdd_backend/runtime_registry.py",
     "pdd_backend/manifests/model_versions.json",
     "pdd_backend/manifests/operational_configurations.json",
     "pdd_backend/flows/analytical.py",

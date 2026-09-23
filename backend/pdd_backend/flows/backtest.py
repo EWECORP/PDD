@@ -2,14 +2,69 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 from decimal import Decimal
+from uuid import UUID
 
 from prefect import flow, get_run_logger, task
 
 from pdd_backend.config import Settings
 from pdd_backend.db import build_engine
 from pdd_backend.flows.analytical import _uuid, pdd_features_flow
+from pdd_backend.freshness import read_source_freshness
 from pdd_backend.jobs.backtest import run_rolling_backtest
+from pdd_backend.runtime_registry import resolve_runtime_selection
 from pdd_backend.windows import build_pdvb_windows
+
+
+DEFAULT_CONFIGURATION_VERSION_UUID = "2f916828-c59d-4190-a795-29ac5cfc1a66"
+DEFAULT_PIPELINE_REVISION = "DAILY_PIPELINE_V3"
+
+
+@task(name="PDD - Resolver ventana semanal de backtesting")
+def resolve_weekly_backtest_context_task(
+    lookback_days: int,
+    forecast_horizon_days: int,
+    scope_version_uuid: str | None,
+    model_version_uuid: str | None,
+) -> dict:
+    if lookback_days <= 0:
+        raise ValueError("lookback_days debe ser positivo")
+    if forecast_horizon_days <= 0:
+        raise ValueError("forecast_horizon_days debe ser positivo")
+    settings = Settings.from_env()
+    engine = build_engine(settings)
+    try:
+        freshness = read_source_freshness(engine)
+        common_closed_date = freshness.common_closed_date
+        if common_closed_date is None:
+            raise RuntimeError("No se pudo determinar el cierre comun para backtesting")
+        with engine.connect() as connection:
+            runtime = resolve_runtime_selection(
+                connection,
+                settings.runtime_environment,
+                settings.runtime_process_code,
+                explicit_scope_uuid=(
+                    UUID(scope_version_uuid) if scope_version_uuid else None
+                ),
+                explicit_model_uuid=(
+                    UUID(model_version_uuid) if model_version_uuid else None
+                ),
+                legacy_scope_uuid=settings.scope_version_uuid,
+                legacy_model_uuid=settings.model_version_uuid,
+                default_configuration_uuid=UUID(
+                    DEFAULT_CONFIGURATION_VERSION_UUID
+                ),
+                default_pipeline_revision=DEFAULT_PIPELINE_REVISION,
+            )
+        origin_to = common_closed_date - timedelta(days=forecast_horizon_days)
+        origin_from = origin_to - timedelta(days=lookback_days - 1)
+        return {
+            "origin_from": origin_from.isoformat(),
+            "origin_to": origin_to.isoformat(),
+            "common_closed_date": common_closed_date.isoformat(),
+            "runtime": runtime.serializable(),
+        }
+    finally:
+        engine.dispose()
 
 
 @task(name="PDD - Ejecutar backtest rolling-origin")
@@ -146,3 +201,38 @@ def pdd_rolling_backtest_flow(
         "current_and_actual_features": current_and_actual_features,
         "backtest": backtest,
     }
+
+
+@flow(name="PDD - Monitoreo semanal del modelo activo", log_prints=True)
+def pdd_weekly_model_monitoring_flow(
+    lookback_days: int = 56,
+    scope_version_uuid: str | None = None,
+    model_version_uuid: str | None = None,
+    forecast_horizon_days: int = 1,
+    max_origins: int = 56,
+    evaluation_mode: str = "POINT_DAILY",
+    actual_min_coverage: Decimal = Decimal("0.70"),
+    sample_percent: Decimal = Decimal("100"),
+) -> dict:
+    context = resolve_weekly_backtest_context_task(
+        lookback_days,
+        forecast_horizon_days,
+        scope_version_uuid,
+        model_version_uuid,
+    )
+    runtime = context["runtime"]
+    result = pdd_rolling_backtest_flow(
+        date.fromisoformat(context["origin_from"]),
+        date.fromisoformat(context["origin_to"]),
+        runtime["scope_version_uuid"],
+        runtime["model_version_uuid"],
+        forecast_horizon_days,
+        max_origins,
+        evaluation_mode,
+        actual_min_coverage,
+        Decimal("0.10"),
+        Decimal("1.32"),
+        Decimal("0.49"),
+        sample_percent,
+    )
+    return {"context": context, "result": result}
