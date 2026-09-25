@@ -1,8 +1,8 @@
 # Índice y Gobierno Documental — Planificación de Necesidades Connexa
 
-Versión del paquete: **2.6**
-Fecha de actualización: **2026-08-21**
-Estado: **Base vigente — DECAS más planificación operativa de viajes**
+Versión del paquete: **3.1**
+Fecha de actualización: **2026-09-24**
+Estado: **Base vigente — operación diaria, Inventory y registro runtime**
 
 ---
 
@@ -42,6 +42,8 @@ El signo normativo de NDD-D es resta de Stock Neto Sucursal. Su ratificación fu
 | Documento | Propósito |
 | --- | --- |
 | `PDD - ALCANCE Fase 1.md` | Decisión funcional rectora, límites y entregable |
+| `PDD - 00 Manifiesto DDL v3.1.sql` | Secuencia canónica completa de DDL y migraciones por base |
+| `PDD - Ambientes y Despliegue.md` | Topología, estado validado de TEST, configuración y promoción |
 | `PDD - Especificación de Requerimiento de Software Connexa v2.0.md` | Requerimientos, aceptación, pruebas y arranque |
 | `PDD - Circuito Operativo de Necesidades de Distribución Connexa v2.0.md` | Procedimiento diario y responsabilidades |
 | `PDD - Modelo de Datos Conceptual Connexa v2.0.md` | Entidades, saldos y restricciones |
@@ -71,6 +73,7 @@ El signo normativo de NDD-D es resta de Stock Neto Sucursal. Su ratificación fu
 | `PDD - Solicitud Catalogo Tipos Vehiculo al BACK Java v1.0.md` | Contrato funcional, persistencia, API y aceptación del catálogo de capacidades de vehículos |
 | `PDD - Migracion Catalogo Tipos Vehiculo v3.0.sql` | Migración Flyway aditiva del catálogo y su vínculo con el snapshot de viaje |
 | `PDD - Validacion Catalogo Tipos Vehiculo v3.0.sql` | Control físico, integridad de capacidades y consistencia de viajes vinculados |
+| `PDD - Migracion Registro Runtime v3.1.sql` | Selección versionada de scope, modelo, configuración y pipeline por ambiente |
 | `PDD - Grants Catalogo Tipos Vehiculo v1.0.sql` | Permisos del rol Java para consultar y administrar el catálogo sin borrado físico |
 | `PDD - Seed DESA Tipos Vehiculo Simulados v1.0.sql` | Datos transitorios de desarrollo derivados de la imagen de Valkimia, identificados y restringidos a DESA |
 | `PDD - Reunion Tecnica Valkimia Relevamiento e Interfaz v1.0.md` | Correo, agenda, relevamiento, preguntas, acuerdos y aceptación para la reunión con Valkimia |
@@ -83,6 +86,10 @@ la separación de responsabilidades API/ETL queda documentada en la revisión
 La API productiva pertenece al microservicio Java Stock Management. El backend
 Python/Prefect se limita a ETL, cálculo y publicación; el mock HTTP local es un
 artefacto de contrato y no un servicio desplegable.
+
+El manifiesto v2.7 queda conservado como antecedente. No describe la imagen
+actual: la estructura operativa vigente requiere también v2.8, v2.9 y v3.0;
+la selección runtime vive en `diarco_data.audit` desde v3.1.
 
 ## 4. Vocabulario obligatorio
 

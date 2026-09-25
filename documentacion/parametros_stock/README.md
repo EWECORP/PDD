@@ -10,17 +10,21 @@
 
 **Clasificaciones, actualización posterior del 17/09:** aplicado y verificado el catálogo de valores por tipo, con las siete opciones de Compra activas y cero asignaciones a productos. Relaciones, unicidad y vigencias conforme al SQL entregado. Próximo paso: carga desde T050. Ver [paquete aplicado y estado](../../entregables/backend_classification_catalog_20260917/README.md).
 
-**Última verificación del 17/09/2026:** las tres migraciones del paquete están aplicadas, incluido el snapshot FORECAST. Reposición y selección logística siguen vacías; faltan carga e integración de consumidores. Ver [estado actual y revisión de clasificaciones](11_estado_y_clasificaciones_TEST_20260917.md) y [diagnóstico de fuentes](10_verificacion_BACK_TEST_20260917.md). Los estados anteriores que siguen se conservan como antecedentes.
+**Estado integrado al 24/09/2026:** las tres migraciones del paquete están aplicadas, se cargaron los parámetros de Inventory y PDD 0.20.0 consume `inventory.inv_planning_parameters_v`. La corrida diaria integral de TEST completó con cobertura del scope y 13.773 líneas de backlog. Durante la prueba se corrigieron 275 reposiciones válidas que habían quedado inactivas por copiar indebidamente el estado de `product_site`; el cargador debe preservar ambos estados por separado. Ver [estado y clasificaciones al 17/09](11_estado_y_clasificaciones_TEST_20260917.md) como evidencia previa a la integración. Los estados fechados que siguen son antecedentes, no la fotografía actual.
 
-Actualización: **2026-09-14**. Estado: **TEST auditado en solo lectura; documentación actualizada; solicitudes a BACK preparadas, pendientes de envío**.
+Actualización: **2026-09-24**. Estado: **Inventory integrado con PDD en TEST; carga y corrida diaria validadas**.
 
 ## Estado actual
 
-BACK decidió reutilizar `inventory` para integrar los maestros sugeridos, sin crear `replenishment`. Se verificó en vivo `connexa_platform_test`: los maestros están integrados parcialmente; reposición tiene 852 filas. Las 605 reglas de políticas versionadas permanecen en `supply_planning`, en DRAFT. PDD todavía obtiene días objetivo y sobrestock desde `src.base_stock_sucursal`.
+BACK decidió reutilizar `inventory` para integrar los maestros sugeridos, sin crear `replenishment`. Las 605 reglas de políticas versionadas permanecen en `supply_planning`, en DRAFT y fuera del circuito activo. Desde PDD 0.19.0, PDD obtiene `target_stock_days` y `overstock_days` exclusivamente desde `inventory.inv_planning_parameters_v`; ya no usa esos días de `src.base_stock_sucursal`.
 
-La ubicación en inventory es compatible con PDD, pero falta cerrar el contrato de ambos días, precedencia, políticas versionadas, logística y trazabilidad. Los conteos históricos de reposición vacía ya no describen el estado actual. No se modificó la base en la auditoría del 14/09.
+La ubicación en `inventory` y el contrato de ambos días quedaron integrados
+para PDD. Las políticas versionadas DRAFT continúan fuera del circuito y la
+logística conserva su gobierno separado. Los conteos históricos de reposición
+vacía ya no describen el estado actual. La auditoría del 14/09 fue de sólo
+lectura; las cargas y correcciones posteriores tienen su evidencia fechada.
 
-## Documentación vigente
+## Evidencia y antecedentes
 
 - [07_auditoria_inventory_test_20260914.md](07_auditoria_inventory_test_20260914.md): mapa de entidades solicitadas a tablas reales, calidad, diferencias y dictamen.
 - [08_solicitudes_BACK_inventory_test.md](08_solicitudes_BACK_inventory_test.md): doce solicitudes con prioridad, evidencia y criterio de aceptación; preparadas, no enviadas ni aplicadas.

@@ -1,0 +1,80 @@
+-- PDD / Manifiesto de DDL vigentes - v3.1 - 2026-09-24
+-- Este archivo es informativo y no ejecuta sentencias.
+-- Es la fuente canonica para reconstruir el esquema PDD desde cero y para
+-- identificar que migraciones debe tener cada base.
+--
+-- UBICACION FISICA
+--   - analitica y registro runtime:
+--       186.158.182.54 / diarco_data / datamart + audit
+--   - aplicacion y worker TEST:
+--       186.158.182.127 / /srv/PDD / prefect-worker-pdd-test.service
+--   - operativa TEST:
+--       186.158.182.223 / connexa_platform_test / stock_management + inventory
+--   - operativa DESA:
+--       connexa_platform_diarco / stock_management + inventory
+--   - operativa PROD:
+--       connexa_platform_ms / stock_management + inventory
+--   - todas las tablas propias del proyecto en stock_management usan pdd_
+--
+-- SECUENCIA ANALITICA - diarco_data
+--   1. PDD - DDL Analitico diarco_data v2.2.sql
+--   2. PDD - Migracion Analitica Scope Congelado v2.3.sql
+--   3. PDD - Migracion Analitica Backtest Rolling v2.4.sql
+--   4. PDD - Migracion Analitica Backtest Intermitente v2.5.sql
+--   5. PDD - DDL Fuente Canonica Articulos Logistica diarco_data v1.0.sql
+--   6. PDD - Migracion Registro Runtime v3.1.sql
+--
+-- SECUENCIA OPERATIVA - bases Connexa admitidas
+--   1. PDD - DDL Operativo Core connexa_platform_ms v2.2.sql
+--   2. PDD - DDL Operativo DECAS connexa_platform_ms v2.2.sql
+--   3. PDD - Migracion Operativa Metricas Backtest v2.4.sql
+--   4. PDD - Migracion Operativa Backtest Intermitente v2.5.sql
+--   5. PDD - Migracion Operativa Prefijo PDD v2.6.sql
+--   6. PDD - Migracion Operativa Planificacion Viajes v2.7.sql
+--   7. PDD - Migracion Correctiva Estados Valkimia v2.8.sql
+--   8. PDD - Migracion Ampliacion Item Logistics Snapshot v2.9.sql
+--   9. PDD - Migracion Catalogo Tipos Vehiculo v3.0.sql
+--
+-- PRERREQUISITOS EXTERNOS CONSUMIDOS POR PDD (NO SON DDL PROPIOS DE PDD)
+--   - inventory/V20260914150001__normalize_product_site_replenishment.sql
+--   - inventory/V20260914150002__explicit_planning_logistics.sql
+--   - supply_planning/V20260914150003__forecast_planning_input_snapshot.sql
+--   - vista inventory.inv_planning_parameters_v con cobertura exacta del scope
+--   Estas migraciones pertenecen a los servicios Inventory/Supply Planning y
+--   se gobiernan con su propio historial Flyway. No deben copiarse al historial
+--   de stock_management.
+--
+-- VALIDACIONES POSTERIORES A CADA MIGRACION OPERATIVA
+--   - PDD - Validacion Operativa Planificacion Viajes v2.7.sql
+--     (ejecutar inmediatamente despues de v2.7 y antes de v2.8)
+--   - PDD - Validacion Correctiva Estados Valkimia v2.8.sql
+--   - PDD - Validacion Ampliacion Item Logistics Snapshot v2.9.sql
+--   - PDD - Validacion Catalogo Tipos Vehiculo v3.0.sql
+--   - backend/tools/validate_operational.py
+--
+-- PERMISOS
+--   - PDD - Grants API PDD stock_management v1.2.sql
+--   - PDD - Grants Catalogo Tipos Vehiculo v1.0.sql
+--   - audit.pdd_runtime_binding requiere USAGE sobre audit y
+--     SELECT/INSERT/UPDATE para el rol de ejecucion PDD.
+--
+-- CONTRATO DE EVOLUCION
+--   - Los DDL v2.2 son la base historica, no la fotografia final.
+--   - v2.8 reemplaza normalized_status por el catalogo/FK de estados vigente.
+--   - Nunca se edita una migracion aplicada; una correccion crea una nueva.
+--   - Para una instalacion nueva se ejecuta toda la secuencia en orden.
+--   - Para una existente se aplican solamente las migraciones faltantes,
+--     verificando antes el historial Flyway y despues los validadores.
+--   - Las migraciones operativas definitivas deben incorporarse a Flyway en
+--     connexa-platform-lib-model-stockmanagement con una version libre.
+--
+-- ESTADO TEST VERIFICADO AL 2026-09-24
+--   - secuencia operativa aplicada hasta v3.0;
+--   - registro runtime v3.1 aplicado en diarco_data;
+--   - prerrequisitos Inventory/Supply Planning aplicados;
+--   - validate_operational.py sin tablas ni columnas obligatorias faltantes;
+--   - pipeline diario PDD 0.20.0 completado para business_date 2026-09-23;
+--   - backlog publicado: 13.773 lineas;
+--   - schedule TEST activo: 21:15 America/Argentina/Buenos_Aires.
+--
+-- Las versiones reemplazadas se conservan como antecedentes auditables.

@@ -3,6 +3,10 @@
 Fecha: 2026-08-14  
 Backend: `diarco-pdd-backend 0.6.1`
 
+> Documento histórico de la calibración inicial. No describe el despliegue
+> vigente 0.20.0 ni la selección actual de versiones, que se administra en
+> `audit.pdd_runtime_binding`. Se conserva como evidencia de aquella corrida.
+
 ## Objetivo
 
 Realizar una última comparación controlada de los siete estimadores y cerrar la
@@ -15,10 +19,9 @@ proyección vigente sin cambiar el contrato de tablas.
 
 ```bash
 cd /srv/PDD/backend
-source /srv/FORECAST/venv/bin/activate
-export PDD_ENV_PATH=/srv/PDD/backend/.env
-python -m pip install -e .
-python tools/validate_sql.py
+export PDD_ENV_PATH=/etc/connexa/pdd-test.env
+/srv/PDD/.venv/bin/python3 -m pip install -e .
+/srv/PDD/.venv/bin/python3 tools/validate_sql.py
 ```
 
 Primero inspeccionar `connexa_platform_test`:
@@ -47,7 +50,7 @@ psql -v ON_ERROR_STOP=1 \
 La migración renombra una instalación previa; no copia ni elimina filas. En una
 instalación nueva actúa como control idempotente una vez creados los DDL base.
 
-Variables adicionales en `/srv/PDD/backend/.env`:
+Variables adicionales en `/etc/connexa/pdd-test.env`:
 
 ```text
 PDD_DB_STATEMENT_TIMEOUT_MS=1800000

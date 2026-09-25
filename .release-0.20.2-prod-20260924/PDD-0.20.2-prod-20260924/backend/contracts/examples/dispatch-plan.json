@@ -1,0 +1,65 @@
+{
+  "dispatchPlanUuid": "0c77e076-1364-4c24-a156-f70a5c4bf0af",
+  "planCode": "CD41-20260822-TARDE",
+  "businessDate": "2026-08-22",
+  "originCd": 41,
+  "backlogSnapshotVersion": "c8573d15-282b-4ee9-91f9-36eb44fcaf37",
+  "status": "DRAFT",
+  "tripCount": 1,
+  "plannedQuantity": 48,
+  "rowVersion": 2,
+  "updatedAt": "2026-08-21T18:10:00Z",
+  "notes": "Preparación turno tarde",
+  "plannedBy": "planificador.cd41",
+  "approvedBy": null,
+  "approvedAt": null,
+  "trips": [
+    {
+      "dispatchTripUuid": "158a92f4-bffe-46d3-9c64-c1d7305028f6",
+      "tripNumber": 1,
+      "tripCode": "CD41-20260822-V001",
+      "status": "DRAFT",
+      "plannedDepartureAt": "2026-08-22T11:00:00-03:00",
+      "maxWeightKg": 10000,
+      "maxVolumeM3": null,
+      "maxPallets": 20,
+      "plannedWeightKg": 420,
+      "plannedVolumeM3": 0,
+      "plannedPallets": 1.4,
+      "weightUtilizationPct": 4.2,
+      "volumeUtilizationPct": null,
+      "palletUtilizationPct": 7,
+      "rowVersion": 1,
+      "stops": [
+        {
+          "stopSequence": 1,
+          "sucursal": 12,
+          "plannedArrivalAt": "2026-08-22T13:00:00-03:00",
+          "notes": null
+        }
+      ],
+      "lines": [
+        {
+          "dispatchTripLineUuid": "fb14dbb8-f937-4b8b-a99b-b593b9df511e",
+          "backlogLineUuid": "39889719-8c28-44b7-84df-31b8364a88cf",
+          "backlogLineVersion": 3,
+          "codigoArticulo": 62047,
+          "sucursal": 12,
+          "plannedQuantity": 48,
+          "publishedQuantity": 0,
+          "acceptedQuantity": 0,
+          "preparedQuantity": 0,
+          "dispatchedQuantity": 0,
+          "deliveredQuantity": 0,
+          "estimatedPackages": 4,
+          "estimatedPallets": 1.4,
+          "estimatedWeightKg": 420,
+          "estimatedVolumeM3": null,
+          "status": "DRAFT",
+          "alertCodes": ["UNIT_VOLUME_MISSING"],
+          "rowVersion": 1
+        }
+      ]
+    }
+  ]
+}

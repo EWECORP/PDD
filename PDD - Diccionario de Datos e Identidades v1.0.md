@@ -284,10 +284,12 @@ RETURNING calculation_run_id;
 
 Este documento resume el contrato compuesto por:
 
-- `PDD - 00 Manifiesto DDL v2.7.sql`;
+- `PDD - 00 Manifiesto DDL v3.1.sql`;
 - DDL operativo Core y DECAS v2.2;
 - DDL analítico v2.2;
-- migraciones analíticas y operativas v2.3–v2.5;
+- migraciones analíticas y operativas v2.3–v3.1;
+- registro runtime `audit.pdd_runtime_binding` para seleccionar versiones sin
+  convertir el archivo de secretos en un registro funcional;
 - migración de prefijo operativo v2.6;
 - migración de planificación de viajes v2.7;
 - implementación actual de `pdd_backend` para publicación, API, backlog, features, backtest y orquestación diaria.

@@ -1,0 +1,254 @@
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
+from pathlib import Path
+from uuid import UUID
+
+from dotenv import load_dotenv
+from sqlalchemy import URL
+
+
+OPERATIONAL_DATABASE_BY_ENVIRONMENT = {
+    "TEST": "connexa_platform_test",
+    "DESA": "connexa_platform_diarco",
+    "PROD": "connexa_platform_ms",
+}
+
+
+def _candidate_env_files() -> list[Path]:
+    candidates: list[Path] = []
+    for variable in ("PDD_ENV_PATH", "FORECAST_ENV_PATH"):
+        value = os.getenv(variable)
+        if value:
+            candidates.append(Path(value))
+
+    # Desarrollo Windows: E:/ETL/PDD/backend -> E:/ETL/FORECAST/.env
+    workspace = Path(__file__).resolve().parents[3]
+    candidates.extend(
+        [
+            workspace / "FORECAST" / ".env",
+            Path("/srv/FORECAST/forecast_core/.env"),
+            Path("/srv/FORECAST/.env"),
+        ]
+    )
+    return candidates
+
+
+def load_environment() -> Path | None:
+    for candidate in _candidate_env_files():
+        if candidate.is_file():
+            load_dotenv(candidate, override=False)
+            return candidate
+    load_dotenv(override=False)
+    return None
+
+
+def _required(name: str) -> str:
+    value = os.getenv(name)
+    if value is None or not value.strip():
+        raise RuntimeError(f"Variable requerida no configurada: {name}")
+    return value.strip()
+
+
+def _optional_uuid(name: str) -> UUID | None:
+    value = os.getenv(name)
+    return UUID(value) if value and value.strip() else None
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise RuntimeError(f"Variable booleana invalida {name}={value!r}")
+
+
+@dataclass(frozen=True)
+class Settings:
+    pg_host: str
+    pg_port: int
+    pg_database: str
+    pg_user: str
+    pg_password: str
+    origin_cd: int = 41
+    statement_timeout_ms: int = 1_800_000
+    lock_timeout_ms: int = 30_000
+    keepalives_idle_seconds: int = 60
+    keepalives_interval_seconds: int = 30
+    keepalives_count: int = 5
+    runtime_environment: str = "TEST"
+    runtime_process_code: str = "DAILY_MASTER"
+    scope_version_uuid: UUID | None = None
+    model_version_uuid: UUID | None = None
+
+    @classmethod
+    def from_env(cls) -> "Settings":
+        load_environment()
+        settings = cls(
+            pg_host=_required("PG_HOST"),
+            pg_port=int(os.getenv("PG_PORT", "5432")),
+            pg_database=_required("PG_DB"),
+            pg_user=_required("PG_USER"),
+            pg_password=_required("PG_PASSWORD"),
+            origin_cd=int(os.getenv("PDD_ORIGIN_CD", "41")),
+            statement_timeout_ms=int(
+                os.getenv("PDD_DB_STATEMENT_TIMEOUT_MS", "1800000")
+            ),
+            lock_timeout_ms=int(os.getenv("PDD_DB_LOCK_TIMEOUT_MS", "30000")),
+            keepalives_idle_seconds=int(
+                os.getenv("PDD_DB_KEEPALIVES_IDLE_SECONDS", "60")
+            ),
+            keepalives_interval_seconds=int(
+                os.getenv("PDD_DB_KEEPALIVES_INTERVAL_SECONDS", "30")
+            ),
+            keepalives_count=int(os.getenv("PDD_DB_KEEPALIVES_COUNT", "5")),
+            runtime_environment=os.getenv(
+                "PDD_RUNTIME_ENVIRONMENT",
+                os.getenv("PDD_OPERATIONAL_TARGET_ENV", "TEST"),
+            ).strip().upper(),
+            runtime_process_code=os.getenv(
+                "PDD_RUNTIME_PROCESS_CODE", "DAILY_MASTER"
+            ).strip().upper(),
+            scope_version_uuid=_optional_uuid("PDD_SCOPE_VERSION_UUID"),
+            model_version_uuid=_optional_uuid("PDD_MODEL_VERSION_UUID"),
+        )
+        if settings.pg_database != "diarco_data":
+            raise RuntimeError(
+                f"PDD analitico requiere PG_DB=diarco_data; recibido {settings.pg_database!r}"
+            )
+        if settings.origin_cd != 41:
+            raise RuntimeError("La Fase 1 solo admite PDD_ORIGIN_CD=41")
+        if settings.runtime_environment not in {"TEST", "DESA", "PROD"}:
+            raise RuntimeError(
+                "PDD_RUNTIME_ENVIRONMENT debe ser TEST, DESA o PROD"
+            )
+        if not settings.runtime_process_code:
+            raise RuntimeError("PDD_RUNTIME_PROCESS_CODE no puede estar vacio")
+        if settings.statement_timeout_ms <= 0:
+            raise RuntimeError("PDD_DB_STATEMENT_TIMEOUT_MS debe ser positivo")
+        if min(
+            settings.keepalives_idle_seconds,
+            settings.keepalives_interval_seconds,
+            settings.keepalives_count,
+        ) <= 0:
+            raise RuntimeError("Los parametros keepalive deben ser positivos")
+        return settings
+
+    def sqlalchemy_url(self) -> URL:
+        return URL.create(
+            drivername="postgresql+psycopg2",
+            username=self.pg_user,
+            password=self.pg_password,
+            host=self.pg_host,
+            port=self.pg_port,
+            database=self.pg_database,
+        )
+
+    def require_scope_uuid(self, override: UUID | None = None) -> UUID:
+        value = override or self.scope_version_uuid
+        if value is None:
+            raise RuntimeError(
+                "Debe informar scope_version_uuid o configurar PDD_SCOPE_VERSION_UUID"
+            )
+        return value
+
+    def require_model_uuid(self, override: UUID | None = None) -> UUID:
+        value = override or self.model_version_uuid
+        if value is None:
+            raise RuntimeError(
+                "Debe informar model_version_uuid o configurar PDD_MODEL_VERSION_UUID"
+            )
+        return value
+
+
+@dataclass(frozen=True)
+class OperationalSettings:
+    pg_host: str
+    pg_port: int
+    pg_database: str
+    pg_user: str
+    pg_password: str
+    target_environment: str = "TEST"
+    statement_timeout_ms: int = 1_800_000
+    lock_timeout_ms: int = 30_000
+    keepalives_idle_seconds: int = 60
+    keepalives_interval_seconds: int = 30
+    keepalives_count: int = 5
+
+    @classmethod
+    def from_env(cls) -> "OperationalSettings":
+        load_environment()
+        target_environment = os.getenv(
+            "PDD_OPERATIONAL_TARGET_ENV", "TEST"
+        ).strip().upper()
+        settings = cls(
+            pg_host=_required("PDD_OPERATIONAL_PG_HOST"),
+            pg_port=int(os.getenv("PDD_OPERATIONAL_PG_PORT", "5432")),
+            pg_database=_required("PDD_OPERATIONAL_PG_DB"),
+            pg_user=_required("PDD_OPERATIONAL_PG_USER"),
+            pg_password=_required("PDD_OPERATIONAL_PG_PASSWORD"),
+            target_environment=target_environment,
+            statement_timeout_ms=int(
+                os.getenv("PDD_OPERATIONAL_DB_STATEMENT_TIMEOUT_MS", "1800000")
+            ),
+            lock_timeout_ms=int(
+                os.getenv("PDD_OPERATIONAL_DB_LOCK_TIMEOUT_MS", "30000")
+            ),
+            keepalives_idle_seconds=int(
+                os.getenv("PDD_OPERATIONAL_DB_KEEPALIVES_IDLE_SECONDS", "60")
+            ),
+            keepalives_interval_seconds=int(
+                os.getenv("PDD_OPERATIONAL_DB_KEEPALIVES_INTERVAL_SECONDS", "30")
+            ),
+            keepalives_count=int(
+                os.getenv("PDD_OPERATIONAL_DB_KEEPALIVES_COUNT", "5")
+            ),
+        )
+        expected_database = OPERATIONAL_DATABASE_BY_ENVIRONMENT.get(
+            settings.target_environment
+        )
+        if expected_database is None:
+            raise RuntimeError(
+                "PDD_OPERATIONAL_TARGET_ENV debe ser TEST, DESA o PROD; "
+                f"recibido {settings.target_environment!r}"
+            )
+        if settings.pg_database != expected_database:
+            raise RuntimeError(
+                "Destino operativo inconsistente: "
+                f"PDD_OPERATIONAL_TARGET_ENV={settings.target_environment} "
+                f"requiere PDD_OPERATIONAL_PG_DB={expected_database}; "
+                f"recibido {settings.pg_database!r}"
+            )
+        if settings.target_environment == "PROD" and not _env_bool(
+            "PDD_OPERATIONAL_ALLOW_PRODUCTION"
+        ):
+            raise RuntimeError(
+                "Produccion requiere configurar explicitamente "
+                "PDD_OPERATIONAL_ALLOW_PRODUCTION=true"
+            )
+        if settings.statement_timeout_ms <= 0:
+            raise RuntimeError(
+                "PDD_OPERATIONAL_DB_STATEMENT_TIMEOUT_MS debe ser positivo"
+            )
+        if min(
+            settings.keepalives_idle_seconds,
+            settings.keepalives_interval_seconds,
+            settings.keepalives_count,
+        ) <= 0:
+            raise RuntimeError("Los parametros keepalive operativos deben ser positivos")
+        return settings
+
+    def sqlalchemy_url(self) -> URL:
+        return URL.create(
+            drivername="postgresql+psycopg2",
+            username=self.pg_user,
+            password=self.pg_password,
+            host=self.pg_host,
+            port=self.pg_port,
+            database=self.pg_database,
+        )

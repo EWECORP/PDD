@@ -14,7 +14,7 @@ permanecen disponibles para el frontend.
 ## Flujo de datos
 
 ```text
-src.mv_base_oc_pendientes (REFRESH)
+audit.pdd_source_sync_run (READY)
              │
              ▼
 gate de cierre y stock ──BLOCKED──► termina sin publicar
@@ -45,7 +45,7 @@ stock_management.pdd_current_backlog_line
 
 | Orden | Etapa | Salida principal | Condición de avance |
 |---:|---|---|---|
-| 1 | Refrescar OC | `src.mv_base_oc_pendientes` | sentencia confirmada y vista legible |
+| 1 | Validar sincronización | `audit.pdd_source_sync_run` | corrida de fuentes `READY` y cierre disponible |
 | 2 | Resolver fecha | contexto de cierre | ventas crudas, enriquecidas y t710 llegan al corte |
 | 3 | Readiness | diagnóstico `READY` | stock de sucursal y OC llegan a la fecha operativa; scope cubierto |
 | 4 | Features | stock/venta canónicos | rango pendiente materializado |
@@ -54,10 +54,9 @@ stock_management.pdd_current_backlog_line
 | 7 | DAILY_DECAS | posiciones y necesidades D/S | PDVB, logística y configuración coherentes |
 | 8 | Backlog | `pdd_current_backlog_line` | DAILY_DECAS vigente y sin pipeline Valkimia activo |
 
-`src.mv_base_oc_pendientes` se refresca al principio porque no existe otro job
-que la mantenga. Se usa `REFRESH MATERIALIZED VIEW` no concurrente. El worker
-PDD tiene límite uno y el proceso toma además el advisory lock
-`pdd.source.refresh.mv_base_oc_pendientes`.
+El refresco de `src.mv_base_oc_pendientes` pertenece al orquestador de fuentes
+de `ETL_DIARCO`. PDD consume el contrato auditado `audit.pdd_source_sync_run` y
+no vuelve a refrescar ni sincronizar fuentes.
 
 ## Resolución automática de fecha
 
@@ -100,11 +99,17 @@ Por lo tanto:
 
 ```bash
 cd /srv/PDD/backend
-source /srv/FORECAST/venv/bin/activate
-export PDD_ENV_PATH=/srv/PDD/backend/.env
-python -m pip install -e .
-python tools/validate_sql.py
-python tools/validate_operational.py
+sudo -u pdd env HOME=/var/lib/pdd \
+  PDD_ENV_PATH=/etc/connexa/pdd-test.env \
+  /srv/PDD/.venv/bin/python3 -m pytest -q
+sudo -u pdd env HOME=/var/lib/pdd \
+  PDD_ENV_PATH=/etc/connexa/pdd-test.env \
+  PDD_OPERATIONAL_TARGET_ENV=TEST \
+  /srv/PDD/.venv/bin/python3 tools/validate_sql.py
+sudo -u pdd env HOME=/var/lib/pdd \
+  PDD_ENV_PATH=/etc/connexa/pdd-test.env \
+  PDD_OPERATIONAL_TARGET_ENV=TEST \
+  /srv/PDD/.venv/bin/python3 tools/validate_operational.py
 
 export PREFECT_API_URL=https://orquestador.connexa-cloud.com/api
 prefect deploy --all
@@ -118,26 +123,23 @@ prefect deployment inspect \
   "PDD - Orquestador diario completo/PDD_OPERATIONAL_DAILY_MASTER"
 ```
 
-## Primera ejecución controlada
+## Ejecución controlada
 
-Como ya existe una publicación para `2026-08-16`, se usa `force=true` para
-probar toda la cadena con la fuente canónica de OC:
+En operación normal no se informan UUID ni fecha: el flujo resuelve el binding
+`ACTIVE` y el último cierre común. `force=true` se reserva para reanudar o
+repetir de forma controlada la misma fecha:
 
 ```bash
 export PREFECT_API_URL=https://orquestador.connexa-cloud.com/api
 prefect deployment run \
   "PDD - Orquestador diario completo/PDD_OPERATIONAL_DAILY_MASTER" \
-  --params '{
-    "business_date": "2026-08-16",
-    "scope_version_uuid": "f157e436-1094-431b-ae2a-8f477d780c3e",
-    "model_version_uuid": "a0a35b25-628d-43f1-b651-82c97207fc60",
-    "configuration_version_uuid": "2f916828-c59d-4190-a795-29ac5cfc1a66",
-    "created_by": "eduardo.ettlin",
-    "pipeline_revision": "DAILY_PIPELINE_V1",
-    "force": true
-  }' \
+  --param force=true \
   --watch
 ```
+
+La primera validación integral de la versión 0.20.0 en TEST terminó
+`Completed` para fecha de negocio `2026-09-23`, con stock al cierre de
+`2026-09-22` y 13.773 líneas de backlog.
 
 ## Controles posteriores
 
@@ -194,14 +196,14 @@ figuran `SUCCEEDED`, el backlog nuevo es `is_current=true`, la fuente
 
 ## Schedule diario
 
-Desde la versión 0.13.1 el deployment ejecuta el schedule activo
-`pdd-operational-daily-2030-art` todos los días a las 20:30 en la zona
+Desde la versión 0.20.0 el deployment ejecuta el único schedule activo
+`pdd-operational-daily-2115-art` todos los días a las 21:15 en la zona
 `America/Argentina/Buenos_Aires`. Sus parámetros normales son:
 
 ```text
 business_date = null
 force = false
-pipeline_revision = DAILY_PIPELINE_V1
+pipeline_revision = valor ACTIVE de audit.pdd_runtime_binding
 ```
 
 El horario está versionado en `prefect.yaml`. Se publica siempre con:

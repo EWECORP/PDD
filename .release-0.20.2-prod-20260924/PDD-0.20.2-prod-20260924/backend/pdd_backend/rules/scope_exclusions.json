@@ -1,0 +1,18 @@
+{
+  "policy_code": "PDD_COMMERCIAL_DEMAND_EXCLUSIONS",
+  "version": 1,
+  "rules": [
+    {
+      "rule_code": "INTERNAL_SUPPLIES_3818",
+      "c_rubro": 13,
+      "c_subrubro_1": 3818,
+      "reason": "NON_SALES_INTERNAL_CONSUMPTION"
+    },
+    {
+      "rule_code": "INTERNAL_SUPPLIES_3838",
+      "c_rubro": 13,
+      "c_subrubro_1": 3838,
+      "reason": "NON_SALES_INTERNAL_CONSUMPTION"
+    }
+  ]
+}

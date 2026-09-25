@@ -56,22 +56,24 @@ force: false
 pipeline_revision: DAILY_PIPELINE_V2
 ```
 
-TEST comienza a las 20:30. Si su publicación PDVB todavía no terminó, la
-barrera de reintentos posterga DESA sin aceptar datos incompletos.
+El maestro de TEST está programado a las 21:15. Por lo tanto, el cron DESA de
+las 21:00 inicia su barrera de espera antes que TEST y sólo es válido mientras
+los seis reintentos de diez minutos alcancen para encontrar la publicación.
+Antes de promover esta automatización debe revisarse el orden de schedules o
+mantener DESA inactivo para evitar depender de esa carrera temporal.
 
 ## 5. Despliegue
 
-En `/srv/PDD/backend`, usando el entorno Python de FORECAST:
+En `/srv/PDD/backend`, usando el virtualenv propio de PDD:
 
 ```bash
-source /srv/FORECAST/venv/bin/activate
 cd /srv/PDD/backend
-python -m pip install -e .
-python -m pip show diarco-pdd-backend
+/srv/PDD/.venv/bin/python3 -m pip install -e .
+/srv/PDD/.venv/bin/python3 -m pip show diarco-pdd-backend
 
-export PDD_ENV_PATH=/srv/PDD/backend/.env.desa
-python tools/validate_operational.py
-python -m pytest -q
+export PDD_ENV_PATH=/etc/connexa/pdd-desa.env
+/srv/PDD/.venv/bin/python3 tools/validate_operational.py
+/srv/PDD/.venv/bin/python3 -m pytest -q
 
 export PREFECT_API_URL=https://orquestador.connexa-cloud.com/api
 prefect deploy --all

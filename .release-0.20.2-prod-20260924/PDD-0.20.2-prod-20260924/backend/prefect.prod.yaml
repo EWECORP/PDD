@@ -1,0 +1,96 @@
+name: diarco_pdd_prod_flows
+prefect-version: 3.6.21
+
+work_pool:
+  name: diarco-pdd
+  work_queue_name: pdd
+  job_variables: {}
+
+deployments:
+  - name: PDD_OPERATIONAL_DAILY_MASTER_PROD
+    entrypoint: pdd_backend/flows/daily_pipeline.py:pdd_operational_daily_flow
+    description: Orquestador diario PDD exclusivo de Produccion.
+    parameters:
+      created_by: pdd.daily.orchestrator.prod
+      force: false
+    schedules:
+      - cron: "15 21 * * *"
+        timezone: America/Argentina/Buenos_Aires
+        slug: pdd-operational-prod-daily-2115-art
+        active: false
+    tags:
+      - pdd
+      - prod
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd
+
+  - name: PDD_SCOPE_SNAPSHOT_PROD_MANUAL
+    entrypoint: pdd_backend/flows/analytical.py:pdd_scope_snapshot_flow
+    description: Captura manual de scope para Produccion; nunca programar.
+    parameters: {}
+    tags:
+      - pdd
+      - prod
+      - manual
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd
+
+  - name: PDD_INITIAL_BACKFILL_PROD_MANUAL
+    entrypoint: pdd_backend/flows/analytical.py:pdd_initial_backfill_flow
+    description: Backfill inicial manual de Produccion; nunca programar.
+    parameters: {}
+    tags:
+      - pdd
+      - prod
+      - manual
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd
+
+  - name: PDD_STOCK_READINESS_PROD_MANUAL
+    entrypoint: pdd_backend/flows/operational_inputs.py:pdd_stock_readiness_flow
+    description: Diagnostico manual de preparacion de stock de Produccion.
+    parameters: {}
+    tags:
+      - pdd
+      - prod
+      - manual
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd
+
+  - name: PDD_ROLLING_BACKTEST_PROD_MANUAL
+    entrypoint: pdd_backend/flows/backtest.py:pdd_rolling_backtest_flow
+    description: Backtest manual de Produccion; no modifica el binding activo.
+    parameters: {}
+    tags:
+      - pdd
+      - prod
+      - manual
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd
+
+  - name: PDD_MODEL_MONITORING_WEEKLY_PROD
+    entrypoint: pdd_backend/flows/backtest.py:pdd_weekly_model_monitoring_flow
+    description: Monitoreo semanal productivo, inicialmente inactivo.
+    parameters:
+      lookback_days: 56
+      forecast_horizon_days: 1
+      max_origins: 56
+      evaluation_mode: POINT_DAILY
+      actual_min_coverage: "0.70"
+      sample_percent: "100"
+    schedules:
+      - cron: "0 10 * * 0"
+        timezone: America/Argentina/Buenos_Aires
+        slug: pdd-model-monitoring-prod-sunday-1000-art
+        active: false
+    tags:
+      - pdd
+      - prod
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd

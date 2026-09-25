@@ -1,0 +1,154 @@
+name: diarco_pdd_flows
+prefect-version: 3.6.21
+
+work_pool:
+  name: diarco-pdd
+  work_queue_name: pdd-test-127
+  job_variables: {}
+
+deployments:
+  - name: PDD_OPERATIONAL_DAILY_MASTER
+    entrypoint: pdd_backend/flows/daily_pipeline.py:pdd_operational_daily_flow
+    parameters:
+      created_by: pdd.daily.orchestrator
+      force: false
+    schedules:
+      - cron: "15 21 * * *"
+        timezone: America/Argentina/Buenos_Aires
+        slug: pdd-operational-daily-2115-art
+        active: true
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd-test-127
+
+  - name: PDD_OPERATIONAL_DAILY_MASTER_DESA
+    entrypoint: pdd_backend/flows/daily_pipeline.py:pdd_operational_daily_flow
+    parameters:
+      configuration_version_uuid: 2f916828-c59d-4190-a795-29ac5cfc1a66
+      created_by: pdd.daily.orchestrator.desa
+      pipeline_revision: DAILY_PIPELINE_V2
+      force: false
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd-desa
+
+  - name: PDD_OPERATIONAL_PUBLISH_DESA_DAILY
+    entrypoint: pdd_backend/flows/daily_pipeline.py:pdd_operational_publish_desa_flow
+    parameters:
+      configuration_version_uuid: 2f916828-c59d-4190-a795-29ac5cfc1a66
+      created_by: pdd.operational.publisher.desa
+      pipeline_revision: DAILY_PIPELINE_V2
+      force: false
+    schedules:
+      - cron: "0 21 * * *"
+        timezone: America/Argentina/Buenos_Aires
+        slug: pdd-operational-publish-desa-2100-art
+        active: true
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd-desa
+
+  - name: PDD_SCOPE_SNAPSHOT_MANUAL
+    entrypoint: pdd_backend/flows/analytical.py:pdd_scope_snapshot_flow
+    parameters: {}
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd-test-127
+
+  - name: PDD_ANALYTICAL_DAILY_PROD
+    entrypoint: pdd_backend/flows/analytical.py:pdd_daily_flow
+    parameters: {}
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd-test-127
+
+  - name: PDD_INITIAL_BACKFILL_MANUAL
+    entrypoint: pdd_backend/flows/analytical.py:pdd_initial_backfill_flow
+    parameters: {}
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd-test-127
+
+  - name: PDD_BACKTEST_MANUAL
+    entrypoint: pdd_backend/flows/analytical.py:pdd_backtest_flow
+    parameters: {}
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd-test-127
+
+  - name: PDD_ROLLING_BACKTEST_MANUAL
+    entrypoint: pdd_backend/flows/backtest.py:pdd_rolling_backtest_flow
+    parameters: {}
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd-test-127
+
+  - name: PDD_MODEL_MONITORING_WEEKLY
+    entrypoint: pdd_backend/flows/backtest.py:pdd_weekly_model_monitoring_flow
+    parameters:
+      lookback_days: 56
+      forecast_horizon_days: 1
+      max_origins: 56
+      evaluation_mode: POINT_DAILY
+      actual_min_coverage: "0.70"
+      sample_percent: "100"
+    schedules:
+      - cron: "0 10 * * 0"
+        timezone: America/Argentina/Buenos_Aires
+        slug: pdd-model-monitoring-weekly-sunday-1000-art
+        active: false
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd-test-127
+
+  - name: PDD_PUBLISH_PDVB_TEST_MANUAL
+    entrypoint: pdd_backend/flows/publisher.py:pdd_publish_pdvb_flow
+    parameters: {}
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd-test-127
+
+  - name: PDD_PUBLISH_ITEM_LOGISTICS_TEST_MANUAL
+    entrypoint: pdd_backend/flows/operational_inputs.py:pdd_publish_item_logistics_flow
+    parameters: {}
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd-test-127
+
+  - name: PDD_PUBLISH_ITEM_LOGISTICS_DESA_MANUAL
+    entrypoint: pdd_backend/flows/operational_inputs.py:pdd_publish_item_logistics_flow
+    parameters: {}
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd-desa
+
+  - name: PDD_STOCK_READINESS_MANUAL
+    entrypoint: pdd_backend/flows/operational_inputs.py:pdd_stock_readiness_flow
+    parameters: {}
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd-test-127
+
+  - name: PDD_DAILY_DECAS_TEST_MANUAL
+    entrypoint: pdd_backend/flows/operational_inputs.py:pdd_daily_decas_flow
+    parameters: {}
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd-test-127
+
+  - name: PDD_PUBLISH_BACKLOG_TEST_MANUAL
+    entrypoint: pdd_backend/flows/operational_inputs.py:pdd_publish_backlog_flow
+    parameters: {}
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd-test-127
+
+  - name: PDD_SIMULATE_ECA_DESA_MANUAL
+    entrypoint: pdd_backend/flows/simulation.py:pdd_simulate_directed_needs_flow
+    parameters:
+      created_by: pdd.frontend.simulator
+      lines_per_type: 6
+      shared_pairs: 2
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd-desa

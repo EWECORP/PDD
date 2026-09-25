@@ -1,5 +1,14 @@
--- PDD / Manifiesto de DDL vigentes - v2.7 - 2026-08-21
+-- PDD / Manifiesto historico de DDL - v2.7 - 2026-08-21
 -- Este archivo es informativo y no ejecuta sentencias.
+--
+-- REEMPLAZADO
+--   La fuente canonica vigente es:
+--   PDD - 00 Manifiesto DDL v3.1.sql
+--
+-- Se conserva este documento para trazabilidad del estado previo a las
+-- migraciones de estados Valkimia v2.8, logistica v2.9, vehiculos v3.0 y
+-- registro runtime v3.1. No debe usarse para construir ni validar una
+-- instalacion actual.
 --
 -- UBICACION FISICA
 --   - analitica pesada: diarco_data.datamart

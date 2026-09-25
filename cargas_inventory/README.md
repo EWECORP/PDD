@@ -1,5 +1,72 @@
 # Carga inicial de inventory en TEST
 
+## Proceso reutilizable por ambiente
+
+`load_environment.py` reemplaza el uso operativo de `load_test.py` cuando el
+destino se configura mediante `PDD_ENV_PATH`. Admite `TEST` y `PROD`, genera
+una captura inmutable desde `diarco_data`, resuelve los UUID por códigos de
+negocio dentro del destino y separa preview, aplicación y verificación.
+
+Las altas de `inv_product_site_replenishment` siempre nacen activas. El estado
+de la política de reposición es independiente de `inv_product_site.active` y
+no debe copiarse desde él. El proceso preserva filas existentes y se detiene
+si sus parámetros, clasificación o selección logística difieren de la captura.
+No modifica silenciosamente datos ya administrados por Connexa.
+
+La misma captura incorpora `replenishment_method` desde `abastecimiento` y el
+`lead_time_days` de entrega desde CD usando proveedor general 0 por sucursal.
+Cuando esa combinación no está informada, conserva la regla aprobada en TEST:
+lead time cero. Los otros métodos mantienen lead time NULL. De esta manera la
+carga inicial no necesita ejecutar luego los dos completadores históricos.
+
+```bash
+# Captura nueva desde SGM/diarco_data. La carpeta no debe existir.
+python cargas_inventory/load_environment.py \
+  --directory /ruta/captura-AAAAMMDD \
+  --environment PROD \
+  --extract \
+  --confirm-production connexa_platform_ms
+
+# Preview de PROD; no persiste datos.
+python cargas_inventory/load_environment.py \
+  --directory /ruta/captura-AAAAMMDD \
+  --environment PROD \
+  --confirm-production connexa_platform_ms
+
+# Aplicación exacta del preview revisado.
+python cargas_inventory/load_environment.py \
+  --directory /ruta/captura-AAAAMMDD \
+  --environment PROD \
+  --apply \
+  --confirm-production connexa_platform_ms \
+  --preview-sha256 SHA256_INFORMADO_POR_EL_PREVIEW
+
+# Verificación posterior, sólo lectura.
+python cargas_inventory/load_environment.py \
+  --directory /ruta/captura-AAAAMMDD \
+  --environment PROD \
+  --verify \
+  --confirm-production connexa_platform_ms
+```
+
+Preview y verificación abren una transacción normal porque PostgreSQL no
+permite crear/cargar tablas temporales en una transacción `READ ONLY`. En esos
+modos el código no ejecuta DML sobre tablas persistentes y termina siempre con
+`ROLLBACK`; las tablas de staging se declaran `ON COMMIT DROP`.
+
+En PROD también se exige
+`PDD_OPERATIONAL_ALLOW_PRODUCTION=true`, base exacta
+`connexa_platform_ms` y coincidencia entre el ambiente solicitado y el
+configurado. La aplicación usa una transacción, bloqueo asesor, locks de las
+tres entidades y `app.actor` para conservar auditoría.
+
+Mientras SGM continúe siendo fuente maestra, este proceso puede repetirse para
+incorporar pares faltantes. Los cambios sobre filas ya existentes quedan
+reportados como conflictos y requieren una promoción versionada específica;
+el bootstrap no implementa sincronización destructiva ni sobrescrituras.
+El factor SKU/proveedor se mantiene como proceso separado porque actualiza
+relaciones maestras preexistentes y requiere su propia revisión de cambios.
+
 ## Completar modalidad de reposición
 
 Después de cargar los pares, ejecutar `load_replenishment_method.py`. Completa `inventory.inv_product_site_replenishment.replenishment_method` desde `src.base_productos_vigentes.abastecimiento`, cruzando `c_articulo` y `c_sucu_empr` con los códigos de producto y sucursal. `c_proveedor_primario` se conserva en la captura como referencia, pero no forma parte de la clave ni se modifica en TEST.
@@ -33,7 +100,9 @@ python PDD/cargas_inventory/load_lead_time.py --directory PDD/data/cargas_invent
 
 Proveedor/sucursal sin coincidencia, días NULL o inválidos quedan en `pending.csv`, sin asignar un plazo por defecto. Cero informado explícitamente es válido. Se rechazan claves de proveedor/sucursal duplicadas o inválidas. Se completan solo plazos NULL; los valores existentes diferentes detienen la ejecución para revisión. Conserva captura, hash, auditoría y verificación; restringido a TEST. No modifica otros métodos de reposición.
 
-`load_test.py` carga reposición, clasificación de compra y selección logística. Lee las credenciales de `PDD/backend/.env`, no las escribe en los resultados y rechaza cualquier destino distinto de `connexa_platform_test`. Requiere Python, psycopg2 y python-dotenv.
+`load_test.py` carga reposición, clasificación de compra y selección logística. En el checkout local lee las credenciales de `PDD/backend/.env`; esa ruta no se usa en el servidor desplegado, donde la configuración PDD está en `/etc/connexa/pdd-test.env`. No escribe secretos en los resultados y rechaza cualquier destino distinto de `connexa_platform_test`. Requiere Python, psycopg2 y python-dotenv.
+
+La carga debe preservar de forma independiente los estados `product_site.active` y `replenishment.active`. No se debe desactivar una reposición válida por copiar el estado del producto-sucursal; esta condición forma parte del control previo a una nueva carga.
 
 Desde `C:\PROYECTOS\ETL`:
 

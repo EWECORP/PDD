@@ -1,0 +1,16 @@
+{
+  "type": "/problems/version-conflict",
+  "title": "Conflicto de versión",
+  "status": 409,
+  "code": "VERSION_CONFLICT",
+  "message": "La necesidad fue modificada por otro usuario. Actualice y vuelva a intentar.",
+  "traceId": "00-mock-trace-id",
+  "correlationId": "e1dc9637-14a0-48da-b681-01c9232ca238",
+  "fieldErrors": [
+    {
+      "field": "If-Match",
+      "code": "STALE_VERSION",
+      "message": "Se esperaba la versión 3 y se recibió la versión 2."
+    }
+  ]
+}

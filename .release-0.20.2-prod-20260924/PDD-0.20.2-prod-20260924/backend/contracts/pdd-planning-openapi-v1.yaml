@@ -1,0 +1,760 @@
+openapi: 3.1.0
+info:
+  title: PDD Planning and Valkimia Execution API
+  version: 1.0.0
+  description: >-
+    Contrato para seleccionar backlog, planificar y cubicar viajes en Connexa,
+    publicar viajes aprobados y seguir su ejecución en Valkimia.
+servers:
+  - url: /connexa/api/v1/pdd
+x-connexa-implementation:
+  runtime: Java 21
+  serviceRepository: connexa-platform-stock-management
+  persistenceRepository: connexa-platform-lib-model-stockmanagement
+  pythonRuntimeRole: analytical-etl-only
+security:
+  - bearerAuth: []
+tags:
+  - name: Planning backlog
+  - name: Dispatch plans
+  - name: Dispatch trips
+  - name: Valkimia execution
+
+paths:
+  /planning/backlog:
+    get:
+      tags: [Planning backlog]
+      operationId: listPlanningBacklog
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+        - name: snapshotVersion
+          in: query
+          schema: { type: string, format: uuid }
+        - name: sucursal
+          in: query
+          schema: { type: integer }
+        - name: codigoArticulo
+          in: query
+          schema: { type: integer }
+        - name: mandatoryOnly
+          in: query
+          schema: { type: boolean }
+        - name: freshnessStatus
+          in: query
+          schema:
+            $ref: '#/components/schemas/FreshnessStatus'
+      responses:
+        '200':
+          description: Foto vigente paginada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlanningBacklogPage' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /dispatch-plans:
+    get:
+      tags: [Dispatch plans]
+      operationId: listDispatchPlans
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+        - name: businessDate
+          in: query
+          schema: { type: string, format: date }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/DispatchPlanStatus' }
+      responses:
+        '200':
+          description: Planes
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DispatchPlanPage' }
+    post:
+      tags: [Dispatch plans]
+      operationId: createDispatchPlan
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateDispatchPlanRequest' }
+      responses:
+        '201':
+          description: Plan creado
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DispatchPlan' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /dispatch-plans/{planUuid}:
+    parameters:
+      - $ref: '#/components/parameters/PlanUuid'
+    get:
+      tags: [Dispatch plans]
+      operationId: getDispatchPlan
+      responses:
+        '200':
+          description: Plan y viajes
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DispatchPlan' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Dispatch plans]
+      operationId: replaceDispatchPlan
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReplaceDispatchPlanRequest' }
+      responses:
+        '200':
+          description: Plan actualizado
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DispatchPlan' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /dispatch-plans/{planUuid}/trips:
+    post:
+      tags: [Dispatch trips]
+      operationId: createDispatchTrip
+      parameters:
+        - $ref: '#/components/parameters/PlanUuid'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpsertDispatchTripRequest' }
+      responses:
+        '201':
+          description: Viaje creado
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DispatchTrip' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /dispatch-plans/{planUuid}/validate:
+    post:
+      tags: [Dispatch plans]
+      operationId: validateDispatchPlan
+      parameters:
+        - $ref: '#/components/parameters/PlanUuid'
+        - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Resultado de validación sin reservar
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlanValidationResult' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /dispatch-plans/{planUuid}/approve:
+    post:
+      tags: [Dispatch plans]
+      operationId: approveDispatchPlan
+      parameters:
+        - $ref: '#/components/parameters/PlanUuid'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ApproveDispatchPlanRequest' }
+      responses:
+        '200':
+          description: Plan aprobado y cantidades reservadas
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DispatchPlan' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /dispatch-plans/{planUuid}/cancel:
+    post:
+      tags: [Dispatch plans]
+      operationId: cancelDispatchPlan
+      parameters:
+        - $ref: '#/components/parameters/PlanUuid'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReasonRequest' }
+      responses:
+        '200':
+          description: Plan cancelado y reservas liberadas
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DispatchPlan' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /dispatch-trips/{tripUuid}:
+    parameters:
+      - $ref: '#/components/parameters/TripUuid'
+    get:
+      tags: [Dispatch trips]
+      operationId: getDispatchTrip
+      responses:
+        '200':
+          description: Viaje, paradas y líneas
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DispatchTrip' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Dispatch trips]
+      operationId: replaceDispatchTrip
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpsertDispatchTripRequest' }
+      responses:
+        '200':
+          description: Viaje actualizado
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DispatchTrip' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /dispatch-trips/{tripUuid}/lines:
+    post:
+      tags: [Dispatch trips]
+      operationId: addDispatchTripLines
+      parameters:
+        - $ref: '#/components/parameters/TripUuid'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddTripLinesRequest' }
+      responses:
+        '200':
+          description: Viaje recalculado
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DispatchTrip' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /dispatch-trips/{tripUuid}/lines/{lineUuid}:
+    parameters:
+      - $ref: '#/components/parameters/TripUuid'
+      - $ref: '#/components/parameters/TripLineUuid'
+      - $ref: '#/components/parameters/IfMatch'
+    put:
+      tags: [Dispatch trips]
+      operationId: replaceDispatchTripLine
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReplaceTripLineRequest' }
+      responses:
+        '200':
+          description: Línea actualizada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DispatchTripLine' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    delete:
+      tags: [Dispatch trips]
+      operationId: removeDispatchTripLine
+      responses:
+        '204': { description: Línea retirada del borrador }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /dispatch-trips/{tripUuid}/publish:
+    post:
+      tags: [Valkimia execution]
+      operationId: publishDispatchTrip
+      parameters:
+        - $ref: '#/components/parameters/TripUuid'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Publicación registrada en outbox
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ValkimiaImportSummary' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /valkimia-imports:
+    get:
+      tags: [Valkimia execution]
+      operationId: listValkimiaImports
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageSize'
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/ValkimiaImportStatus' }
+        - name: tripUuid
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Publicaciones
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ValkimiaImportPage' }
+
+  /valkimia-imports/{importUuid}:
+    get:
+      tags: [Valkimia execution]
+      operationId: getValkimiaImport
+      parameters:
+        - $ref: '#/components/parameters/ImportUuid'
+      responses:
+        '200':
+          description: Publicación, líneas y eventos
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ValkimiaImportDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /valkimia-imports/{importUuid}/poll:
+    post:
+      tags: [Valkimia execution]
+      operationId: pollValkimiaImport
+      parameters:
+        - $ref: '#/components/parameters/ImportUuid'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Consulta inmediata encolada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OperationAccepted' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  headers:
+    ETag:
+      description: Versión optimista del agregado
+      schema: { type: string }
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      schema: { type: [string, 'null'] }
+    PageSize:
+      name: pageSize
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 8, maxLength: 160 }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      schema: { type: string }
+    PlanUuid:
+      name: planUuid
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    TripUuid:
+      name: tripUuid
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    TripLineUuid:
+      name: lineUuid
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ImportUuid:
+      name: importUuid
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    NotFound:
+      description: Recurso inexistente
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Conflict:
+      description: Snapshot, versión, reserva o idempotencia en conflicto
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Unprocessable:
+      description: Regla funcional incumplida
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Unavailable:
+      description: Interfaz externa no disponible
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+  schemas:
+    DecimalQuantity:
+      type: number
+      multipleOf: 0.000001
+      minimum: 0
+    FreshnessStatus:
+      type: string
+      enum: [CURRENT, STALE, INCOMPLETE]
+    DispatchPlanStatus:
+      type: string
+      enum: [DRAFT, VALIDATED, APPROVED, PARTIALLY_PUBLISHED, PUBLISHED, IN_EXECUTION, COMPLETED, CANCELLED]
+    DispatchTripStatus:
+      type: string
+      enum: [DRAFT, READY, APPROVED, PUBLISH_PENDING, PUBLISHED, ACCEPTED, PARTIAL, PREPARING, PREPARED, DISPATCHED, DELIVERED, CANCELLED, REJECTED, FAILED, UNKNOWN]
+    ValkimiaImportStatus:
+      type: string
+      enum: [PENDING, ACCEPTED, PARTIAL, COMPLETED, CANCELLED, REJECTED, FAILED, UNKNOWN]
+    PlanningBacklogItem:
+      type: object
+      required: [backlogLineUuid, snapshotVersion, rowVersion, originCd, sucursal, codigoArticulo, totalOpenQuantity, activePlannedQuantity, activeImportedQuantity, availableToPlanQuantity, freshnessStatus]
+      properties:
+        backlogLineUuid: { type: string, format: uuid }
+        snapshotVersion: { type: string, format: uuid }
+        rowVersion: { type: integer, minimum: 1 }
+        originCd: { type: integer, const: 41 }
+        sucursal: { type: integer }
+        codigoArticulo: { type: integer }
+        nombreArticulo: { type: [string, 'null'] }
+        cProveedorPrimario: { type: [integer, 'null'] }
+        dOpenQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        eOpenQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        cOpenQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        aOpenQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        sOpenQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        mandatoryOpenQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        optionalOpenQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        totalOpenQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        activePlannedQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        activeImportedQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        availableToPlanQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        cdReferenceStock: { type: [number, 'null'] }
+        irqScore: { type: [number, 'null'], minimum: 0, maximum: 100 }
+        priorityScore: { type: number }
+        targetDate: { type: [string, 'null'], format: date }
+        oldestNeedDate: { type: [string, 'null'], format: date }
+        estimatedPackages: { type: [number, 'null'] }
+        estimatedPallets: { type: [number, 'null'] }
+        estimatedWeightKg: { type: [number, 'null'] }
+        estimatedVolumeM3: { type: [number, 'null'] }
+        freshnessStatus: { $ref: '#/components/schemas/FreshnessStatus' }
+        alertCodes:
+          type: array
+          items: { type: string }
+    PlanningBacklogPage:
+      type: object
+      required: [snapshotVersion, items]
+      properties:
+        snapshotVersion: { type: string, format: uuid }
+        businessDate: { type: string, format: date }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/PlanningBacklogItem' }
+        nextCursor: { type: [string, 'null'] }
+    CreateDispatchPlanRequest:
+      type: object
+      required: [planCode, businessDate, originCd, backlogSnapshotVersion]
+      properties:
+        planCode: { type: string, minLength: 1, maxLength: 80 }
+        businessDate: { type: string, format: date }
+        originCd: { type: integer, const: 41 }
+        backlogSnapshotVersion: { type: string, format: uuid }
+        notes: { type: [string, 'null'] }
+    ReplaceDispatchPlanRequest:
+      type: object
+      properties:
+        notes: { type: [string, 'null'] }
+    ApproveDispatchPlanRequest:
+      type: object
+      required: [allowPartialApproval, reason]
+      properties:
+        allowPartialApproval: { type: boolean, default: false }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+    ReasonRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 3, maxLength: 500 }
+    DispatchPlanSummary:
+      type: object
+      required: [dispatchPlanUuid, planCode, businessDate, status, rowVersion]
+      properties:
+        dispatchPlanUuid: { type: string, format: uuid }
+        planCode: { type: string }
+        businessDate: { type: string, format: date }
+        originCd: { type: integer, const: 41 }
+        backlogSnapshotVersion: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/DispatchPlanStatus' }
+        tripCount: { type: integer, minimum: 0 }
+        plannedQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        rowVersion: { type: integer, minimum: 1 }
+        updatedAt: { type: string, format: date-time }
+    DispatchPlan:
+      allOf:
+        - $ref: '#/components/schemas/DispatchPlanSummary'
+        - type: object
+          properties:
+            notes: { type: [string, 'null'] }
+            plannedBy: { type: string }
+            approvedBy: { type: [string, 'null'] }
+            approvedAt: { type: [string, 'null'], format: date-time }
+            trips:
+              type: array
+              items: { $ref: '#/components/schemas/DispatchTrip' }
+    DispatchPlanPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/DispatchPlanSummary' }
+        nextCursor: { type: [string, 'null'] }
+    DispatchStopInput:
+      type: object
+      required: [stopSequence, sucursal]
+      properties:
+        stopSequence: { type: integer, minimum: 1 }
+        sucursal: { type: integer }
+        plannedArrivalAt: { type: [string, 'null'], format: date-time }
+        notes: { type: [string, 'null'] }
+    UpsertDispatchTripRequest:
+      type: object
+      required: [tripNumber, tripCode, stops]
+      properties:
+        tripNumber: { type: integer, minimum: 1 }
+        tripCode: { type: string, minLength: 1, maxLength: 100 }
+        plannedDepartureAt: { type: [string, 'null'], format: date-time }
+        dispatchWindowStart: { type: [string, 'null'], format: date-time }
+        dispatchWindowEnd: { type: [string, 'null'], format: date-time }
+        routeCode: { type: [string, 'null'] }
+        vehicleReference: { type: [string, 'null'] }
+        vehicleType: { type: [string, 'null'] }
+        carrierReference: { type: [string, 'null'] }
+        maxWeightKg: { type: [number, 'null'], exclusiveMinimum: 0 }
+        maxVolumeM3: { type: [number, 'null'], exclusiveMinimum: 0 }
+        maxPallets: { type: [number, 'null'], exclusiveMinimum: 0 }
+        notes: { type: [string, 'null'] }
+        stops:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/DispatchStopInput' }
+    AddTripLineItem:
+      type: object
+      required: [backlogLineUuid, backlogLineVersion, backlogSnapshotVersion, sucursal, plannedQuantity]
+      properties:
+        backlogLineUuid: { type: string, format: uuid }
+        backlogLineVersion: { type: integer, minimum: 1 }
+        backlogSnapshotVersion: { type: string, format: uuid }
+        sucursal: { type: integer }
+        plannedQuantity: { type: number, exclusiveMinimum: 0, multipleOf: 0.000001 }
+    AddTripLinesRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items: { $ref: '#/components/schemas/AddTripLineItem' }
+    ReplaceTripLineRequest:
+      type: object
+      required: [plannedQuantity]
+      properties:
+        plannedQuantity: { type: number, exclusiveMinimum: 0, multipleOf: 0.000001 }
+    DispatchTripLine:
+      type: object
+      required: [dispatchTripLineUuid, backlogLineUuid, backlogLineVersion, codigoArticulo, sucursal, plannedQuantity, status, rowVersion]
+      properties:
+        dispatchTripLineUuid: { type: string, format: uuid }
+        backlogLineUuid: { type: string, format: uuid }
+        backlogLineVersion: { type: integer }
+        codigoArticulo: { type: integer }
+        sucursal: { type: integer }
+        plannedQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        publishedQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        acceptedQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        preparedQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        dispatchedQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        deliveredQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        estimatedPackages: { type: [number, 'null'] }
+        estimatedPallets: { type: [number, 'null'] }
+        estimatedWeightKg: { type: [number, 'null'] }
+        estimatedVolumeM3: { type: [number, 'null'] }
+        status: { type: string }
+        alertCodes:
+          type: array
+          items: { type: string }
+        rowVersion: { type: integer, minimum: 1 }
+    DispatchTrip:
+      type: object
+      required: [dispatchTripUuid, tripNumber, tripCode, status, rowVersion, stops, lines]
+      properties:
+        dispatchTripUuid: { type: string, format: uuid }
+        tripNumber: { type: integer }
+        tripCode: { type: string }
+        status: { $ref: '#/components/schemas/DispatchTripStatus' }
+        plannedDepartureAt: { type: [string, 'null'], format: date-time }
+        maxWeightKg: { type: [number, 'null'] }
+        maxVolumeM3: { type: [number, 'null'] }
+        maxPallets: { type: [number, 'null'] }
+        plannedWeightKg: { type: number }
+        plannedVolumeM3: { type: number }
+        plannedPallets: { type: number }
+        weightUtilizationPct: { type: [number, 'null'] }
+        volumeUtilizationPct: { type: [number, 'null'] }
+        palletUtilizationPct: { type: [number, 'null'] }
+        rowVersion: { type: integer, minimum: 1 }
+        stops:
+          type: array
+          items: { $ref: '#/components/schemas/DispatchStopInput' }
+        lines:
+          type: array
+          items: { $ref: '#/components/schemas/DispatchTripLine' }
+    ValidationIssue:
+      type: object
+      required: [code, severity, message]
+      properties:
+        dispatchTripLineUuid: { type: [string, 'null'], format: uuid }
+        backlogLineUuid: { type: [string, 'null'], format: uuid }
+        code: { type: string }
+        severity: { type: string, enum: [WARN, ERROR] }
+        message: { type: string }
+    PlanValidationResult:
+      type: object
+      required: [valid, issues]
+      properties:
+        valid: { type: boolean }
+        issues:
+          type: array
+          items: { $ref: '#/components/schemas/ValidationIssue' }
+    ValkimiaImportSummary:
+      type: object
+      required: [valkimiaImportUuid, dispatchTripUuid, status, lineCount, totalImportedQuantity]
+      properties:
+        valkimiaImportUuid: { type: string, format: uuid }
+        dispatchTripUuid: { type: string, format: uuid }
+        dispatchTripStopUuid: { type: [string, 'null'], format: uuid }
+        status: { $ref: '#/components/schemas/ValkimiaImportStatus' }
+        externalReference: { type: [string, 'null'] }
+        lineCount: { type: integer, minimum: 0 }
+        totalImportedQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        totalPreparedQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        requestedAt: { type: string, format: date-time }
+        lastPolledAt: { type: [string, 'null'], format: date-time }
+    ValkimiaImportLine:
+      type: object
+      required: [valkimiaImportLineUuid, dispatchTripLineUuid, backlogLineUuid, codigoArticulo, sucursal, importedQuantity, status]
+      properties:
+        valkimiaImportLineUuid: { type: string, format: uuid }
+        dispatchTripLineUuid: { type: string, format: uuid }
+        backlogLineUuid: { type: string, format: uuid }
+        codigoArticulo: { type: integer }
+        sucursal: { type: integer }
+        importedQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        acceptedQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        preparedQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        dispatchedQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        deliveredQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        cancelledQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        rejectedQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        status: { type: string }
+        externalReference: { type: [string, 'null'] }
+        externalLineReference: { type: [string, 'null'] }
+        lastExternalStatus: { type: [string, 'null'] }
+        lastExternalUpdatedAt: { type: [string, 'null'], format: date-time }
+    ExecutionEvent:
+      type: object
+      properties:
+        eventType: { type: string }
+        normalizedStatus: { type: string }
+        eventQuantity: { $ref: '#/components/schemas/DecimalQuantity' }
+        externalOccurredAt: { type: string, format: date-time }
+        receivedAt: { type: string, format: date-time }
+        processingStatus: { type: string }
+    ValkimiaImportDetail:
+      allOf:
+        - $ref: '#/components/schemas/ValkimiaImportSummary'
+        - type: object
+          properties:
+            lines:
+              type: array
+              items: { $ref: '#/components/schemas/ValkimiaImportLine' }
+            events:
+              type: array
+              items: { $ref: '#/components/schemas/ExecutionEvent' }
+    ValkimiaImportPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ValkimiaImportSummary' }
+        nextCursor: { type: [string, 'null'] }
+    OperationAccepted:
+      type: object
+      required: [correlationId, status]
+      properties:
+        correlationId: { type: string, format: uuid }
+        status: { type: string, const: ACCEPTED }
+    Problem:
+      type: object
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, format: uri-reference }
+        title: { type: string }
+        status: { type: integer }
+        code: { type: string }
+        detail: { type: [string, 'null'] }
+        correlationId: { type: [string, 'null'] }
+        violations:
+          type: array
+          items: { $ref: '#/components/schemas/ValidationIssue' }

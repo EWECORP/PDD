@@ -6,6 +6,9 @@ Estado: **Guía para adopción controlada DESA → TEST**
 
 ## 1. Alcance de este despliegue
 
+> Documento de adopción de v2.7. Para una instalación actual debe continuarse
+> con v2.8, v2.9 y v3.0 según `PDD - 00 Manifiesto DDL v3.1.sql`.
+
 La migración v2.7 crea el contrato persistente para que el equipo Java y
 frontend desarrollen planes y viajes. No habilita todavía publicación real a
 Valkimia ni modifica el orquestador Prefect.
@@ -100,8 +103,8 @@ Repetir los dos totales previos. Deben coincidir exactamente.
 
 ```bash
 cd /srv/PDD/backend
-source /srv/FORECAST/venv/bin/activate
-PYTHONDONTWRITEBYTECODE=1 python -m pytest -q
+PDD_ENV_PATH=/etc/connexa/pdd-test.env \
+  PYTHONDONTWRITEBYTECODE=1 /srv/PDD/.venv/bin/python3 -m pytest -q
 ```
 
 La suite valida ambos OpenAPI, referencias internas, ejemplos JSON y nombres
