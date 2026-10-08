@@ -6,6 +6,11 @@ Fecha: **2026-09-24**
 
 Estado: **Vigente**
 
+Actualización de TEST del 08/10/2026: backend 0.20.2 instalado y corrida
+diaria para `2026-10-07` completada con 13.146 líneas de backlog. Ver
+`PDD - Cierre Despliegue TEST 20261008.md`. La sección siguiente conserva la
+evidencia de la validación inicial de 0.20.0 del 24/09/2026.
+
 ## Arquitectura por ambiente
 
 | Función | Host / servicio | Base o ruta | Esquemas / proceso |
