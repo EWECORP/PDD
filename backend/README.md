@@ -332,6 +332,62 @@ domingo a las 10:00 ART se entrega inactivo hasta medir duración y consumo en
 TEST. El monitoreo produce evidencia y métricas; nunca promociona ni modifica
 automáticamente el modelo activo.
 
+Desde 0.20.3, el log de cada origen separa el tiempo total de `detalle` en
+`bloqueo` (espera del advisory lock de PostgreSQL), `particiones`, `sql`
+(inserción del detalle) y `commit`. La diferencia entre el total y esos tiempos
+incluye apertura de conexión y tareas menores. La corrida piloto de TEST del
+2026-10-09 (`6d22f3c2-e6bd-41b4-9a27-b3d9e35c77dd`) completó 7 orígenes al
+10% en 26 minutos y 34 segundos; el último origen consumió 576,8 segundos en
+`detalle`. Los horarios de TEST y PROD permanecen inactivos mientras se valida
+el costo del backtest.
+
+La corrida TEST del 2026-10-09 al 25% (`b4c8138f-8469-4d60-8aef-20ee71ec30f8`)
+terminó `FAILED`: el SQL del séptimo origen agotó el timeout de 30 minutos.
+Desde 0.20.4, `predictions` se materializa una vez antes de unir las ventas
+reales. La repetición controlada de siete orígenes al 25% en TEST del
+2026-10-09 terminó `COMPLETED` en 12 minutos y 14 segundos: 555.268 filas de
+detalle y 8.136 métricas. El `INSERT` de detalle demoró entre 14,5 y 21,7
+segundos por origen, sin espera por bloqueo. El UUID analítico de esa corrida
+es `a8a9d396-e7a9-4ab2-b555-7666a23907b8`.
+
+En su muestra `COMMON_VALID` y segmento `ALL`, `PDVB_CANDIDATE` obtuvo WAPE
+111,98%, frente a 108,77% de `MEAN_28` (46.414 observaciones válidas). La
+diferencia también aparece en los segmentos `INTERMITTENT` y `LUMPY`. Se
+requiere ampliar la ventana de evaluación antes de tomar una decisión de
+modelo. El cron semanal sigue inactivo; el siguiente piloto recomendado es
+21 orígenes al 25% en TEST.
+
+El piloto de 21 orígenes del 2026-10-09 terminó `COMPLETED` en 25 minutos y
+19 segundos (UUID analítico `f963551d-0374-4c91-b330-35593a6ce725`):
+1.665.804 filas de detalle y 8.208 métricas. En `COMMON_VALID`/`ALL`, sobre
+140.399 observaciones válidas, el WAPE fue 131,77% para `PDVB_CANDIDATE` y
+128,83% para `MEAN_28`; el MAE fue 2,23 y 2,18 respectivamente. En `SPARSE`,
+el WAPE fue 282,79% frente a 151,55%, con sólo 411 unidades reales en 4.508
+observaciones comunes. Las exclusiones del candidato incluyen 47.287 casos de
+`ACTUAL_COVERAGE_LOW` y 38.072 de `PREDICTION_BLOCKED`. Priorizar la revisión
+de cobertura y sobrepronóstico en demanda escasa antes de ajustar el modelo.
+El análisis pareado, las causas de exclusión y un contrafactual de mínimos por
+ventana están en
+[el diagnóstico de TEST](../documentacion/parametros_stock/14_diagnostico_backtest_TEST_20261009.md).
+La prueba del cargador de Inventory se omite al instalar sólo el paquete backend,
+porque su archivo fuente está fuera de este ZIP; en el repositorio completo se
+ejecuta normalmente.
+
+Prueba controlada de un origen en TEST, con límite de 10 minutos por sentencia:
+
+```bash
+cd /srv/PDD/backend
+sudo -u pdd env HOME=/var/lib/pdd \
+  PDD_ENV_PATH=/etc/connexa/pdd-test.env \
+  PREFECT_API_URL=https://orquestador.connexa-cloud.com/api \
+  PYTHONPATH=/srv/PDD/backend PDD_DB_STATEMENT_TIMEOUT_MS=600000 \
+  /srv/PDD/.venv/bin/pdd-etl rolling-backtest \
+  --origin-from 2026-10-06 --origin-to 2026-10-06 \
+  --horizon 1 --max-origins 1 --mode POINT_DAILY --sample-percent 25 \
+  --scope-version-uuid c533e7e7-3363-4dc3-8127-24f48fe33522 \
+  --model-version-uuid a0a35b25-628d-43f1-b651-82c97207fc60
+```
+
 ### Publicación diaria en DESA
 
 Desde la versión 0.15.0 el destino operativo se selecciona con una pareja
@@ -563,6 +619,38 @@ exhaustivo.
 La cabecera y el avance quedan en `dm_pdd_pdvb_backtest_run`; el detalle por
 estimador en `dm_pdd_pdvb_backtest_detail`; y las métricas en
 `dm_pdd_pdvb_backtest_metric`.
+
+### Retención del detalle de backtest
+
+El detalle de corridas terminadas (`COMPLETED` o `FAILED`) se conserva durante
+21 días desde `completed_at` (UTC). La cabecera y las métricas agregadas se
+conservan para auditoría. Las corridas `RUNNING` quedan excluidas. El campo
+`detail_row_count` sigue representando las filas generadas originalmente;
+`parameters.detail_purged_at` registra la depuración efectuada.
+
+Revisar el impacto en TEST antes del primer borrado:
+
+```bash
+sudo -u pdd env HOME=/var/lib/pdd PDD_ENV_PATH=/etc/connexa/pdd-test.env \
+  /srv/PDD/.venv/bin/pdd-etl backtest-retention
+```
+
+Después de revisar la lista de UUID y el conteo real `current_detail_rows`,
+ejecutar `pdd-etl backtest-retention --apply`. El borrado se realiza por fecha
+de evaluación, en transacciones separadas; al finalizar cada corrida verifica
+que no queden filas y registra el momento de depuración. Si se interrumpe,
+volver a ejecutar el mismo comando. La operación no borra métricas ni
+cabeceras, ni toca `dm_pdd_pdvb_estimate_detail`. El deployment
+`PDD_BACKTEST_RETENTION_DAILY` viene con cron diario 08:00 ART inactivo para
+habilitarlo después de la validación en TEST. El equivalente de PROD también
+viene inactivo. Si ambos ambientes usan la misma `diarco_data`, activar sólo
+uno de los dos cronogramas.
+
+El borrado libera filas para reutilización; PostgreSQL no reduce de inmediato
+el tamaño físico de una partición. Si una partición queda completamente vacía,
+un administrador puede truncarla tras bloquearla y volver a verificar el
+conteo. La estructura de la partición permanece disponible para futuras
+corridas sobre ese mes.
 
 ```sql
 SELECT calculation_run_uuid, status, origin_from, origin_to,

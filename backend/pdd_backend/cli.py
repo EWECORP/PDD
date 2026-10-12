@@ -25,6 +25,7 @@ from .flows.publisher import pdd_publish_pdvb_flow
 from .flows.simulation import pdd_simulate_directed_needs_flow
 from .config import Settings
 from .db import build_engine
+from .jobs.backtest_retention import preview_backtest_retention, purge_backtest_detail
 from .runtime_registry import (
     DEFAULT_RUNTIME_PROCESS,
     activate_runtime_binding,
@@ -225,6 +226,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     runtime_rollback.add_argument("--activated-by", required=True)
     runtime_rollback.add_argument("--reason", required=True)
+    retention = subparsers.add_parser(
+        "backtest-retention",
+        help="Previsualiza o depura detalle de backtest terminado hace mas de 21 dias",
+    )
+    retention.add_argument(
+        "--apply", action="store_true", help="Ejecuta el borrado por lotes"
+    )
     return parser
 
 
@@ -328,6 +336,18 @@ def main() -> None:
             args.shared_pairs,
             args.daily_calculation_run_uuid,
         )
+        print(json.dumps(result, default=str, indent=2, sort_keys=True))
+    elif args.command == "backtest-retention":
+        settings = Settings.from_env()
+        engine = build_engine(settings)
+        try:
+            result = (
+                purge_backtest_detail(engine, settings)
+                if args.apply
+                else preview_backtest_retention(engine)
+            )
+        finally:
+            engine.dispose()
         print(json.dumps(result, default=str, indent=2, sort_keys=True))
     elif args.command == "runtime-config":
         settings = Settings.from_env()

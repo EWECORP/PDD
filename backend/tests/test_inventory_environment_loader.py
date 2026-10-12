@@ -11,6 +11,8 @@ LOADER_PATH = (
     / "cargas_inventory"
     / "load_environment.py"
 )
+if not LOADER_PATH.is_file():
+    pytest.skip("cargas_inventory no forma parte del paquete backend", allow_module_level=True)
 SPEC = importlib.util.spec_from_file_location("pdd_inventory_loader", LOADER_PATH)
 assert SPEC is not None and SPEC.loader is not None
 loader = importlib.util.module_from_spec(SPEC)

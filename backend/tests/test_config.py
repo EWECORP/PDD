@@ -76,6 +76,9 @@ def test_operational_target_rejects_desa_with_production_database(monkeypatch) -
 
 
 def test_operational_target_requires_explicit_production_opt_in(monkeypatch) -> None:
+    # El test controla la ausencia de opt-in. No recargar el .env real de PROD
+    # despues de quitar la variable con monkeypatch.delenv.
+    monkeypatch.setattr("pdd_backend.config.load_environment", lambda: None)
     monkeypatch.setenv("PDD_OPERATIONAL_PG_HOST", "postgres")
     monkeypatch.setenv("PDD_OPERATIONAL_PG_DB", "connexa_platform_ms")
     monkeypatch.setenv("PDD_OPERATIONAL_PG_USER", "pdd")

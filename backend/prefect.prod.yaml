@@ -94,3 +94,15 @@ deployments:
     work_pool:
       name: diarco-pdd
       work_queue_name: pdd
+
+  - name: PDD_BACKTEST_RETENTION_DAILY_PROD
+    entrypoint: pdd_backend/flows/retention.py:pdd_backtest_retention_flow
+    parameters: {}
+    schedules:
+      - cron: "0 8 * * *"
+        timezone: America/Argentina/Buenos_Aires
+        slug: pdd-backtest-retention-prod-daily-0800-art
+        active: false
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd

@@ -390,7 +390,7 @@ hybrid AS (
         END::varchar(40) AS hybrid_component
     FROM features AS f
 ),
-predictions AS (
+predictions AS MATERIALIZED (
     SELECT
         h.business_date AS forecast_origin_date,
         h.calculation_run_uuid AS forecast_calculation_run_uuid,

@@ -43,7 +43,7 @@ deployments:
       - cron: "0 21 * * *"
         timezone: America/Argentina/Buenos_Aires
         slug: pdd-operational-publish-desa-2100-art
-        active: true
+        active: false
     work_pool:
       name: diarco-pdd
       work_queue_name: pdd-desa
@@ -55,22 +55,8 @@ deployments:
       name: diarco-pdd
       work_queue_name: pdd-test-127
 
-  - name: PDD_ANALYTICAL_DAILY_PROD
-    entrypoint: pdd_backend/flows/analytical.py:pdd_daily_flow
-    parameters: {}
-    work_pool:
-      name: diarco-pdd
-      work_queue_name: pdd-test-127
-
   - name: PDD_INITIAL_BACKFILL_MANUAL
     entrypoint: pdd_backend/flows/analytical.py:pdd_initial_backfill_flow
-    parameters: {}
-    work_pool:
-      name: diarco-pdd
-      work_queue_name: pdd-test-127
-
-  - name: PDD_BACKTEST_MANUAL
-    entrypoint: pdd_backend/flows/analytical.py:pdd_backtest_flow
     parameters: {}
     work_pool:
       name: diarco-pdd
@@ -96,6 +82,18 @@ deployments:
       - cron: "0 10 * * 0"
         timezone: America/Argentina/Buenos_Aires
         slug: pdd-model-monitoring-weekly-sunday-1000-art
+        active: false
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd-test-127
+
+  - name: PDD_BACKTEST_RETENTION_DAILY
+    entrypoint: pdd_backend/flows/retention.py:pdd_backtest_retention_flow
+    parameters: {}
+    schedules:
+      - cron: "0 8 * * *"
+        timezone: America/Argentina/Buenos_Aires
+        slug: pdd-backtest-retention-daily-0800-art
         active: false
     work_pool:
       name: diarco-pdd

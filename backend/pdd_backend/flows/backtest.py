@@ -120,15 +120,20 @@ def rolling_backtest_task(
             cv2_threshold=cv2_threshold,
             sample_percent=sample_percent,
             progress_callback=(
-                lambda completed, total, origin, rows, estimate_s, detail_s: logger.info(
+                lambda completed, total, origin, rows, estimate_s, detail_s, timings: logger.info(
                     "Origen %s completado (%s/%s); detalle=%s; "
-                    "pdvb=%.1fs; detalle=%.1fs",
+                    "pdvb=%.1fs; detalle=%.1fs "
+                    "(bloqueo=%.1fs; particiones=%.1fs; sql=%.1fs; commit=%.1fs)",
                     origin,
                     completed,
                     total,
                     rows,
                     estimate_s,
                     detail_s,
+                    timings["lock_wait_s"],
+                    timings["partitions_s"],
+                    timings["insert_s"],
+                    timings["commit_s"],
                 )
             ),
         )

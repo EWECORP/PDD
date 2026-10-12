@@ -126,6 +126,7 @@ def generate_backtest_detail(
     adi_threshold: Decimal = Decimal("1.32"),
     cv2_threshold: Decimal = Decimal("0.49"),
     sample_percent: Decimal = Decimal("100"),
+    timings: dict[str, float] | None = None,
 ) -> tuple[JobResult, UUID]:
     validate_date_range(evaluation_from, evaluation_to)
     if forecast_horizon_days <= 0:
@@ -164,16 +165,23 @@ def generate_backtest_detail(
             text("SELECT set_config('application_name', :name, true)"),
             {"name": f"pdd_backtest:{str(run_uuid)[:8]}:{origin_date}"},
         )
+        lock_started = monotonic()
         connection.execute(
             text("SELECT pg_advisory_xact_lock(hashtext(:lock_name))"),
             {"lock_name": "pdd.job.backtest"},
         )
+        if timings is not None:
+            timings["lock_wait_s"] = monotonic() - lock_started
+        partitions_started = monotonic()
         partitions = ensure_monthly_partitions(
             connection,
             "dm_pdd_pdvb_backtest_detail",
             evaluation_from,
             evaluation_to,
         )
+        if timings is not None:
+            timings["partitions_s"] = monotonic() - partitions_started
+        insert_started = monotonic()
         affected = execute_sql(
             connection,
             "backtest/insert_backtest_detail.sql",
@@ -220,6 +228,11 @@ def generate_backtest_detail(
                 "actual_window_start": actual_window_start,
             },
         )
+        if timings is not None:
+            timings["insert_s"] = monotonic() - insert_started
+        commit_started = monotonic()
+    if timings is not None:
+        timings["commit_s"] = monotonic() - commit_started
     return (
         JobResult(
             job_name="backtest",
@@ -417,7 +430,7 @@ def run_rolling_backtest(
     adi_threshold: Decimal = Decimal("1.32"),
     cv2_threshold: Decimal = Decimal("0.49"),
     sample_percent: Decimal = Decimal("100"),
-    progress_callback: Callable[[int, int, date, int, float, float], None]
+    progress_callback: Callable[[int, int, date, int, float, float, dict[str, float]], None]
     | None = None,
 ) -> RollingBacktestResult:
     validate_date_range(origin_from, origin_to)
@@ -478,6 +491,7 @@ def run_rolling_backtest(
             estimate_seconds = monotonic() - estimate_started
             evaluation_date = origin_date + timedelta(days=forecast_horizon_days)
             detail_started = monotonic()
+            detail_timings: dict[str, float] = {}
             detail_result, _ = generate_backtest_detail(
                 engine,
                 settings,
@@ -495,6 +509,7 @@ def run_rolling_backtest(
                 adi_threshold=adi_threshold,
                 cv2_threshold=cv2_threshold,
                 sample_percent=sample_percent,
+                timings=detail_timings,
             )
             detail_seconds = monotonic() - detail_started
             completed_origins += 1
@@ -516,6 +531,7 @@ def run_rolling_backtest(
                     detail_result.affected_rows,
                     estimate_seconds,
                     detail_seconds,
+                    detail_timings,
                 )
 
         metric_rows = aggregate_backtest_metrics(
