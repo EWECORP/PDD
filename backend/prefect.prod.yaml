@@ -17,7 +17,7 @@ deployments:
       - cron: "15 21 * * *"
         timezone: America/Argentina/Buenos_Aires
         slug: pdd-operational-prod-daily-2115-art
-        active: false
+        active: true
     tags:
       - pdd
       - prod

@@ -25,7 +25,9 @@ from pdd_backend.jobs.daily_pipeline import (
     resolve_daily_pipeline_context,
 )
 from pdd_backend.jobs.pdvb import calculate_pdvb
+from pdd_backend.jobs.scope_maintenance import ensure_daily_scope
 from pdd_backend.runtime_registry import resolve_runtime_selection
+from pdd_backend.windows import build_pdvb_windows
 
 
 DEFAULT_CONFIGURATION_VERSION_UUID = "2f916828-c59d-4190-a795-29ac5cfc1a66"
@@ -194,6 +196,39 @@ def pdd_operational_daily_flow(
     logger = get_run_logger()
     if not created_by.strip():
         raise ValueError("created_by es obligatorio")
+    if (
+        business_date is None
+        and scope_version_uuid is None
+        and model_version_uuid is None
+        and configuration_version_uuid is None
+        and pipeline_revision is None
+        and not force
+    ):
+        source_settings = Settings.from_env()
+        target_settings = OperationalSettings.from_env()
+        if source_settings.runtime_environment != target_settings.target_environment:
+            raise RuntimeError("Ambiente runtime y destino operativo inconsistentes")
+
+        def backfill_new_scope(scope_uuid: UUID, target_date: date) -> None:
+            windows = build_pdvb_windows(target_date)
+            pdd_features_flow(
+                windows.seasonal_start,
+                windows.seasonal_end,
+                str(scope_uuid),
+            )
+            pdd_features_flow(
+                windows.previous_start,
+                windows.recent_end,
+                str(scope_uuid),
+            )
+
+        maintenance = ensure_daily_scope(source_settings, backfill_new_scope)
+        logger.info("Mantenimiento de scope diario: %s", maintenance)
+        if maintenance["status"] == "BLOCKED_OTHER":
+            raise RuntimeError(
+                "Fuentes operativas no preparadas: "
+                + ", ".join(maintenance["blockers"])
+            )
     context = resolve_daily_context_task(
         business_date,
         scope_version_uuid,

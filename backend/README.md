@@ -317,11 +317,36 @@ prefect deployment run \
 ```
 
 Desde la versión 0.20.0 el deployment tiene activo el schedule
-`pdd-operational-daily-2115-art`: todos los días a las 21:15 de
+`pdd-operational-daily-2115-art`: todos los días a las 21:45 de
 `America/Argentina/Buenos_Aires`, con `business_date=null` y `force=false`.
 Si todavía no existe un nuevo cierre común, termina de forma idempotente como
 `SKIPPED/NO_NEW_CLOSED_DATE`; si una fuente necesaria está atrasada o es
 inconsistente, falla antes de desplazar las publicaciones vigentes.
+
+### Renovación automática por sucursales excluidas
+
+En TEST y PROD, la corrida diaria programada consulta primero el último contrato
+`FULL/READY` de fuentes y el binding runtime vigente. Si la única causa de
+readiness bloqueado es `SCOPE_CONTAINS_EXCLUDED_BRANCHES`, o si una sucursal
+antes excluida ya no figura en la fuente, captura una versión
+inmutable nueva del scope, completa las ventanas de features, comprueba conteos
+sellados y readiness, registra una aprobación automática auditable y activa una
+revisión nueva del binding. La activación conserva modelo, configuración y
+revisión del pipeline; el scope histórico permanece sin cambios. PROD se ejecuta
+a las 21:15 ART y TEST a las 21:45 ART. Ambos comparten `diarco_data`: si uno
+captura y aprueba el candidato, el otro reutiliza esa versión y activa su propio
+binding.
+
+La renovación se detiene si hay cualquier otro bloqueo, más de cinco
+sucursales afectadas o una variación superior al 10% en artículos, número de
+pares o membresía de pares. Los límites se pueden ajustar mediante
+`PDD_AUTO_SCOPE_MAX_AFFECTED_BRANCHES` y
+`PDD_AUTO_SCOPE_MAX_DELTA_PERCENT`. `PDD_AUTO_SCOPE_ENABLED=false` desactiva
+la renovación automática si se necesita detenerla. El trabajo se serializa con un advisory lock
+en `diarco_data`; si falla el backfill, la aprobación o la activación, el
+binding anterior continúa activo y la siguiente corrida puede retomar el
+candidato. Las ejecuciones manuales con parámetros explícitos no modifican el
+binding automáticamente.
 
 ### Monitoreo semanal del modelo
 
@@ -641,10 +666,9 @@ de evaluación, en transacciones separadas; al finalizar cada corrida verifica
 que no queden filas y registra el momento de depuración. Si se interrumpe,
 volver a ejecutar el mismo comando. La operación no borra métricas ni
 cabeceras, ni toca `dm_pdd_pdvb_estimate_detail`. El deployment
-`PDD_BACKTEST_RETENTION_DAILY` viene con cron diario 08:00 ART inactivo para
-habilitarlo después de la validación en TEST. El equivalente de PROD también
-viene inactivo. Si ambos ambientes usan la misma `diarco_data`, activar sólo
-uno de los dos cronogramas.
+`PDD_BACKTEST_RETENTION_DAILY` tiene cron diario 08:00 ART activo en TEST.
+El equivalente de PROD permanece inactivo porque ambos ambientes usan la
+misma `diarco_data`; sólo debe ejecutarse uno de los dos cronogramas.
 
 El borrado libera filas para reutilización; PostgreSQL no reduce de inmediato
 el tamaño físico de una partición. Si una partición queda completamente vacía,

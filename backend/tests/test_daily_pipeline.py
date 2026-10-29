@@ -278,7 +278,7 @@ def test_master_deployment_waits_for_the_audited_source_window() -> None:
     )
     assert deployment["schedules"] == [
         {
-            "cron": "15 21 * * *",
+            "cron": "45 21 * * *",
             "timezone": "America/Argentina/Buenos_Aires",
             "slug": "pdd-operational-daily-2115-art",
             "active": True,
@@ -319,7 +319,7 @@ def test_desa_master_deployment_is_isolated_and_manual() -> None:
     assert deployment["work_pool"]["work_queue_name"] == "pdd-desa"
 
 
-def test_desa_daily_publisher_is_isolated_scheduled_and_does_not_recalculate() -> None:
+def test_desa_daily_publisher_is_isolated_disabled_and_does_not_recalculate() -> None:
     source = getsource(pdd_operational_publish_desa_flow.fn)
     assert "pdd_features_flow" not in source
     assert "daily_pdvb_task" not in source
@@ -338,7 +338,7 @@ def test_desa_daily_publisher_is_isolated_scheduled_and_does_not_recalculate() -
             "cron": "0 21 * * *",
             "timezone": "America/Argentina/Buenos_Aires",
             "slug": "pdd-operational-publish-desa-2100-art",
-            "active": True,
+            "active": False,
         }
     ]
     assert deployment["parameters"]["force"] is False

@@ -13,7 +13,7 @@ deployments:
       created_by: pdd.daily.orchestrator
       force: false
     schedules:
-      - cron: "15 21 * * *"
+      - cron: "45 21 * * *"
         timezone: America/Argentina/Buenos_Aires
         slug: pdd-operational-daily-2115-art
         active: true
@@ -94,7 +94,7 @@ deployments:
       - cron: "0 8 * * *"
         timezone: America/Argentina/Buenos_Aires
         slug: pdd-backtest-retention-daily-0800-art
-        active: false
+        active: true
     work_pool:
       name: diarco-pdd
       work_queue_name: pdd-test-127
