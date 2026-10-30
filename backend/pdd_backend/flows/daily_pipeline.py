@@ -24,6 +24,10 @@ from pdd_backend.jobs.daily_pipeline import (
     refresh_open_purchase_orders,
     resolve_daily_pipeline_context,
 )
+from pdd_backend.jobs.inventory_coverage import (
+    InventoryGapPolicy,
+    inspect_inventory_coverage,
+)
 from pdd_backend.jobs.pdvb import calculate_pdvb
 from pdd_backend.jobs.scope_maintenance import ensure_daily_scope
 from pdd_backend.runtime_registry import resolve_runtime_selection
@@ -141,6 +145,26 @@ def daily_pdvb_task(
         return {**result.__dict__, "calculation_run_uuid": str(run_uuid)}
     finally:
         engine.dispose()
+
+
+@task(name="PDD - Verificar cobertura Inventory antes del calculo")
+def inspect_inventory_coverage_task(
+    scope_version_uuid: str, business_date: date
+) -> dict:
+    source_settings = Settings.from_env()
+    target_settings = OperationalSettings.from_env()
+    if source_settings.runtime_environment != target_settings.target_environment:
+        raise RuntimeError("Ambiente runtime y destino operativo inconsistentes")
+    source_engine = build_engine(source_settings)
+    target_engine = build_operational_engine(target_settings)
+    try:
+        return inspect_inventory_coverage(
+            source_engine, target_engine, UUID(scope_version_uuid),
+            InventoryGapPolicy.from_env(), business_date,
+        )
+    finally:
+        target_engine.dispose()
+        source_engine.dispose()
 
 
 @task(name="PDD - Validar destino operativo DESA")
@@ -269,6 +293,33 @@ def pdd_operational_daily_flow(
         )
     stock_date = date.fromisoformat(readiness["stock_date"])
 
+    inventory_coverage = inspect_inventory_coverage_task(
+        str(scope_uuid), target_date, wait_for=[readiness],
+    )
+    logger.info(
+        "Inventory: %s pares cubiertos de %s; faltantes=%s, limite=%s, "
+        "dirigidos=%s, motivos=%s",
+        inventory_coverage["covered_pairs"], inventory_coverage["scope_pairs"],
+        inventory_coverage["gap_count"],
+        inventory_coverage["allowed_gap_count"],
+        len(inventory_coverage["active_directed_pairs"]),
+        inventory_coverage["reason_counts"],
+    )
+    if inventory_coverage["status"] == "BLOCKED":
+        raise RuntimeError(
+            "Cobertura Inventory excede el limite: "
+            f"faltantes={inventory_coverage['gap_count']}, "
+            f"limite={inventory_coverage['allowed_gap_count']}, "
+            f"dirigidos={len(inventory_coverage['active_directed_pairs'])}; "
+            f"motivos={inventory_coverage['reason_counts']}"
+        )
+    if inventory_coverage["gap_count"]:
+        logger.warning(
+            "Se omitiran hasta %s pares Inventory; ver la corrida anticipada "
+            "y el resumen de DAILY_DECAS",
+            inventory_coverage["gap_count"],
+        )
+
     run_ids = {
         stage: str(
             pipeline_stage_uuid(
@@ -277,7 +328,10 @@ def pdd_operational_daily_flow(
                 scope_uuid,
                 model_uuid,
                 configuration_uuid,
-                pipeline_stage_revision(stage, pipeline_revision, stock_date),
+                pipeline_stage_revision(
+                    stage, pipeline_revision, stock_date,
+                    inventory_coverage["coverage_checksum"],
+                ),
             )
         )
         for stage in ("PDVB", "ITEM_LOGISTICS", "DAILY_DECAS", "BACKLOG")
@@ -319,6 +373,12 @@ def pdd_operational_daily_flow(
         run_ids["DAILY_DECAS"],
         wait_for=[logistics],
     )
+    if daily_decas.get("excluded_inventory_pairs"):
+        logger.warning(
+            "DAILY_DECAS excluyo %s pares sin politica Inventory; "
+            "no generan deuda automatica ni backlog",
+            daily_decas["excluded_inventory_pairs"],
+        )
     backlog = publish_backlog_task(
         daily_decas["calculation_run_uuid"],
         created_by,
@@ -342,6 +402,7 @@ def pdd_operational_daily_flow(
         "context": context,
         "run_ids": run_ids,
         "readiness": readiness,
+        "inventory_coverage": inventory_coverage,
         "features": features,
         "pdvb": pdvb,
         "pdvb_publication": pdvb_publication,

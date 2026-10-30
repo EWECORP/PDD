@@ -470,9 +470,13 @@ def pipeline_stage_revision(
     stage: str,
     pipeline_revision: str,
     stock_date: date,
+    inventory_checksum: str | None = None,
 ) -> str:
     """Version operational stages by the effective stock snapshot date."""
     normalized_stage = stage.strip().upper()
     if normalized_stage in {"DAILY_DECAS", "BACKLOG"}:
-        return f"{pipeline_revision}:STOCK:{stock_date.isoformat()}"
+        revision = f"{pipeline_revision}:STOCK:{stock_date.isoformat()}"
+        if inventory_checksum:
+            revision += f":INVENTORY:{inventory_checksum}"
+        return revision
     return pipeline_revision

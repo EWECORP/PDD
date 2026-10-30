@@ -7,6 +7,22 @@ work_pool:
   job_variables: {}
 
 deployments:
+  - name: PDD_INVENTORY_COVERAGE_PRECHECK_PROD
+    entrypoint: pdd_backend/flows/inventory_coverage.py:pdd_inventory_coverage_flow
+    description: Verificacion anticipada de politicas Inventory en Produccion.
+    parameters: {}
+    schedules:
+      - cron: "0 17 * * *"
+        timezone: America/Argentina/Buenos_Aires
+        slug: pdd-inventory-coverage-prod-1700-art
+        active: true
+    tags:
+      - pdd
+      - prod
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd
+
   - name: PDD_OPERATIONAL_DAILY_MASTER_PROD
     entrypoint: pdd_backend/flows/daily_pipeline.py:pdd_operational_daily_flow
     description: Orquestador diario PDD exclusivo de Produccion.

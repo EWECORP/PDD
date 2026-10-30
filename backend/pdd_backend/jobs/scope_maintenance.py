@@ -11,6 +11,7 @@ from ..config import Settings
 from ..db import build_engine, transactional_connection
 from ..runtime_registry import activate_runtime_binding, read_active_runtime_binding
 from .common import require_frozen_scope
+from .inventory_coverage import preview_scope_membership
 from .operational_inputs import inspect_stock_readiness
 from .scope_snapshot import capture_scope_snapshot
 
@@ -73,6 +74,25 @@ def _candidate(connection, old_scope_uuid: UUID) -> dict | None:
         {"old_scope_uuid": old_scope_uuid},
     ).mappings().one_or_none()
     return dict(row) if row else None
+
+
+def _candidate_matches_live(connection, candidate_uuid: UUID, live_pairs: list[dict]) -> bool:
+    expected = {
+        (int(row["codigo_articulo"]), int(row["sucursal"]))
+        for row in live_pairs
+    }
+    observed = {
+        (int(row[0]), int(row[1]))
+        for row in connection.execute(
+            text(
+                """SELECT codigo_articulo,destination_branch
+                   FROM datamart.dm_pdd_scope_pair
+                   WHERE scope_version_uuid=:scope_uuid"""
+            ),
+            {"scope_uuid": candidate_uuid},
+        )
+    }
+    return observed == expected
 
 
 def _reopened_branches(connection, scope_uuid: UUID) -> tuple[int, ...]:
@@ -313,14 +333,30 @@ def ensure_daily_scope(
                 reopened_branches = _reopened_branches(
                     lock_connection, binding.scope_version_uuid
                 )
+                live_pairs = None
                 if readiness.status == "READY" and not reopened_branches:
-                    return {"status": "CURRENT", "scope_version_uuid": str(binding.scope_version_uuid)}
+                    live_pairs, added_pairs, removed_pairs = preview_scope_membership(
+                        engine, settings, binding.scope_version_uuid
+                    )
+                    if not added_pairs and not removed_pairs:
+                        return {
+                            "status": "CURRENT",
+                            "scope_version_uuid": str(binding.scope_version_uuid),
+                        }
                 if readiness.blockers and set(readiness.blockers) != {SCOPE_BLOCKER}:
                     return {
                         "status": "BLOCKED_OTHER",
                         "blockers": list(readiness.blockers),
                     }
+                if live_pairs is None:
+                    live_pairs, _, _ = preview_scope_membership(
+                        engine, settings, binding.scope_version_uuid
+                    )
                 candidate = _candidate(lock_connection, binding.scope_version_uuid)
+                if candidate is not None and not _candidate_matches_live(
+                    lock_connection, candidate["scope_version_uuid"], live_pairs
+                ):
+                    candidate = None
                 if candidate is None:
                     version_no = lock_connection.execute(
                         text(
@@ -339,6 +375,13 @@ def ensure_daily_scope(
                     candidate = _candidate(lock_connection, binding.scope_version_uuid)
                     if candidate is None or candidate["scope_version_uuid"] != candidate_uuid:
                         raise RuntimeError("El scope nuevo conserva sucursales excluidas")
+                    if not _candidate_matches_live(
+                        lock_connection, candidate_uuid, live_pairs
+                    ):
+                        raise RuntimeError(
+                            "El scope capturado no coincide con la membresia fuente "
+                            "observada; reintentar tras la sincronizacion"
+                        )
                 affected_branches = set(readiness.excluded_branches) | set(reopened_branches)
                 _guard_change(old_scope, candidate, len(affected_branches))
                 pair_membership_change = _guard_pair_membership(
@@ -375,8 +418,10 @@ def ensure_daily_scope(
                     effective_business_date=business_date,
                     activated_by=AUTO_ACTOR,
                     reason=(
-                        "Renovacion automatica de scope por cambios de sucursales "
-                        + ",".join(str(v) for v in sorted(affected_branches))
+                        "Renovacion automatica de scope por cambios de membresia; "
+                        f"sucursales={','.join(str(v) for v in sorted(affected_branches))}; "
+                        f"pares=+{pair_membership_change['added_pairs']}"
+                        f"/-{pair_membership_change['removed_pairs']}"
                     ),
                 )
                 return {

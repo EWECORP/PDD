@@ -195,6 +195,26 @@ pdd-etl features --start 2026-07-01 --end 2026-07-31
 
 ### Parámetros canónicos de Inventory
 
+Desde 0.20.7, `PDD_INVENTORY_COVERAGE_PRECHECK` (TEST) y
+`PDD_INVENTORY_COVERAGE_PRECHECK_PROD` (PROD) verifican a las 17:00 ART el
+scope activo y la membresía viva candidata contra Inventory. Publican un
+artefacto y eventos Prefect con los pares faltantes o inactivos. El flujo diario
+repite la verificación antes de calcular PDVB. Una corrida puede omitir como
+máximo el menor entre 100 pares y 0,5% del scope; los pares omitidos quedan en
+la auditoría de `DAILY_DECAS` y no generan deuda automática ni backlog. Las
+necesidades dirigidas activas sobre un par incompleto siguen bloqueando. Los
+límites pueden reducirse con `PDD_INVENTORY_MAX_EXCLUDED_PAIRS` y
+`PDD_INVENTORY_MAX_EXCLUDED_PERCENT`; cero exige cobertura total. Ver
+[`16_preflight_inventory_y_continuidad_20261029.md`](../documentacion/16_preflight_inventory_y_continuidad_20261029.md)
+para el procedimiento de operación, alertas y corrección.
+
+El paquete 0.20.9 incorpora `tools/deploy_backend.sh`, que permite repetir el
+despliegue en TEST y PROD con fases `stage`, `promote`, `deploy` y `status`.
+Ver los comandos específicos de cada servidor en el procedimiento citado.
+Desde 0.20.10, el preflight escribe todos los pares incompletos en logs por
+lotes y no oculta un bloqueo de Inventory si Prefect rechaza el artefacto o el
+evento; esos canales se informan como advertencias.
+
 Desde la versión 0.19.0, `DAILY_DECAS` deja de leer `q_dias_stock` y
 `q_dias_sobre_stock` desde `diarco_data.src.base_stock_sucursal`. Para cada par
 del scope congelado consulta en la base operativa

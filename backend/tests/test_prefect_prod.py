@@ -31,12 +31,17 @@ def test_prod_manifest_isolated_from_test_and_desa() -> None:
         assert "pdd-desa" not in str(deployment)
 
 
-def test_only_prod_master_schedule_is_active() -> None:
+def test_only_prod_master_and_inventory_precheck_schedules_are_active() -> None:
     deployments = _load_prod_manifest()["deployments"]
     scheduled = [item for item in deployments if item.get("schedules")]
     assert scheduled
     assert all(
-        schedule["active"] is (deployment["name"] == "PDD_OPERATIONAL_DAILY_MASTER_PROD")
+        schedule["active"] is (
+            deployment["name"] in {
+                "PDD_OPERATIONAL_DAILY_MASTER_PROD",
+                "PDD_INVENTORY_COVERAGE_PRECHECK_PROD",
+            }
+        )
         for deployment in scheduled
         for schedule in deployment["schedules"]
     )

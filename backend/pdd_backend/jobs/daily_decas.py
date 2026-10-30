@@ -39,6 +39,7 @@ class DailyDecasResult:
     source_checksum: str
     target_database: str
     reused_run: bool = False
+    excluded_inventory_pairs: int = 0
 
     def serializable(self) -> dict[str, Any]:
         return {
@@ -70,6 +71,7 @@ class PlanningParameterSnapshot:
     checksum: str
     inactive_pair_count: int
     inactive_purchase_count: int
+    excluded_pairs: tuple[dict[str, Any], ...] = ()
 
 
 def _decimal(value: Any, default: Decimal | None = None) -> Decimal | None:
@@ -561,6 +563,7 @@ def _read_source_stock(
 def apply_inventory_parameters(
     stock_rows: Sequence[dict[str, Any]],
     parameter_rows: Sequence[Mapping[str, Any]],
+    max_excluded_pairs: int = 0,
 ) -> PlanningParameterSnapshot:
     """Overlay the canonical policy days and freeze their Inventory identity."""
     by_pair: dict[tuple[int, int], Mapping[str, Any]] = {}
@@ -585,23 +588,32 @@ def apply_inventory_parameters(
 
     captured_at: datetime | None = None
     evidence_rows: list[dict[str, Any]] = []
+    excluded_pairs: list[dict[str, Any]] = []
     inactive_pairs = 0
     inactive_purchase = 0
+    # Import locally to avoid a module import cycle with the read-only preflight.
+    from .inventory_coverage import inventory_issue
+
     for source in stock_rows:
         key = (int(source["codigo_articulo"]), int(source["sucursal"]))
         parameter = by_pair[key]
-        required = (
-            "inventory_product_id", "inventory_site_id", "product_site_id",
-            "replenishment_id", "replenishment_row_version", "captured_at",
-        )
-        if any(parameter.get(field) is None for field in required):
-            raise RuntimeError(f"Par sin parametro activo en Inventory: {key}")
+        issue = inventory_issue(parameter)
+        if issue is not None:
+            excluded_pairs.append({
+                "codigo_articulo": key[0], "sucursal": key[1], "reason": issue,
+            })
+            evidence_row = {
+                "codigo_articulo": key[0], "sucursal": key[1],
+                "planning_input": {"status": "EXCLUDED", "reason": issue},
+            }
+            evidence_row["input_checksum"] = _row_checksum(
+                evidence_row, ("codigo_articulo", "sucursal", "planning_input")
+            )
+            evidence_rows.append(evidence_row)
+            continue
         target_days = _decimal(parameter.get("target_stock_days"))
         overstock_days = _decimal(parameter.get("overstock_days"))
-        if target_days is None or not target_days.is_finite() or target_days < 0:
-            raise RuntimeError(f"target_stock_days invalido en Inventory: {key}")
-        if overstock_days is None or not overstock_days.is_finite() or overstock_days < 0:
-            raise RuntimeError(f"overstock_days invalido en Inventory: {key}")
+        assert target_days is not None and overstock_days is not None
         row_captured_at = parameter["captured_at"]
         if captured_at is None:
             captured_at = row_captured_at
@@ -639,15 +651,34 @@ def apply_inventory_parameters(
         source["q_dias_sobre_stock"] = overstock_days
         source["planning_input"] = evidence
 
+    if len(excluded_pairs) > max_excluded_pairs:
+        raise RuntimeError(
+            "Pares sin parametro activo en Inventory exceden el limite: "
+            f"{len(excluded_pairs)} > {max_excluded_pairs}; "
+            f"ejemplos={excluded_pairs[:10]}"
+        )
     if captured_at is None:
         raise RuntimeError("El scope no contiene parametros Inventory")
     return PlanningParameterSnapshot(
         as_of_ts=captured_at,
-        row_count=len(evidence_rows),
+        row_count=len(evidence_rows) - len(excluded_pairs),
         checksum=_rows_checksum(evidence_rows, ("sucursal", "codigo_articulo")),
         inactive_pair_count=inactive_pairs,
         inactive_purchase_count=inactive_purchase,
+        excluded_pairs=tuple(excluded_pairs),
     )
+
+
+def select_publicable_estimates(
+    estimates: Sequence[Mapping[str, Any]],
+    excluded_inventory_keys: set[tuple[int, int]],
+) -> list[Mapping[str, Any]]:
+    return [
+        row for row in estimates
+        if row["status"] != "BLOCKED"
+        and (int(row["codigo_articulo"]), int(row["sucursal"]))
+        not in excluded_inventory_keys
+    ]
 
 
 def _read_inventory_parameters(
@@ -675,6 +706,10 @@ def _read_inventory_parameters(
                 SELECT x.codigo_articulo, x.sucursal,
                        p.id AS inventory_product_id,
                        s.id AS inventory_site_id,
+                       ps.id AS inventory_product_site_id,
+                       r.id AS inventory_replenishment_id,
+                       r.active AS inventory_replenishment_active,
+                       r.row_version AS inventory_replenishment_row_version,
                        q.product_site_id, q.replenishment_id,
                        q.replenishment_row_version,
                        q.target_stock_days, q.overstock_days,
@@ -685,6 +720,10 @@ def _read_inventory_parameters(
                   ON p.ext_code = x.codigo_articulo
                 LEFT JOIN inventory.inv_site AS s
                   ON s.code = x.sucursal
+                LEFT JOIN inventory.inv_product_site AS ps
+                  ON ps.product_id=p.id AND ps.site_id=s.id
+                LEFT JOIN inventory.inv_product_site_replenishment AS r
+                  ON r.product_site_id=ps.id
                 LEFT JOIN inventory.inv_planning_parameters_v AS q
                   ON q.product_id = p.id AND q.site_id = s.id
                 ORDER BY x.sucursal::integer, x.codigo_articulo::bigint
@@ -963,12 +1002,51 @@ def run_daily_decas(
                 source_checksum=existing["input_checksum"],
                 target_database=target_settings.pg_database,
                 reused_run=True,
+                excluded_inventory_pairs=len(
+                    existing_summary.get("excluded_inventory_pairs", [])
+                ),
             )
 
+        from .inventory_coverage import InventoryGapPolicy
+
+        gap_policy = InventoryGapPolicy.from_env()
         planning_parameters = apply_inventory_parameters(
             source_branches,
             _read_inventory_parameters(target, source_branches),
+            max_excluded_pairs=gap_policy.allowed(len(source_branches)),
         )
+        excluded_inventory_keys = {
+            (row["codigo_articulo"], row["sucursal"])
+            for row in planning_parameters.excluded_pairs
+        }
+        if excluded_inventory_keys:
+            directed_on_excluded = target.execute(
+                text(
+                    """WITH excluded AS (
+                           SELECT * FROM jsonb_to_recordset(CAST(:pairs AS jsonb))
+                             AS x(codigo_articulo bigint,sucursal integer)
+                       )
+                       SELECT count(*)
+                       FROM excluded x
+                       JOIN stock_management.pdd_directed_need_line l
+                         ON l.codigo_articulo=x.codigo_articulo
+                        AND l.sucursal=x.sucursal
+                       JOIN stock_management.pdd_directed_need d
+                         ON d.directed_need_id=l.directed_need_id
+                       WHERE d.status='ACTIVE' AND d.valid_from<=:business_date
+                         AND (d.valid_to IS NULL OR d.valid_to>=:business_date)
+                         AND l.open_quantity>0"""
+                ),
+                {
+                    "pairs": _json(planning_parameters.excluded_pairs),
+                    "business_date": business_date,
+                },
+            ).scalar_one()
+            if directed_on_excluded:
+                raise RuntimeError(
+                    "Hay necesidades dirigidas E/C/A activas sobre pares "
+                    f"sin parametro Inventory: {directed_on_excluded}"
+                )
 
         pdvb_header = target.execute(
             text(
@@ -1008,8 +1086,10 @@ def run_daily_decas(
         ]
         if len(estimates) != pdvb_header["pair_count"]:
             raise RuntimeError("La corrida PDVB no cubre el scope operativo")
-        publicable = [row for row in estimates if row["status"] != "BLOCKED"]
-        excluded_blocked = len(estimates) - len(publicable)
+        publicable = select_publicable_estimates(
+            estimates, excluded_inventory_keys
+        )
+        excluded_blocked = sum(row["status"] == "BLOCKED" for row in estimates)
 
         logistics_header = target.execute(
             text(
@@ -1135,6 +1215,12 @@ def run_daily_decas(
             "branch_status_counts": branch_counts,
             "need_status_counts": need_counts,
             "excluded_blocked_pdvb": excluded_blocked,
+            "excluded_inventory_pairs": list(planning_parameters.excluded_pairs),
+            "inventory_gap_policy": {
+                "max_pairs": gap_policy.max_pairs,
+                "max_percent": str(gap_policy.max_percent),
+                "allowed_pairs": gap_policy.allowed(len(source_branches)),
+            },
             "assumptions": [
                 "LEAD_TIME_FALLBACK_15_WHEN_MISSING_OR_NON_POSITIVE",
                 "SPECIAL_SALE_COMMITMENT_ASSUMED_ZERO",
@@ -1162,6 +1248,8 @@ def run_daily_decas(
                 "captured_at": planning_parameters.as_of_ts.isoformat(),
                 "inactive_pair_count": planning_parameters.inactive_pair_count,
                 "inactive_purchase_count": planning_parameters.inactive_purchase_count,
+                "excluded_pair_count": len(planning_parameters.excluded_pairs),
+                "excluded_pairs": list(planning_parameters.excluded_pairs),
                 "eligibility_authority": "FROZEN_PDD_SCOPE",
             },
         }
@@ -1202,6 +1290,7 @@ def run_daily_decas(
                 "warning_count": (
                     branch_counts.get("WARN", 0)
                     + open_purchase_orders.excluded_negative_line_count
+                    + len(planning_parameters.excluded_pairs)
                 ),
                 "checksum": source_checksum,
                 "summary": _json(summary),
@@ -1474,5 +1563,6 @@ def run_daily_decas(
         need_status_counts=need_counts,
         source_checksum=source_checksum,
         target_database=target_settings.pg_database,
+        excluded_inventory_pairs=len(planning_parameters.excluded_pairs),
         reused_run=False,
     )

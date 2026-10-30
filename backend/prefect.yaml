@@ -7,6 +7,18 @@ work_pool:
   job_variables: {}
 
 deployments:
+  - name: PDD_INVENTORY_COVERAGE_PRECHECK
+    entrypoint: pdd_backend/flows/inventory_coverage.py:pdd_inventory_coverage_flow
+    parameters: {}
+    schedules:
+      - cron: "0 17 * * *"
+        timezone: America/Argentina/Buenos_Aires
+        slug: pdd-inventory-coverage-test-1700-art
+        active: true
+    work_pool:
+      name: diarco-pdd
+      work_queue_name: pdd-test-127
+
   - name: PDD_OPERATIONAL_DAILY_MASTER
     entrypoint: pdd_backend/flows/daily_pipeline.py:pdd_operational_daily_flow
     parameters:
