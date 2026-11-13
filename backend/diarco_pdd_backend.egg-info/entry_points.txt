@@ -1,2 +1,0 @@
-[console_scripts]
-pdd-etl = pdd_backend.cli:main
