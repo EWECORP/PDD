@@ -478,5 +478,7 @@ def pipeline_stage_revision(
         revision = f"{pipeline_revision}:STOCK:{stock_date.isoformat()}"
         if inventory_checksum:
             revision += f":INVENTORY:{inventory_checksum}"
+        if normalized_stage == "BACKLOG":
+            revision += ":DIRECTED_COVERAGE:V2"
         return revision
     return pipeline_revision

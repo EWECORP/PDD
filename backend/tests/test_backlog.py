@@ -1,10 +1,13 @@
 from datetime import date
 from decimal import Decimal
-from inspect import getsource
 
 import pytest
 
-from pdd_backend.jobs.backlog import _read_contributions, build_backlog_projection
+from pdd_backend.jobs.backlog import (
+    _read_contributions,
+    _read_excluded_directed,
+    build_backlog_projection,
+)
 
 
 BUSINESS_DATE = date(2026, 8, 16)
@@ -121,8 +124,42 @@ def test_source_balance_must_reconcile_before_publication() -> None:
         )
 
 
-def test_directed_sources_reject_inventory_blocked_pairs() -> None:
-    source = getsource(_read_contributions)
+def test_unusable_directed_pair_is_audited_without_stopping_valid_backlog() -> None:
+    class Result:
+        def __init__(self, rows):
+            self.rows = rows
 
-    assert "OR b.calculation_status='BLOCKED'" in source
-    assert "AND b.calculation_status<>'BLOCKED'" in source
+        def mappings(self):
+            return self
+
+        def all(self):
+            return self.rows
+
+    class Connection:
+        def execute(self, statement, parameters):
+            assert parameters == {"daily_run_id": 115, "business_date": BUSINESS_DATE}
+            if "AS reason" in str(statement):
+                return Result([{
+                    "directed_need_id": 22,
+                    "directed_need_line_id": 34,
+                    "need_type": "E",
+                    "business_reference": "TEST",
+                    "sucursal": 1,
+                    "codigo_articulo": 29714,
+                    "open_quantity": Decimal("5"),
+                    "reason": "OUT_OF_SCOPE",
+                }])
+            return Result([_contribution("D", 1, "12")])
+
+    connection = Connection()
+    excluded = _read_excluded_directed(connection, 115, BUSINESS_DATE)
+    contributions = _read_contributions(connection, 115, BUSINESS_DATE)
+    backlog, allocations = build_backlog_projection(
+        contributions, {100: Decimal("30")}, BUSINESS_DATE
+    )
+
+    assert [(line["directed_need_id"], line["reason"]) for line in excluded] == [
+        (22, "OUT_OF_SCOPE")
+    ]
+    assert backlog[0]["d_open_quantity"] == Decimal("12.000000")
+    assert len(allocations) == 1

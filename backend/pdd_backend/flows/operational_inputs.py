@@ -4,6 +4,7 @@ from datetime import date
 from uuid import UUID
 
 from prefect import flow, get_run_logger, task
+from prefect.events import emit_event
 
 from pdd_backend.config import OperationalSettings, Settings
 from pdd_backend.db import build_engine, build_operational_engine
@@ -204,7 +205,7 @@ def publish_backlog_task(
     target_settings = OperationalSettings.from_env()
     target_engine = build_operational_engine(target_settings)
     try:
-        return publish_current_backlog(
+        result = publish_current_backlog(
             target_engine=target_engine,
             target_settings=target_settings,
             source_daily_run_uuid=UUID(daily_calculation_run_uuid),
@@ -213,6 +214,31 @@ def publish_backlog_task(
                 UUID(calculation_run_uuid) if calculation_run_uuid else None
             ),
         ).serializable()
+        if result["excluded_directed_count"]:
+            logger = get_run_logger()
+            logger.warning(
+                "Backlog publicado con %s lineas E/C/A omitidas (%s unidades) "
+                "sin contexto DAILY_DECAS; necesidades abiertas para correccion. "
+                "Detalle en pdd_calculation_run.summary.excluded_directed_lines; "
+                "muestra=%s",
+                result["excluded_directed_count"],
+                result["excluded_directed_open_quantity"],
+                result["excluded_directed_sample"],
+            )
+            try:
+                emit_event(
+                    event="pdd.backlog.directed_lines_excluded",
+                    resource={"prefect.resource.id": "pdd.backlog.directed_coverage"},
+                    payload={
+                        "target_database": result["target_database"],
+                        "calculation_run_uuid": result["calculation_run_uuid"],
+                        "excluded_directed_count": result["excluded_directed_count"],
+                        "excluded_directed_open_quantity": result["excluded_directed_open_quantity"],
+                    },
+                )
+            except Exception as exc:
+                logger.warning("No se pudo emitir alerta de backlog: %s", exc)
+        return result
     finally:
         target_engine.dispose()
 

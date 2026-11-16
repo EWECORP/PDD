@@ -19,7 +19,7 @@ SIX_PLACES = Decimal("0.000001")
 NINE_PLACES = Decimal("0.000000001")
 BACKLOG_SCOPE_ID = "41:BACKLOG"
 ORIGIN_CD = 41
-FORMULA_VERSION = "BACKLOG_V1_TEST_PILOT"
+FORMULA_VERSION = "BACKLOG_V2_DIRECTED_COVERAGE"
 ATTRIBUTION_VERSION = "DECAS_ATTRIBUTION_V1"
 DECAS_TYPES = ("D", "E", "C", "A", "S")
 
@@ -38,6 +38,9 @@ class BacklogPublicationResult:
     source_checksum: str
     output_checksum: str
     target_database: str
+    excluded_directed_count: int = 0
+    excluded_directed_open_quantity: Decimal = Decimal("0")
+    excluded_directed_sample: tuple[dict[str, Any], ...] = ()
     reused_publication: bool = False
 
     def serializable(self) -> dict[str, Any]:
@@ -50,6 +53,10 @@ class BacklogPublicationResult:
             "type_totals": {
                 key: str(value) for key, value in self.type_totals.items()
             },
+            "excluded_directed_open_quantity": str(
+                self.excluded_directed_open_quantity
+            ),
+            "excluded_directed_sample": json.loads(_json(self.excluded_directed_sample)),
         }
 
 
@@ -296,32 +303,52 @@ def build_backlog_projection(
     return backlog_rows, allocations
 
 
-def _read_contributions(connection, daily_run_id: int, business_date: date):
-    orphaned = connection.execute(
+def _read_excluded_directed(
+    connection, daily_run_id: int, business_date: date
+) -> list[dict[str, Any]]:
+    """Identify open E/C/A lines with no usable DAILY_DECAS pair context."""
+    rows = connection.execute(
         text(
             """
-            SELECT count(*)
+            WITH pair_context AS (
+                SELECT DISTINCT n.sucursal,n.codigo_articulo
+                FROM stock_management.pdd_need_snapshot n
+                JOIN stock_management.pdd_branch_stock_position b
+                  ON b.business_date=n.business_date
+                 AND b.branch_stock_position_id=n.branch_stock_position_id
+                WHERE n.calculation_run_id=:daily_run_id
+                  AND n.need_type='D'
+                  AND b.calculation_status<>'BLOCKED'
+            )
+            SELECT d.directed_need_id,l.directed_need_line_id,
+                   d.need_type::text AS need_type,d.business_reference,
+                   l.sucursal,l.codigo_articulo,l.open_quantity,
+                   CASE
+                     WHEN b.branch_stock_position_id IS NULL THEN 'OUT_OF_SCOPE'
+                     WHEN b.calculation_status='BLOCKED' THEN 'DAILY_DECAS_BLOCKED'
+                     ELSE 'PAIR_CONTEXT_MISSING'
+                   END AS reason
             FROM stock_management.pdd_directed_need d
             JOIN stock_management.pdd_directed_need_line l
               ON l.directed_need_id=d.directed_need_id
             LEFT JOIN stock_management.pdd_branch_stock_position b
               ON b.calculation_run_id=:daily_run_id
              AND b.sucursal=l.sucursal AND b.codigo_articulo=l.codigo_articulo
+            LEFT JOIN pair_context c
+              ON c.sucursal=l.sucursal AND c.codigo_articulo=l.codigo_articulo
             WHERE d.status='ACTIVE' AND d.valid_from<=:business_date
               AND (d.valid_to IS NULL OR d.valid_to>=:business_date)
               AND l.open_quantity>0
-              AND (b.branch_stock_position_id IS NULL
-                   OR b.calculation_status='BLOCKED')
+              AND c.sucursal IS NULL
+            ORDER BY l.sucursal,l.codigo_articulo,l.directed_need_line_id
             """
         ),
         {"daily_run_id": daily_run_id, "business_date": business_date},
-    ).scalar_one()
-    if orphaned:
-        raise RuntimeError(
-            f"Hay {orphaned} lineas E/C/A activas fuera del scope o bloqueadas "
-            "por DAILY_DECAS"
-        )
+    ).mappings().all()
+    return [dict(row) for row in rows]
 
+
+def _read_contributions(connection, daily_run_id: int, business_date: date):
     rows = connection.execute(
         text(
             """
@@ -465,9 +492,25 @@ def publish_current_backlog(
                 "Hay importaciones Valkimia activas; falta habilitar su conciliacion en backlog"
             )
 
+        excluded_directed = _read_excluded_directed(
+            target, daily["calculation_run_id"], business_date
+        )
         contributions = _read_contributions(
             target, daily["calculation_run_id"], business_date
         )
+        excluded_directed_checksum = _checksum_rows(
+            excluded_directed,
+            ("directed_need_line_id",),
+            (
+                "directed_need_id", "directed_need_line_id", "need_type",
+                "business_reference", "sucursal", "codigo_articulo",
+                "open_quantity", "reason",
+            ),
+        )
+        excluded_directed_quantity = _q6(sum(
+            (_decimal(row["open_quantity"], Decimal("0")) for row in excluded_directed),
+            Decimal("0"),
+        ))
         cd_stock_by_article = {
             int(row["codigo_articulo"]): _decimal(row["physical_stock"], Decimal("0"))
             for row in target.execute(
@@ -495,6 +538,10 @@ def publish_current_backlog(
                 "packages_per_pallet", "unit_weight_kg", "unit_volume_m3", "alert_codes",
             ),
         )
+        if excluded_directed:
+            source_checksum = hashlib.sha256(
+                f"{source_checksum}|{excluded_directed_checksum}".encode("utf-8")
+            ).hexdigest()
         output_checksum = _checksum_rows(
             backlog_rows,
             ("origin_cd", "sucursal", "codigo_articulo", "c_proveedor_primario"),
@@ -582,6 +629,9 @@ def publish_current_backlog(
                 source_checksum=source_checksum,
                 output_checksum=output_checksum,
                 target_database=target_settings.pg_database,
+                excluded_directed_count=len(excluded_directed),
+                excluded_directed_open_quantity=excluded_directed_quantity,
+                excluded_directed_sample=tuple(excluded_directed[:20]),
                 reused_publication=True,
             )
 
@@ -603,6 +653,10 @@ def publish_current_backlog(
             "backlog_lines": len(backlog_rows),
             "allocation_rows": len(allocations),
             "directed_source_rows": directed_source_rows,
+            "excluded_directed_count": len(excluded_directed),
+            "excluded_directed_open_quantity": str(excluded_directed_quantity),
+            "excluded_directed_checksum": excluded_directed_checksum,
+            "excluded_directed_lines": excluded_directed,
             "type_totals": type_totals,
             "freshness_counts": freshness_counts,
             "attribution_rule_version": ATTRIBUTION_VERSION,
@@ -638,7 +692,7 @@ def publish_current_backlog(
                 "created_by": created_by.strip(),
                 "input_rows": len(contributions),
                 "output_rows": len(backlog_rows),
-                "warning_count": len(backlog_rows) - freshness_counts["CURRENT"],
+                "warning_count": len(backlog_rows) - freshness_counts["CURRENT"] + len(excluded_directed),
                 "input_checksum": source_checksum,
                 "output_checksum": output_checksum,
                 "summary": _json(summary),
@@ -669,6 +723,8 @@ def publish_current_backlog(
                     {
                         "source_daily_run_uuid": str(source_daily_run_uuid),
                         "directed_source_rows": directed_source_rows,
+                        "excluded_directed_count": len(excluded_directed),
+                        "excluded_directed_checksum": excluded_directed_checksum,
                     }
                 ),
             },
@@ -883,5 +939,8 @@ def publish_current_backlog(
         source_checksum=source_checksum,
         output_checksum=output_checksum,
         target_database=target_settings.pg_database,
+        excluded_directed_count=len(excluded_directed),
+        excluded_directed_open_quantity=excluded_directed_quantity,
+        excluded_directed_sample=tuple(excluded_directed[:20]),
         reused_publication=False,
     )

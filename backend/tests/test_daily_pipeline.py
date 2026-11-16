@@ -199,7 +199,7 @@ def test_operational_stage_revision_includes_effective_stock_date() -> None:
     ) == "DAILY_PIPELINE_V1:STOCK:2026-08-18"
     assert pipeline_stage_revision(
         "BACKLOG", "DAILY_PIPELINE_V1", stock_date
-    ) == "DAILY_PIPELINE_V1:STOCK:2026-08-18"
+    ) == "DAILY_PIPELINE_V1:STOCK:2026-08-18:DIRECTED_COVERAGE:V2"
 
 
 def published_pdvb_row(**overrides) -> dict:
