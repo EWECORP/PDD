@@ -113,7 +113,8 @@ manifest AS (
     CROSS JOIN pair_manifest AS p
     CROSS JOIN exclusion_policy AS e
     CROSS JOIN branch_exclusion_policy AS b
-)
+),
+inserted AS (
 INSERT INTO datamart.dm_pdd_scope_version (
     scope_version_uuid,
     scope_code,
@@ -182,6 +183,7 @@ SELECT
         'operational_branch_exclusion_policy', branch_policy_json
     )
 FROM manifest
+ON CONFLICT (origin_cd, scope_checksum) DO NOTHING
 RETURNING
     scope_version_uuid,
     source_as_of_ts,
@@ -191,4 +193,23 @@ RETURNING
     destination_count,
     article_checksum,
     pair_checksum,
-    scope_checksum;
+    scope_checksum
+)
+SELECT inserted.*, false AS reused_existing FROM inserted
+UNION ALL
+SELECT v.scope_version_uuid, v.source_as_of_ts, v.article_count,
+       v.routed_article_count, v.pair_count, v.destination_count,
+       v.article_checksum, v.pair_checksum, v.scope_checksum,
+       true AS reused_existing
+FROM manifest m
+JOIN datamart.dm_pdd_scope_version v
+  ON v.origin_cd = :origin_cd AND v.scope_checksum = m.scope_checksum
+WHERE NOT EXISTS (SELECT 1 FROM inserted)
+  AND v.scope_code = :scope_code
+  AND v.status IN ('DRAFT', 'APPROVED')
+  AND v.article_checksum = m.article_checksum
+  AND v.pair_checksum = m.pair_checksum
+  AND v.article_count = m.article_count
+  AND v.pair_count = m.pair_count
+  AND v.article_filter->'category_exclusion_policy' = m.policy_json
+  AND v.pair_filter->'operational_branch_exclusion_policy' = m.branch_policy_json;

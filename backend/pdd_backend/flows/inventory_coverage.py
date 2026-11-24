@@ -178,7 +178,7 @@ def pdd_inventory_coverage_flow(scope_version_uuid: str | None = None) -> dict:
         if result["gap_count"]:
             logger.warning(
                 "El calculo diario podria omitir %s pares sin parametro Inventory; "
-                "ver logs y resolver antes de las 21:15/21:45 ART",
+                "ver logs y resolver antes de la siguiente corrida diaria",
                 result["gap_count"],
             )
         return result

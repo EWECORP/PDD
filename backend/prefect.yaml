@@ -25,7 +25,7 @@ deployments:
       created_by: pdd.daily.orchestrator
       force: false
     schedules:
-      - cron: "45 21 * * *"
+      - cron: "15 22 * * *"
         timezone: America/Argentina/Buenos_Aires
         slug: pdd-operational-daily-2115-art
         active: true

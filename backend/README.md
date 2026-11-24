@@ -337,7 +337,7 @@ prefect deployment run \
 ```
 
 Desde la versión 0.20.0 el deployment tiene activo el schedule
-`pdd-operational-daily-2115-art`: todos los días a las 21:45 de
+`pdd-operational-daily-2115-art`: todos los días a las 22:15 de
 `America/Argentina/Buenos_Aires`, con `business_date=null` y `force=false`.
 Si todavía no existe un nuevo cierre común, termina de forma idempotente como
 `SKIPPED/NO_NEW_CLOSED_DATE`; si una fuente necesaria está atrasada o es
@@ -353,7 +353,7 @@ inmutable nueva del scope, completa las ventanas de features, comprueba conteos
 sellados y readiness, registra una aprobación automática auditable y activa una
 revisión nueva del binding. La activación conserva modelo, configuración y
 revisión del pipeline; el scope histórico permanece sin cambios. PROD se ejecuta
-a las 21:15 ART y TEST a las 21:45 ART. Ambos comparten `diarco_data`: si uno
+a las 21:00 ART y TEST a las 22:15 ART. Ambos comparten `diarco_data`: si uno
 captura y aprueba el candidato, el otro reutiliza esa versión y activa su propio
 binding.
 

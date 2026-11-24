@@ -22,6 +22,7 @@ class ScopeSnapshotResult:
     article_checksum: str
     pair_checksum: str
     scope_checksum: str
+    reused_existing: bool = False
 
     def serializable(self) -> dict:
         result = asdict(self)
@@ -79,21 +80,27 @@ def capture_scope_snapshot(
                     "captured_by": captured_by.strip(),
                     "exclusion_policy_json": exclusion_policy_json,
                 },
-            ).mappings().one()
-            article_rows = connection.execute(
-                text(load_sql("scope/insert_scope_articles.sql")),
-                {"scope_version_uuid": scope_version_uuid},
-            ).rowcount
-            pair_rows = connection.execute(
-                text(load_sql("scope/insert_scope_pairs.sql")),
-                {"scope_version_uuid": scope_version_uuid},
-            ).rowcount
-
-            if article_rows != row["article_count"] or pair_rows != row["pair_count"]:
+            ).mappings().one_or_none()
+            if row is None:
                 raise RuntimeError(
-                    "El conteo insertado no coincide con la cabecera sellada: "
-                    f"articles={article_rows}/{row['article_count']}, "
-                    f"pairs={pair_rows}/{row['pair_count']}"
+                    "Existe un scope con el mismo checksum pero con estado "
+                    "o politica de exclusion incompatible"
                 )
+            if not row["reused_existing"]:
+                article_rows = connection.execute(
+                    text(load_sql("scope/insert_scope_articles.sql")),
+                    {"scope_version_uuid": scope_version_uuid},
+                ).rowcount
+                pair_rows = connection.execute(
+                    text(load_sql("scope/insert_scope_pairs.sql")),
+                    {"scope_version_uuid": scope_version_uuid},
+                ).rowcount
+
+                if article_rows != row["article_count"] or pair_rows != row["pair_count"]:
+                    raise RuntimeError(
+                        "El conteo insertado no coincide con la cabecera sellada: "
+                        f"articles={article_rows}/{row['article_count']}, "
+                        f"pairs={pair_rows}/{row['pair_count']}"
+                    )
 
     return ScopeSnapshotResult(**dict(row))

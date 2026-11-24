@@ -37,43 +37,37 @@ def _source_contract(connection) -> dict:
     return dict(row)
 
 
-def _candidate(connection, old_scope_uuid: UUID) -> dict | None:
+def _candidate_by_uuid(connection, scope_uuid: UUID) -> dict | None:
     row = connection.execute(
         text(
             """
-            SELECT v.scope_version_uuid, v.version_no, v.status,
-                   v.article_count, v.pair_count, v.article_checksum,
-                   v.pair_checksum, v.scope_checksum, v.captured_at
-            FROM datamart.dm_pdd_scope_version AS v
-            WHERE v.supersedes_scope_version_uuid = :old_scope_uuid
-              AND v.status IN ('DRAFT', 'APPROVED')
-              AND NOT EXISTS (
-                  SELECT 1
-                  FROM datamart.dm_pdd_scope_pair AS p
-                  JOIN src.sucursales_excluidas AS e
-                    ON e.c_sucu_empr::integer = p.destination_branch
-                  WHERE p.scope_version_uuid = v.scope_version_uuid
-              )
-              AND NOT EXISTS (
-                  SELECT 1
-                  FROM jsonb_array_elements_text(
-                      coalesce(
-                          v.pair_filter #> '{operational_branch_exclusion_policy,excluded_branches}',
-                          '[]'::jsonb
-                      )
-                  ) AS old_exclusion(branch)
-                  WHERE NOT EXISTS (
-                      SELECT 1 FROM src.sucursales_excluidas AS live
-                      WHERE live.c_sucu_empr::integer = old_exclusion.branch::integer
-                  )
-              )
-            ORDER BY v.captured_at DESC
-            LIMIT 1
+            SELECT scope_version_uuid, version_no, status, article_count,
+                   pair_count, article_checksum, pair_checksum,
+                   scope_checksum, captured_at
+            FROM datamart.dm_pdd_scope_version
+            WHERE scope_version_uuid = :scope_uuid
+              AND status IN ('DRAFT', 'APPROVED')
             """
         ),
-        {"old_scope_uuid": old_scope_uuid},
+        {"scope_uuid": scope_uuid},
     ).mappings().one_or_none()
     return dict(row) if row else None
+
+
+def _sales_feature_through(connection, scope_uuid: UUID) -> date | None:
+    return connection.execute(
+        text(
+            """SELECT max(sales_date) FROM datamart.dm_pdd_venta_diaria
+               WHERE scope_version_uuid = :scope_uuid"""
+        ),
+        {"scope_uuid": scope_uuid},
+    ).scalar_one()
+
+
+def _needs_feature_backfill(candidate: dict, feature_through: date | None,
+                            business_date: date) -> bool:
+    return (candidate["status"] == "DRAFT" or feature_through is None
+            or feature_through < business_date - timedelta(days=1))
 
 
 def _candidate_matches_live(connection, candidate_uuid: UUID, live_pairs: list[dict]) -> bool:
@@ -352,36 +346,31 @@ def ensure_daily_scope(
                     live_pairs, _, _ = preview_scope_membership(
                         engine, settings, binding.scope_version_uuid
                     )
-                candidate = _candidate(lock_connection, binding.scope_version_uuid)
-                if candidate is not None and not _candidate_matches_live(
-                    lock_connection, candidate["scope_version_uuid"], live_pairs
-                ):
-                    candidate = None
-                if candidate is None:
-                    version_no = lock_connection.execute(
-                        text(
-                            """
-                            SELECT coalesce(max(version_no), 0) + 1
-                            FROM datamart.dm_pdd_scope_version
-                            WHERE scope_code = 'CD41_DISTRIBUTABLE_ASSORTMENT'
-                            """
-                        )
-                    ).scalar_one()
-                    candidate_uuid = uuid4()
-                    capture_scope_snapshot(
-                        engine, settings, candidate_uuid, version_no, business_date,
-                        AUTO_ACTOR, binding.scope_version_uuid,
+                version_no = lock_connection.execute(
+                    text(
+                        """
+                        SELECT coalesce(max(version_no), 0) + 1
+                        FROM datamart.dm_pdd_scope_version
+                        WHERE scope_code = 'CD41_DISTRIBUTABLE_ASSORTMENT'
+                        """
                     )
-                    candidate = _candidate(lock_connection, binding.scope_version_uuid)
-                    if candidate is None or candidate["scope_version_uuid"] != candidate_uuid:
-                        raise RuntimeError("El scope nuevo conserva sucursales excluidas")
-                    if not _candidate_matches_live(
-                        lock_connection, candidate_uuid, live_pairs
-                    ):
-                        raise RuntimeError(
-                            "El scope capturado no coincide con la membresia fuente "
-                            "observada; reintentar tras la sincronizacion"
-                        )
+                ).scalar_one()
+                captured = capture_scope_snapshot(
+                    engine, settings, uuid4(), version_no, business_date,
+                    AUTO_ACTOR, binding.scope_version_uuid,
+                )
+                candidate = _candidate_by_uuid(
+                    lock_connection, captured.scope_version_uuid
+                )
+                if candidate is None:
+                    raise RuntimeError("El scope capturado no esta disponible")
+                if not _candidate_matches_live(
+                    lock_connection, captured.scope_version_uuid, live_pairs
+                ):
+                    raise RuntimeError(
+                        "El scope capturado no coincide con la membresia fuente "
+                        "observada; reintentar tras la sincronizacion"
+                    )
                 affected_branches = set(readiness.excluded_branches) | set(reopened_branches)
                 _guard_change(old_scope, candidate, len(affected_branches))
                 pair_membership_change = _guard_pair_membership(
@@ -400,7 +389,10 @@ def ensure_daily_scope(
                         + ", ".join(candidate_readiness.blockers)
                         + f"; pares_sin_stock={candidate_readiness.unexplained_missing_pairs}"
                     )
-                if candidate["status"] == "DRAFT":
+                feature_through = _sales_feature_through(
+                    lock_connection, candidate["scope_version_uuid"]
+                )
+                if _needs_feature_backfill(candidate, feature_through, business_date):
                     backfill(candidate["scope_version_uuid"], business_date)
                 _approve_candidate(
                     engine, settings, candidate, binding.scope_version_uuid,

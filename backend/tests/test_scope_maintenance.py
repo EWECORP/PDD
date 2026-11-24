@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from types import SimpleNamespace
 
 import pytest
@@ -7,6 +8,7 @@ import pytest
 from pdd_backend.jobs.scope_maintenance import (
     _guard_change,
     _pair_churn_percent,
+    _needs_feature_backfill,
     ensure_daily_scope,
 )
 
@@ -49,3 +51,11 @@ def test_automatic_scope_rotation_can_be_disabled_without_opening_database(monke
 
 def test_pair_churn_detects_replacement_even_when_counts_match() -> None:
     assert _pair_churn_percent(1000, 1000, 10000) == 20
+
+
+def test_approved_shared_scope_backfills_when_its_features_lag() -> None:
+    candidate = {"status": "APPROVED"}
+    business_date = date(2026, 11, 18)
+    assert _needs_feature_backfill(candidate, date(2026, 11, 16), business_date)
+    assert not _needs_feature_backfill(candidate, date(2026, 11, 17), business_date)
+    assert _needs_feature_backfill({"status": "DRAFT"}, business_date, business_date)

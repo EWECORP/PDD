@@ -492,22 +492,24 @@ def _read_source_stock(
                         SELECT codigo_articulo, destination_branch AS sucursal
                         FROM datamart.dm_pdd_scope_pair
                         WHERE scope_version_uuid = CAST(:scope_uuid AS uuid)
-                    ), ranked AS (
-                        SELECT s.*, row_number() OVER (
-                            PARTITION BY codigo_articulo, codigo_sucursal
-                            ORDER BY fecha_extraccion DESC NULLS LAST
-                        ) AS rn
-                        FROM src.base_stock_sucursal AS s
-                        WHERE fecha_stock::date = :stock_date
                     )
                     SELECT p.codigo_articulo, p.sucursal, s.codigo_proveedor,
                            s.stock, s.pedido_pendiente, s.transito_pendiente,
                            s.transfer_pendiente, s.dias_preparacion,
                            s.fecha_extraccion
                     FROM scope_pairs AS p
-                    LEFT JOIN ranked AS s
-                      ON s.codigo_articulo = p.codigo_articulo
-                     AND s.codigo_sucursal = p.sucursal AND s.rn = 1
+                    LEFT JOIN LATERAL (
+                        SELECT s.codigo_proveedor, s.stock,
+                               s.pedido_pendiente, s.transito_pendiente,
+                               s.transfer_pendiente, s.dias_preparacion,
+                               s.fecha_extraccion
+                        FROM src.base_stock_sucursal AS s
+                        WHERE s.codigo_articulo = p.codigo_articulo
+                          AND s.codigo_sucursal = p.sucursal
+                          AND s.fecha_stock::date = :stock_date
+                        ORDER BY s.fecha_extraccion DESC NULLS LAST
+                        LIMIT 1
+                    ) AS s ON true
                     ORDER BY p.sucursal, p.codigo_articulo
                     """
                 ),
@@ -523,21 +525,22 @@ def _read_source_stock(
                         SELECT codigo_articulo
                         FROM datamart.dm_pdd_scope_article
                         WHERE scope_version_uuid = CAST(:scope_uuid AS uuid)
-                    ), ranked AS (
-                        SELECT s.*, row_number() OVER (
-                            PARTITION BY codigo_articulo, codigo_sucursal
-                            ORDER BY fecha_extraccion DESC NULLS LAST
-                        ) AS rn
-                        FROM src.base_stock_sucursal AS s
-                        WHERE fecha_stock::date = :stock_date
-                          AND codigo_sucursal = :origin_cd
                     )
                     SELECT a.codigo_articulo, s.codigo_proveedor, s.stock,
                            s.pedido_pendiente, s.pedido_pendiente_fecha,
                            s.fecha_extraccion
                     FROM scope_articles AS a
-                    LEFT JOIN ranked AS s
-                      ON s.codigo_articulo = a.codigo_articulo AND s.rn = 1
+                    LEFT JOIN LATERAL (
+                        SELECT s.codigo_proveedor, s.stock,
+                               s.pedido_pendiente, s.pedido_pendiente_fecha,
+                               s.fecha_extraccion
+                        FROM src.base_stock_sucursal AS s
+                        WHERE s.codigo_articulo = a.codigo_articulo
+                          AND s.codigo_sucursal = :origin_cd
+                          AND s.fecha_stock::date = :stock_date
+                        ORDER BY s.fecha_extraccion DESC NULLS LAST
+                        LIMIT 1
+                    ) AS s ON true
                     ORDER BY a.codigo_articulo
                     """
                 ),

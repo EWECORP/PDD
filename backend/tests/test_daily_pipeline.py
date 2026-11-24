@@ -278,7 +278,7 @@ def test_master_deployment_waits_for_the_audited_source_window() -> None:
     )
     assert deployment["schedules"] == [
         {
-            "cron": "45 21 * * *",
+            "cron": "15 22 * * *",
             "timezone": "America/Argentina/Buenos_Aires",
             "slug": "pdd-operational-daily-2115-art",
             "active": True,
