@@ -17,6 +17,7 @@ from pdd_backend.jobs.daily_pipeline import (
     resolve_daily_pipeline_context,
 )
 from pdd_backend.flows.daily_pipeline import (
+    _run_operational_daily_flow,
     pdd_operational_daily_flow,
     pdd_operational_publish_desa_flow,
 )
@@ -255,7 +256,10 @@ def test_open_po_refresh_is_serialized_and_non_concurrent() -> None:
 def test_operational_master_consumes_audited_sources_without_refreshing_them() -> None:
     source = getsource(pdd_operational_daily_flow.fn)
     assert "refresh_open_purchase_orders_task" not in source
-    assert "resolve_daily_context_task" in source
+    assert "daily_master_execution_lock" in source
+    assert "hard_process_deadline" in source
+    assert pdd_operational_daily_flow.timeout_seconds == 9_000
+    assert "resolve_daily_context_task" in getsource(_run_operational_daily_flow)
 
 
 def test_source_state_is_scope_aware_for_features_and_backlog() -> None:

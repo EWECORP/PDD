@@ -7,7 +7,12 @@ from prefect import flow, get_run_logger, task
 
 from pdd_backend.clock import business_today
 from pdd_backend.config import OperationalSettings, Settings
-from pdd_backend.db import build_engine, build_operational_engine
+from pdd_backend.db import (
+    build_engine,
+    build_operational_engine,
+    daily_master_execution_lock,
+)
+from pdd_backend.execution_limits import hard_process_deadline
 from pdd_backend.flows.analytical import pdd_features_flow
 from pdd_backend.flows.operational_inputs import (
     daily_decas_task,
@@ -207,7 +212,11 @@ def require_published_pdvb_task(
         engine.dispose()
 
 
-@flow(name="PDD - Orquestador diario completo", log_prints=True)
+@flow(
+    name="PDD - Orquestador diario completo",
+    log_prints=True,
+    timeout_seconds=9_000,
+)
 def pdd_operational_daily_flow(
     business_date: date | None = None,
     scope_version_uuid: str | None = None,
@@ -216,6 +225,38 @@ def pdd_operational_daily_flow(
     created_by: str = "pdd.daily.orchestrator",
     pipeline_revision: str | None = None,
     force: bool = False,
+) -> dict:
+    source_settings = Settings.from_env()
+    target_settings = OperationalSettings.from_env()
+    if source_settings.runtime_environment != target_settings.target_environment:
+        raise RuntimeError("Ambiente runtime y destino operativo inconsistentes")
+    logger = get_run_logger()
+    logger.info(
+        "Adquiriendo turno exclusivo de diarco_data para %s (espera maxima 15 min)",
+        source_settings.runtime_environment,
+    )
+    with hard_process_deadline():
+        with daily_master_execution_lock(source_settings):
+            logger.info("Turno exclusivo de diarco_data adquirido")
+            return _run_operational_daily_flow(
+                business_date,
+                scope_version_uuid,
+                model_version_uuid,
+                configuration_version_uuid,
+                created_by,
+                pipeline_revision,
+                force,
+            )
+
+
+def _run_operational_daily_flow(
+    business_date: date | None,
+    scope_version_uuid: str | None,
+    model_version_uuid: str | None,
+    configuration_version_uuid: str | None,
+    created_by: str,
+    pipeline_revision: str | None,
+    force: bool,
 ) -> dict:
     logger = get_run_logger()
     if not created_by.strip():

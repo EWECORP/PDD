@@ -140,6 +140,7 @@ def daily_decas_task(
     source_engine = build_engine(source_settings)
     target_engine = build_operational_engine(target_settings)
     try:
+        logger = get_run_logger()
         return run_daily_decas(
             source_engine=source_engine,
             source_settings=source_settings,
@@ -155,6 +156,7 @@ def daily_decas_task(
             calculation_run_uuid=(
                 UUID(calculation_run_uuid) if calculation_run_uuid else None
             ),
+            progress=logger.info,
         ).serializable()
     finally:
         target_engine.dispose()

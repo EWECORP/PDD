@@ -6,7 +6,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import ROUND_CEILING, Decimal
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 from uuid import UUID, uuid4
 
 from sqlalchemy import Connection, Engine, text
@@ -899,6 +899,7 @@ def run_daily_decas(
     configuration_version_uuid: UUID,
     created_by: str,
     calculation_run_uuid: UUID | None = None,
+    progress: Callable[[str], None] | None = None,
 ) -> DailyDecasResult:
     if not created_by.strip():
         raise ValueError("created_by es obligatorio")
@@ -907,17 +908,25 @@ def run_daily_decas(
     fallback_lead = Decimal(
         str(configuration.parameters["lead_time_days"]["fallback"])
     )
+    if progress:
+        progress("Leyendo stock de sucursales y CD desde diarco_data")
     source_branches, source_cd, source_as_of_ts = _read_source_stock(
         source_engine,
         scope_version_uuid,
         stock_date,
         source_settings.origin_cd,
     )
+    if progress:
+        progress(
+            f"Stock leido: {len(source_branches)} pares y {len(source_cd)} articulos CD"
+        )
     open_purchase_orders = _read_open_purchase_orders(
         source_engine,
         scope_version_uuid,
         source_settings.origin_cd,
     )
+    if progress:
+        progress("OC pendientes canonicas leidas; preparando calculo operativo")
     if open_purchase_orders.as_of_ts.date() < business_date:
         raise RuntimeError(
             "La fuente canonica de OC pendientes esta desactualizada: "
@@ -937,7 +946,11 @@ def run_daily_decas(
     }
 
     with transactional_connection(target_engine, target_settings) as target:
+        if progress:
+            progress("Esperando lock transaccional DAILY_DECAS en destino operativo")
         target.execute(text("SELECT pg_advisory_xact_lock(hashtext('pdd.daily.decas'))"))
+        if progress:
+            progress("Lock DAILY_DECAS adquirido")
         required = (
             "pdd_calculation_run", "pdd_source_snapshot", "pdd_configuration_version",
             "pdd_distribution_scope_version", "pdd_distribution_scope_pair",
@@ -1182,6 +1195,13 @@ def run_daily_decas(
                 ),
             )
             cd_positions.append(row)
+
+        if progress:
+            progress(
+                f"Calculo listo: {len(branches)} posiciones, "
+                f"{len(needs)} necesidades y {len(cd_positions)} articulos CD; "
+                "persistiendo"
+            )
 
         branch_checksum = _rows_checksum(branches, ("sucursal", "codigo_articulo"))
         need_checksum = _rows_checksum(needs, ("sucursal", "codigo_articulo", "need_type"))
@@ -1504,6 +1524,8 @@ def run_daily_decas(
                     for row in chunk
                 ],
             )
+        if progress:
+            progress("Lotes persistidos; verificando conteos y finalizando transaccion")
         persisted = target.execute(
             text(
                 """
@@ -1551,6 +1573,8 @@ def run_daily_decas(
             {"checksum": source_checksum, "run_id": calculation_run_id},
         )
 
+    if progress:
+        progress("Transaccion DAILY_DECAS confirmada")
     return DailyDecasResult(
         calculation_run_uuid=run_uuid,
         business_date=business_date,

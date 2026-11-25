@@ -1053,6 +1053,17 @@ explícitamente y coincidir con `connexa_platform_diarco`. Publicar en
 
 ## Idempotencia y concurrencia
 
+- Desde 0.20.14, los masters diarios de TEST y PROD comparten un turno exclusivo
+  en `diarco_data`. La espera maxima es 15 minutos; si sigue ocupado, la
+  segunda corrida termina con `SOURCE_DAILY_MASTER_BUSY` y se puede reintentar.
+  El flow tiene un limite de 150 minutos y su proceso hijo se termina a los
+  165 minutos como respaldo. Las conexiones PostgreSQL limitan cada sentencia
+  a 30 minutos, la espera por locks a 30 segundos, la transaccion inactiva a
+  10 minutos y la apertura de conexion a 10 segundos.
+- `python tools/inspect_db_contention.py` informa sesiones PDD largas, esperas
+  por locks y otros procesos bloqueados por PDD. Es de solo lectura; para ver
+  sesiones de todos los usuarios, la cuenta de diagnostico necesita
+  `pg_read_all_stats` o privilegios equivalentes.
 - Las particiones se crean por mes con `CREATE TABLE IF NOT EXISTS` y advisory
   locks transaccionales.
 - Stock y venta diaria usan `ON CONFLICT ... DO UPDATE` solo si cambió el hash.

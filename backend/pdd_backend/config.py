@@ -78,6 +78,8 @@ class Settings:
     origin_cd: int = 41
     statement_timeout_ms: int = 1_800_000
     lock_timeout_ms: int = 30_000
+    idle_in_transaction_timeout_ms: int = 600_000
+    connect_timeout_seconds: int = 10
     keepalives_idle_seconds: int = 60
     keepalives_interval_seconds: int = 30
     keepalives_count: int = 5
@@ -100,6 +102,12 @@ class Settings:
                 os.getenv("PDD_DB_STATEMENT_TIMEOUT_MS", "1800000")
             ),
             lock_timeout_ms=int(os.getenv("PDD_DB_LOCK_TIMEOUT_MS", "30000")),
+            idle_in_transaction_timeout_ms=int(
+                os.getenv("PDD_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS", "600000")
+            ),
+            connect_timeout_seconds=int(
+                os.getenv("PDD_DB_CONNECT_TIMEOUT_SECONDS", "10")
+            ),
             keepalives_idle_seconds=int(
                 os.getenv("PDD_DB_KEEPALIVES_IDLE_SECONDS", "60")
             ),
@@ -131,6 +139,17 @@ class Settings:
             raise RuntimeError("PDD_RUNTIME_PROCESS_CODE no puede estar vacio")
         if settings.statement_timeout_ms <= 0:
             raise RuntimeError("PDD_DB_STATEMENT_TIMEOUT_MS debe ser positivo")
+        if settings.lock_timeout_ms <= 0 or settings.lock_timeout_ms >= settings.statement_timeout_ms:
+            raise RuntimeError("PDD_DB_LOCK_TIMEOUT_MS debe ser positivo y menor que statement_timeout")
+        if settings.idle_in_transaction_timeout_ms <= 0 or settings.connect_timeout_seconds <= 0:
+            raise RuntimeError("Los limites de conexion y transaccion inactiva deben ser positivos")
+        if (
+            settings.statement_timeout_ms > 1_800_000
+            or settings.lock_timeout_ms > 30_000
+            or settings.idle_in_transaction_timeout_ms > 600_000
+            or settings.connect_timeout_seconds > 10
+        ):
+            raise RuntimeError("Los limites PDD superan el maximo seguro del backend")
         if min(
             settings.keepalives_idle_seconds,
             settings.keepalives_interval_seconds,
@@ -176,6 +195,8 @@ class OperationalSettings:
     target_environment: str = "TEST"
     statement_timeout_ms: int = 1_800_000
     lock_timeout_ms: int = 30_000
+    idle_in_transaction_timeout_ms: int = 600_000
+    connect_timeout_seconds: int = 10
     keepalives_idle_seconds: int = 60
     keepalives_interval_seconds: int = 30
     keepalives_count: int = 5
@@ -198,6 +219,12 @@ class OperationalSettings:
             ),
             lock_timeout_ms=int(
                 os.getenv("PDD_OPERATIONAL_DB_LOCK_TIMEOUT_MS", "30000")
+            ),
+            idle_in_transaction_timeout_ms=int(
+                os.getenv("PDD_OPERATIONAL_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS", "600000")
+            ),
+            connect_timeout_seconds=int(
+                os.getenv("PDD_OPERATIONAL_DB_CONNECT_TIMEOUT_SECONDS", "10")
             ),
             keepalives_idle_seconds=int(
                 os.getenv("PDD_OPERATIONAL_DB_KEEPALIVES_IDLE_SECONDS", "60")
@@ -235,6 +262,17 @@ class OperationalSettings:
             raise RuntimeError(
                 "PDD_OPERATIONAL_DB_STATEMENT_TIMEOUT_MS debe ser positivo"
             )
+        if settings.lock_timeout_ms <= 0 or settings.lock_timeout_ms >= settings.statement_timeout_ms:
+            raise RuntimeError("PDD_OPERATIONAL_DB_LOCK_TIMEOUT_MS debe ser positivo y menor que statement_timeout")
+        if settings.idle_in_transaction_timeout_ms <= 0 or settings.connect_timeout_seconds <= 0:
+            raise RuntimeError("Los limites operativos de conexion y transaccion inactiva deben ser positivos")
+        if (
+            settings.statement_timeout_ms > 1_800_000
+            or settings.lock_timeout_ms > 30_000
+            or settings.idle_in_transaction_timeout_ms > 600_000
+            or settings.connect_timeout_seconds > 10
+        ):
+            raise RuntimeError("Los limites operativos PDD superan el maximo seguro del backend")
         if min(
             settings.keepalives_idle_seconds,
             settings.keepalives_interval_seconds,
